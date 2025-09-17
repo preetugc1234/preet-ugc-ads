@@ -240,10 +240,9 @@ const Pricing = () => {
                         <SelectContent>
                           {creditOptions.map((option) => {
                             const displayPrice = isAnnual ? option.monthlyPrice : Math.round(option.monthlyPrice * 1.24);
-                            const period = isAnnual ? '/year' : '/month';
                             return (
                               <SelectItem key={option.credits} value={option.credits}>
-                                {option.label} - ${displayPrice}{period}
+                                {option.label} - ${displayPrice}/month
                               </SelectItem>
                             );
                           })}
