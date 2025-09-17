@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { 
+import {
   NavigationMenu,
   NavigationMenuContent,
   NavigationMenuItem,
@@ -11,27 +11,29 @@ import {
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu, Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Link, useLocation } from "react-router-dom";
 
 const productItems = [
-  { title: "AI Chat", href: "#chat", description: "Intelligent conversation AI" },
-  { title: "Image Generation", href: "#image", description: "Create stunning visuals" },
-  { title: "Image to Video", href: "#image-video", description: "Animate your images" },
-  { title: "Text to Speech", href: "#tts", description: "Natural voice synthesis" },
-  { title: "UGC Video Creator", href: "#ugc-video", description: "User-generated content" },
-  { title: "Audio to Video", href: "#audio-video", description: "Visual audio content" },
+  { title: "AI Chat", href: "/products/chat", description: "Intelligent conversation AI" },
+  { title: "Image Generation", href: "/products/image-generation", description: "Create stunning visuals" },
+  { title: "Image to Video", href: "/products/image-to-video", description: "Animate your images" },
+  { title: "Text to Speech", href: "/products/text-to-speech", description: "Natural voice synthesis" },
+  { title: "Image to Video + Audio", href: "/products/image-to-video-with-audio", description: "Video with custom audio" },
+  { title: "Audio to Video", href: "/products/audio-to-video", description: "Visual audio content" },
 ];
 
 const resourceItems = [
-  { title: "Case Studies", href: "#case-studies" },
-  { title: "Blog", href: "#blog" },
-  { title: "Learning Center", href: "#learning" },
-  { title: "Terms & Conditions", href: "#terms" },
-  { title: "Privacy Policy", href: "#privacy" },
+  { title: "Documentation", href: "/resources/documentation", description: "Complete guides and tutorials" },
+  { title: "API Reference", href: "/resources/api-reference", description: "Developer documentation" },
+  { title: "Video Tutorials", href: "/resources/tutorials", description: "Step-by-step video guides" },
+  { title: "Community", href: "/resources/community", description: "Connect with other creators" },
+  { title: "Support", href: "/resources/support", description: "Get help when you need it" },
 ];
 
 export default function Navbar() {
   const [isDark, setIsDark] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const location = useLocation();
 
   const toggleTheme = () => {
     setIsDark(!isDark);
@@ -39,9 +41,11 @@ export default function Navbar() {
   };
 
   const scrollToSection = (href: string) => {
-    const element = document.querySelector(href);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+    if (href.startsWith('#') && location.pathname === '/') {
+      const element = document.querySelector(href);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth' });
+      }
     }
     setIsOpen(false);
   };
@@ -51,14 +55,14 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <div className="flex items-center space-x-2">
+          <Link to="/" className="flex items-center space-x-2">
             <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">AI</span>
             </div>
             <span className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
               AdMax
             </span>
-          </div>
+          </Link>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
@@ -71,22 +75,18 @@ export default function Navbar() {
                   <NavigationMenuContent>
                     <div className="grid w-[600px] gap-3 p-4 grid-cols-2">
                       {productItems.map((item) => (
-                        <NavigationMenuLink
+                        <Link
                           key={item.title}
-                          href={item.href}
+                          to={item.href}
                           className={cn(
                             "block select-none space-y-1 rounded-lg p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
                           )}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            scrollToSection(item.href);
-                          }}
                         >
                           <div className="text-sm font-medium leading-none">{item.title}</div>
                           <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
                             {item.description}
                           </p>
-                        </NavigationMenuLink>
+                        </Link>
                       ))}
                     </div>
                   </NavigationMenuContent>
@@ -99,19 +99,18 @@ export default function Navbar() {
                   <NavigationMenuContent>
                     <div className="grid w-[400px] gap-3 p-4">
                       {resourceItems.map((item) => (
-                        <NavigationMenuLink
+                        <Link
                           key={item.title}
-                          href={item.href}
+                          to={item.href}
                           className={cn(
                             "block select-none space-y-1 rounded-lg p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
                           )}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            scrollToSection(item.href);
-                          }}
                         >
                           <div className="text-sm font-medium leading-none">{item.title}</div>
-                        </NavigationMenuLink>
+                          <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+                            {item.description}
+                          </p>
+                        </Link>
                       ))}
                     </div>
                   </NavigationMenuContent>
@@ -119,26 +118,18 @@ export default function Navbar() {
               </NavigationMenuList>
             </NavigationMenu>
 
-            <a 
-              href="#pricing" 
+            <Link
+              to="/pricing"
               className="text-sm font-medium hover:text-primary transition-colors cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
-                scrollToSection('#pricing');
-              }}
             >
               Pricing
-            </a>
-            <a 
-              href="#contact" 
+            </Link>
+            <Link
+              to="/contact"
               className="text-sm font-medium hover:text-primary transition-colors cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
-                scrollToSection('#contact');
-              }}
             >
               Contact
-            </a>
+            </Link>
           </div>
 
           {/* Right side buttons */}
@@ -172,44 +163,46 @@ export default function Navbar() {
                   <div className="space-y-2">
                     <h3 className="font-semibold">Products</h3>
                     {productItems.map((item) => (
-                      <a
+                      <Link
                         key={item.title}
-                        href={item.href}
+                        to={item.href}
                         className="block py-2 text-sm hover:text-primary transition-colors"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          scrollToSection(item.href);
-                        }}
+                        onClick={() => setIsOpen(false)}
                       >
                         {item.title}
-                      </a>
+                      </Link>
                     ))}
                   </div>
-                  
+
                   <div className="space-y-2">
                     <h3 className="font-semibold">Resources</h3>
                     {resourceItems.map((item) => (
-                      <a
+                      <Link
                         key={item.title}
-                        href={item.href}
+                        to={item.href}
                         className="block py-2 text-sm hover:text-primary transition-colors"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          scrollToSection(item.href);
-                        }}
+                        onClick={() => setIsOpen(false)}
                       >
                         {item.title}
-                      </a>
+                      </Link>
                     ))}
                   </div>
 
                   <div className="space-y-2 pt-4 border-t">
-                    <a href="#pricing" className="block py-2 text-sm hover:text-primary transition-colors">
+                    <Link
+                      to="/pricing"
+                      className="block py-2 text-sm hover:text-primary transition-colors"
+                      onClick={() => setIsOpen(false)}
+                    >
                       Pricing
-                    </a>
-                    <a href="#contact" className="block py-2 text-sm hover:text-primary transition-colors">
+                    </Link>
+                    <Link
+                      to="/contact"
+                      className="block py-2 text-sm hover:text-primary transition-colors"
+                      onClick={() => setIsOpen(false)}
+                    >
                       Contact
-                    </a>
+                    </Link>
                   </div>
 
                   <div className="flex flex-col space-y-2 pt-4">
