@@ -16,7 +16,8 @@
       "Bash(npm run dev:*)",
       "Bash(npx tsc:*)",
       "Bash(git fetch:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []
