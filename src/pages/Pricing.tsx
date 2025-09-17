@@ -199,14 +199,24 @@ const Pricing = () => {
                   {plan.monthlyPrice !== null ? (
                     <div className="mb-4">
                       <div className="text-4xl font-bold mb-1">
-                        ${isAnnual ? plan.annualPrice : plan.monthlyPrice}
+                        ${plan.name === 'Pro' ? proPricing.monthlyPrice : (isAnnual ? plan.annualPrice : plan.monthlyPrice)}
                         <span className="text-lg font-normal text-gray-500 dark:text-gray-400">
-                          /{isAnnual ? 'year' : 'month'}
+                          /{plan.name === 'Pro' ? 'month' : (isAnnual ? 'year' : 'month')}
                         </span>
                       </div>
-                      {isAnnual && plan.monthlyPrice > 0 && (
+                      {isAnnual && plan.monthlyPrice > 0 && plan.name !== 'Pro' && (
                         <div className="text-sm text-green-600 dark:text-green-400">
                           Save ${(plan.monthlyPrice * 12) - plan.annualPrice}/year
+                        </div>
+                      )}
+                      {plan.name === 'Pro' && isAnnual && (
+                        <div className="text-sm text-green-600 dark:text-green-400">
+                          Billed annually - Save 24%
+                        </div>
+                      )}
+                      {plan.name === 'Pro' && !isAnnual && (
+                        <div className="text-sm text-orange-600 dark:text-orange-400">
+                          Monthly billing - 24% higher
                         </div>
                       )}
                     </div>
