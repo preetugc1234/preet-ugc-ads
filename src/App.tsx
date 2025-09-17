@@ -20,6 +20,8 @@ import APIReference from "./pages/resources/APIReference";
 import Tutorials from "./pages/resources/Tutorials";
 import Community from "./pages/resources/Community";
 import Support from "./pages/resources/Support";
+import PrivacyPolicy from "./pages/resources/PrivacyPolicy";
+import TermsConditions from "./pages/resources/TermsConditions";
 
 // Other Pages
 import Pricing from "./pages/Pricing";
@@ -50,6 +52,8 @@ const App = () => (
           <Route path="/resources/tutorials" element={<Tutorials />} />
           <Route path="/resources/community" element={<Community />} />
           <Route path="/resources/support" element={<Support />} />
+          <Route path="/resources/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/resources/terms-conditions" element={<TermsConditions />} />
 
           {/* Other Routes */}
           <Route path="/pricing" element={<Pricing />} />

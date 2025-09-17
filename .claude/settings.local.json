@@ -14,7 +14,9 @@
       "Bash(npm install)",
       "Bash(git commit:*)",
       "Bash(npm run dev:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(git fetch:*)",
+      "Bash(git reset:*)"
     ],
     "deny": [],
     "ask": []

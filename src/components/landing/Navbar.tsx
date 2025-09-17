@@ -28,6 +28,8 @@ const resourceItems = [
   { title: "Video Tutorials", href: "/resources/tutorials", description: "Step-by-step video guides" },
   { title: "Community", href: "/resources/community", description: "Connect with other creators" },
   { title: "Support", href: "/resources/support", description: "Get help when you need it" },
+  { title: "Privacy Policy", href: "/resources/privacy-policy", description: "Your privacy and data protection" },
+  { title: "Terms & Conditions", href: "/resources/terms-conditions", description: "Terms of service and usage" },
 ];
 
 export default function Navbar() {
@@ -97,21 +99,41 @@ export default function Navbar() {
                     Resources
                   </NavigationMenuTrigger>
                   <NavigationMenuContent>
-                    <div className="grid w-[400px] gap-3 p-4">
-                      {resourceItems.map((item) => (
-                        <Link
-                          key={item.title}
-                          to={item.href}
-                          className={cn(
-                            "block select-none space-y-1 rounded-lg p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
-                          )}
-                        >
-                          <div className="text-sm font-medium leading-none">{item.title}</div>
-                          <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
-                            {item.description}
-                          </p>
-                        </Link>
-                      ))}
+                    <div className="w-[500px] p-4">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-3">
+                          {resourceItems.slice(0, 4).map((item) => (
+                            <Link
+                              key={item.title}
+                              to={item.href}
+                              className={cn(
+                                "block select-none space-y-1 rounded-lg p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                              )}
+                            >
+                              <div className="text-sm font-medium leading-none">{item.title}</div>
+                              <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+                                {item.description}
+                              </p>
+                            </Link>
+                          ))}
+                        </div>
+                        <div className="space-y-3">
+                          {resourceItems.slice(4, 7).map((item) => (
+                            <Link
+                              key={item.title}
+                              to={item.href}
+                              className={cn(
+                                "block select-none space-y-1 rounded-lg p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                              )}
+                            >
+                              <div className="text-sm font-medium leading-none">{item.title}</div>
+                              <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+                                {item.description}
+                              </p>
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </NavigationMenuContent>
                 </NavigationMenuItem>
