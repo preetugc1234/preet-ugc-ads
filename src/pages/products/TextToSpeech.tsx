@@ -3,7 +3,7 @@ import Footer from "@/components/landing/Footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Mic, Volume2, Waveform, Download, Languages, ArrowRight, CheckCircle, Play, FileText } from "lucide-react";
+import { Mic, Volume2, Radio, Download, Languages, ArrowRight, CheckCircle, Play, FileText } from "lucide-react";
 
 const TextToSpeech = () => {
   const features = [
@@ -18,7 +18,7 @@ const TextToSpeech = () => {
       description: "Support for 20+ languages and regional accents"
     },
     {
-      icon: <Waveform className="h-8 w-8 text-primary" />,
+      icon: <Radio className="h-8 w-8 text-primary" />,
       title: "Voice Controls",
       description: "Adjust pitch, speed, emotion, and pronunciation"
     },

@@ -3,7 +3,7 @@ import Footer from "@/components/landing/Footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Play, Headphones, Video, Upload, Waveform, ArrowRight, CheckCircle, Clock, FileAudio, Palette } from "lucide-react";
+import { Play, Headphones, Video, Upload, Radio, ArrowRight, CheckCircle, Clock, FileAudio, Palette } from "lucide-react";
 
 const AudioToVideo = () => {
   const features = [
@@ -18,7 +18,7 @@ const AudioToVideo = () => {
       description: "Choose from hundreds of professionally designed video templates"
     },
     {
-      icon: <Waveform className="h-8 w-8 text-primary" />,
+      icon: <Radio className="h-8 w-8 text-primary" />,
       title: "Audio Visualization",
       description: "Dynamic waveforms, spectrograms, and audio reactive animations"
     },
