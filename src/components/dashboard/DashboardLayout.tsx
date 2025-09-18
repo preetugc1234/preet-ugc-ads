@@ -32,6 +32,7 @@ import {
   Shield
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import NotificationCenter from "@/components/notifications/NotificationCenter";
 
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -330,14 +331,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
               </Button>
 
               {/* Notifications */}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 relative"
-              >
-                <Bell className="h-5 w-5" />
-                <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></span>
-              </Button>
+              <NotificationCenter />
 
               {/* Learning Center */}
               <Button
