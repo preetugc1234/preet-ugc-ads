@@ -164,12 +164,16 @@ export default function Navbar() {
             >
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
-            <Button variant="ghost" size="sm" className="hover:bg-white/10">
-              Login
-            </Button>
-            <Button size="sm" className="bg-gradient-primary hover:opacity-90 border-0 shadow-glow">
-              Start Free
-            </Button>
+            <Link to="/auth/login">
+              <Button variant="ghost" size="sm" className="hover:bg-white/10">
+                Login
+              </Button>
+            </Link>
+            <Link to="/auth/signup">
+              <Button size="sm" className="bg-gradient-primary hover:opacity-90 border-0 shadow-glow">
+                Sign Up
+              </Button>
+            </Link>
           </div>
 
           {/* Mobile menu button */}
@@ -228,10 +232,14 @@ export default function Navbar() {
                   </div>
 
                   <div className="flex flex-col space-y-2 pt-4">
-                    <Button variant="ghost" size="sm">Login</Button>
-                    <Button size="sm" className="bg-gradient-primary hover:opacity-90">
-                      Start Free
-                    </Button>
+                    <Link to="/auth/login" onClick={() => setIsOpen(false)}>
+                      <Button variant="ghost" size="sm" className="w-full">Login</Button>
+                    </Link>
+                    <Link to="/auth/signup" onClick={() => setIsOpen(false)}>
+                      <Button size="sm" className="bg-gradient-primary hover:opacity-90 w-full">
+                        Sign Up
+                      </Button>
+                    </Link>
                   </div>
                 </div>
               </SheetContent>

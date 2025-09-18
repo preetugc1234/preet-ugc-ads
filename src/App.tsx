@@ -23,6 +23,10 @@ import Support from "./pages/resources/Support";
 import PrivacyPolicy from "./pages/resources/PrivacyPolicy";
 import TermsConditions from "./pages/resources/TermsConditions";
 
+// Auth Pages
+import Login from "./pages/auth/Login";
+import Signup from "./pages/auth/Signup";
+
 // Other Pages
 import Pricing from "./pages/Pricing";
 import Contact from "./pages/Contact";
@@ -54,6 +58,10 @@ const App = () => (
           <Route path="/resources/support" element={<Support />} />
           <Route path="/resources/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/resources/terms-conditions" element={<TermsConditions />} />
+
+          {/* Auth Routes */}
+          <Route path="/auth/login" element={<Login />} />
+          <Route path="/auth/signup" element={<Signup />} />
 
           {/* Other Routes */}
           <Route path="/pricing" element={<Pricing />} />
