@@ -55,8 +55,8 @@ const Signup = () => {
       // Handle signup logic here - replace with actual auth
       console.log("Signup attempt:", formData);
 
-      // Mock successful signup - redirect to dashboard
-      navigate("/dashboard");
+      // Mock successful signup - redirect to onboarding
+      navigate("/onboarding");
     } catch (error) {
       console.error("Signup error:", error);
     } finally {
@@ -74,8 +74,8 @@ const Signup = () => {
       // Handle Google signup logic here
       console.log("Google signup attempt");
 
-      // Mock successful signup - redirect to dashboard
-      navigate("/dashboard");
+      // Mock successful signup - redirect to onboarding
+      navigate("/onboarding");
     } catch (error) {
       console.error("Google signup error:", error);
     } finally {

@@ -39,6 +39,9 @@ import Billing from "./pages/dashboard/Billing";
 import Credits from "./pages/dashboard/Credits";
 import Settings from "./pages/dashboard/Settings";
 
+// Onboarding Pages
+import Onboarding from "./pages/onboarding/Onboarding";
+
 // Other Pages
 import Pricing from "./pages/Pricing";
 import Contact from "./pages/Contact";
@@ -74,6 +77,9 @@ const App = () => (
           {/* Auth Routes */}
           <Route path="/auth/login" element={<Login />} />
           <Route path="/auth/signup" element={<Signup />} />
+
+          {/* Onboarding Routes */}
+          <Route path="/onboarding" element={<Onboarding />} />
 
           {/* Dashboard Routes */}
           <Route path="/dashboard" element={<Dashboard />} />
