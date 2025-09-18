@@ -485,7 +485,8 @@ const Billing = () => {
                       <li>• Image→Video (10s): 200 credits</li>
                       <li>• Text→Speech: 100 credits</li>
                       <li>• Audio→Video: 100 credits/minute</li>
-                      <li>• Image→Video+Audio: 200-400 credits</li>
+                      <li>• Image→Video+Audio (5s): 200 credits</li>
+                      <li>• Image→Video+Audio (10s): 400 credits</li>
                     </ul>
                   </div>
 
@@ -563,7 +564,7 @@ const Billing = () => {
                         <li>• Image Generation: Free</li>
                         <li>• Image to Video: 100-200 credits</li>
                         <li>• Text to Speech: 100 credits</li>
-                        <li>• UGC Video Gen: 100-200 credits</li>
+                        <li>• UGC Video Gen: 100-400 credits</li>
                       </ul>
                     </div>
 
