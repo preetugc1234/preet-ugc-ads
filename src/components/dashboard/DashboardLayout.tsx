@@ -42,12 +42,12 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 
   // Mock user data - replace with actual auth context
   const user = {
-    name: "John Doe",
-    email: "john@example.com",
+    name: "Preet",
+    email: "preet@ugcai.com",
     avatar: "",
     credits: 1250,
     plan: "Pro",
-    isAdmin: false
+    isAdmin: true // Set to true so you can access admin panel
   };
 
   const toggleTheme = () => {
@@ -169,7 +169,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
       </div>
 
       {/* Navigation */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800">
         {/* Tools Section */}
         <div className="px-4 py-4">
           <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
@@ -284,7 +284,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   );
 
   return (
-    <div className="h-screen bg-slate-50 dark:bg-slate-950 flex overflow-hidden">
+    <div className="h-screen bg-slate-50 dark:bg-slate-950 flex overflow-hidden smooth-scroll">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
@@ -393,7 +393,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
         </header>
 
         {/* Main content area */}
-        <main className="flex-1 overflow-auto bg-slate-50 dark:bg-slate-950">
+        <main className="flex-1 overflow-auto bg-slate-50 dark:bg-slate-950 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent dark:scrollbar-thumb-slate-600 scroll-smooth">
           {children}
         </main>
       </div>

@@ -44,6 +44,10 @@ import LearningCenter from "./pages/dashboard/LearningCenter";
 // Onboarding Pages
 import Onboarding from "./pages/onboarding/Onboarding";
 
+// Admin Pages
+import AdminAuth from "./pages/admin/AdminAuth";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+
 // Other Pages
 import Pricing from "./pages/Pricing";
 import Contact from "./pages/Contact";
@@ -96,6 +100,10 @@ const App = () => (
           <Route path="/dashboard/settings" element={<Settings />} />
           <Route path="/dashboard/notifications" element={<Notifications />} />
           <Route path="/dashboard/learning" element={<LearningCenter />} />
+
+          {/* Hidden Admin Routes */}
+          <Route path="/secure-access-portal" element={<AdminAuth />} />
+          <Route path="/dashboard/system-control-panel" element={<AdminDashboard />} />
 
           {/* Other Routes */}
           <Route path="/pricing" element={<Pricing />} />
