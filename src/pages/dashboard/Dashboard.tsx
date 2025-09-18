@@ -91,7 +91,7 @@ const Dashboard = () => {
     },
     {
       name: "Image→Video",
-      description: "Convert images to videos",
+      description: "Convert images to videos (no audio)",
       icon: Video,
       href: "/dashboard/image-to-video",
       credits: "100/5s",
@@ -108,21 +108,12 @@ const Dashboard = () => {
       popular: false
     },
     {
-      name: "Image→Video+Audio",
-      description: "Create videos with custom audio",
+      name: "UGC Video Gen",
+      description: "Audio→Video & Image→Video+Audio",
       icon: Film,
-      href: "/dashboard/image-video-audio",
-      credits: "200/5s",
+      href: "/dashboard/ugc-video",
+      credits: "Varies",
       color: "from-red-500 to-red-600",
-      popular: false
-    },
-    {
-      name: "Audio→Video",
-      description: "Generate videos from audio",
-      icon: Music,
-      href: "/dashboard/audio-to-video",
-      credits: "100/min",
-      color: "from-indigo-500 to-indigo-600",
       popular: false
     }
   ];

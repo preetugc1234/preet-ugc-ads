@@ -29,6 +29,11 @@ import Signup from "./pages/auth/Signup";
 
 // Dashboard Pages
 import Dashboard from "./pages/dashboard/Dashboard";
+import ChatTool from "./pages/dashboard/tools/ChatTool";
+import ImageTool from "./pages/dashboard/tools/ImageTool";
+import ImageToVideoTool from "./pages/dashboard/tools/ImageToVideoTool";
+import TextToSpeechTool from "./pages/dashboard/tools/TextToSpeechTool";
+import UGCVideoTool from "./pages/dashboard/tools/UGCVideoTool";
 
 // Other Pages
 import Pricing from "./pages/Pricing";
@@ -68,7 +73,11 @@ const App = () => (
 
           {/* Dashboard Routes */}
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/dashboard/*" element={<Dashboard />} />
+          <Route path="/dashboard/chat" element={<ChatTool />} />
+          <Route path="/dashboard/image" element={<ImageTool />} />
+          <Route path="/dashboard/image-to-video" element={<ImageToVideoTool />} />
+          <Route path="/dashboard/text-to-speech" element={<TextToSpeechTool />} />
+          <Route path="/dashboard/ugc-video" element={<UGCVideoTool />} />
 
           {/* Other Routes */}
           <Route path="/pricing" element={<Pricing />} />

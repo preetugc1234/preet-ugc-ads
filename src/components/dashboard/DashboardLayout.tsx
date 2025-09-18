@@ -89,18 +89,11 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
       credits: "100 credits"
     },
     {
-      name: "Image→Video+Audio",
-      href: "/dashboard/image-video-audio",
+      name: "UGC Video Gen",
+      href: "/dashboard/ugc-video",
       icon: Film,
-      description: "Image to Video with Audio",
-      credits: "200/5s"
-    },
-    {
-      name: "Audio→Video",
-      href: "/dashboard/audio-to-video",
-      icon: Music,
-      description: "Audio to Video UGC",
-      credits: "100/min"
+      description: "Audio→Video & Image→Video+Audio",
+      credits: "Varies"
     }
   ];
 
