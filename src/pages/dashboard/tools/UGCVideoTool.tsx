@@ -38,8 +38,8 @@ const UGCVideoTool = () => {
   ];
 
   const durations = [
-    { value: "5", label: "5 seconds", credits: 100 },
-    { value: "10", label: "10 seconds", credits: 200 }
+    { value: "5", label: "5 seconds", credits: 200 },
+    { value: "10", label: "10 seconds", credits: 400 }
   ];
 
   const motionTemplates = [
@@ -109,10 +109,8 @@ const UGCVideoTool = () => {
   };
 
   const costBreakdown = {
-    baseCost: mode === "audio-to-video" ? 100 : 200,
-    additionalCosts: mode === "image-to-video-audio" ? [
-      { name: "Custom Image Model", cost: 50 }
-    ] : undefined,
+    baseCost: mode === "audio-to-video" ? 100 : (duration === "5" ? 200 : 400),
+    additionalCosts: mode === "image-to-video-audio" ? [] : undefined,
     total: calculateCost()
   };
 
@@ -224,7 +222,7 @@ const UGCVideoTool = () => {
       <ToolEditorLayout
         toolName="UGC Video Generator"
         toolIcon={Film}
-        credits="100-250/video"
+        credits="100-400/video"
         estimatedTime="~60s"
         onGenerate={handleGenerate}
         isGenerating={isGenerating}
