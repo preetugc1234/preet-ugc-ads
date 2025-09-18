@@ -6,11 +6,15 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState } from "react";
-import { Check, Star, Zap, Crown, ArrowRight, Calculator, Clock, Shield, HeadphonesIcon } from "lucide-react";
+import { Check, Star, Zap, Crown, ArrowRight, Calculator, Clock, Shield, HeadphonesIcon, Gift } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const Pricing = () => {
   const [isAnnual, setIsAnnual] = useState(true);
   const [selectedCredits, setSelectedCredits] = useState("1000");
+  const [customCredits, setCustomCredits] = useState("");
+  const [customAmount, setCustomAmount] = useState("");
 
   const creditOptions = [
     { credits: "1000", monthlyPrice: 19, label: "1,000 credits" },
@@ -21,6 +25,17 @@ const Pricing = () => {
     { credits: "32000", monthlyPrice: 639, label: "32,000 credits" },
     { credits: "64000", monthlyPrice: 1279, label: "64,000 credits" }
   ];
+
+  // Individual credits calculation (from prompt.md)
+  const calculatePriceFromCredits = (credits: number) => {
+    return Number((credits * 0.0275).toFixed(2));
+  };
+
+  const calculateCreditsFromPrice = (price: number) => {
+    const rawCredits = price / 0.0275;
+    const fractionalPart = rawCredits % 1;
+    return fractionalPart < 0.5 ? Math.floor(rawCredits) : Math.ceil(rawCredits);
+  };
 
   const getProPricing = () => {
     const selectedOption = creditOptions.find(option => option.credits === selectedCredits);
@@ -274,7 +289,134 @@ const Pricing = () => {
         </div>
       </section>
 
+      {/* Individual Credits Purchase */}
+      <section className="py-16">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <Badge className="mb-4 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+              <Gift className="h-4 w-4 mr-1" />
+              Buy Individual Credits
+            </Badge>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              Purchase Credits On-Demand
+            </h2>
+            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+              No subscription required. Buy exactly what you need when you need it.
+              Credits never expire and work across all AI tools.
+            </p>
+          </div>
 
+          <Card className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-0 shadow-2xl">
+            <CardContent className="p-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Credits to Amount Calculator */}
+                <div className="space-y-4">
+                  <h3 className="text-xl font-semibold">Buy Credits</h3>
+                  <div>
+                    <Label htmlFor="credits-input">Number of Credits</Label>
+                    <Input
+                      id="credits-input"
+                      type="number"
+                      min="100"
+                      max="90000"
+                      value={customCredits}
+                      onChange={(e) => {
+                        const credits = parseInt(e.target.value) || 0;
+                        setCustomCredits(e.target.value);
+                        if (credits >= 100 && credits <= 90000) {
+                          setCustomAmount(calculatePriceFromCredits(credits).toString());
+                        } else {
+                          setCustomAmount("");
+                        }
+                      }}
+                      placeholder="Enter credits (100 - 90,000)"
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Minimum: 100 credits | Maximum: 90,000 credits
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="amount-display">Total Amount</Label>
+                    <div className="text-3xl font-bold text-green-600 mt-2">
+                      ${customCredits ? calculatePriceFromCredits(parseInt(customCredits) || 0).toFixed(2) : '0.00'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Amount to Credits Calculator */}
+                <div className="space-y-4">
+                  <h3 className="text-xl font-semibold">Or Enter Amount</h3>
+                  <div>
+                    <Label htmlFor="amount-input">Amount ($)</Label>
+                    <Input
+                      id="amount-input"
+                      type="number"
+                      min="2.75"
+                      max="2475"
+                      step="0.01"
+                      value={customAmount}
+                      onChange={(e) => {
+                        const amount = parseFloat(e.target.value) || 0;
+                        setCustomAmount(e.target.value);
+                        if (amount >= 2.75 && amount <= 2475) {
+                          setCustomCredits(calculateCreditsFromPrice(amount).toString());
+                        } else {
+                          setCustomCredits("");
+                        }
+                      }}
+                      placeholder="Enter amount ($2.75 - $2,475)"
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Rate: $0.0275 per credit
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="credits-display">Credits You'll Get</Label>
+                    <div className="text-3xl font-bold text-blue-600 mt-2">
+                      {customAmount ? calculateCreditsFromPrice(parseFloat(customAmount) || 0).toLocaleString() : '0'} credits
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t mt-8 pt-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                  <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                    <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Credit Usage Guide</h4>
+                    <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                      <li>• Chat Generation: Free</li>
+                      <li>• Image Generation: Free</li>
+                      <li>• Image→Video (5s): 100 credits</li>
+                      <li>• Image→Video (10s): 200 credits</li>
+                      <li>• Text→Speech: 100 credits</li>
+                    </ul>
+                  </div>
+                  <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg">
+                    <h4 className="font-medium text-purple-800 dark:text-purple-200 mb-2">UGC Video Generation</h4>
+                    <ul className="text-sm text-purple-700 dark:text-purple-300 space-y-1">
+                      <li>• Audio→Video: 100 credits/minute</li>
+                      <li>• Image→Video+Audio (5s): 200 credits</li>
+                      <li>• Image→Video+Audio (10s): 400 credits</li>
+                      <li>• Custom UGC content varies by length</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <Button
+                  size="lg"
+                  className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3"
+                  disabled={!customCredits || parseInt(customCredits) < 100 || parseInt(customCredits) > 90000}
+                >
+                  <Calculator className="w-5 h-5 mr-2" />
+                  Purchase {customCredits ? parseInt(customCredits).toLocaleString() : '0'} Credits for ${customCredits ? calculatePriceFromCredits(parseInt(customCredits) || 0).toFixed(2) : '0.00'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
 
       {/* Features */}
       <section className="py-16">

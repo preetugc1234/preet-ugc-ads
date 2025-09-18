@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CreditCard, Calendar, CheckCircle, AlertCircle, Download, Crown, Zap, Star } from "lucide-react";
+import { CreditCard, Calendar, CheckCircle, AlertCircle, Download, Crown, Zap, Star, Calculator, Gift } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,68 +7,116 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 
 const Billing = () => {
-  const [isYearly, setIsYearly] = useState(false);
-  const [currentPlan, setCurrentPlan] = useState("starter");
+  const [isYearly, setIsYearly] = useState(true);
+  const [currentPlan, setCurrentPlan] = useState("pro");
+  const [selectedCredits, setSelectedCredits] = useState("1000");
+  const [customCredits, setCustomCredits] = useState("");
+  const [customAmount, setCustomAmount] = useState("");
   const { toast } = useToast();
+
+  // Credit options for Pro plan (matching the pricing page)
+  const creditOptions = [
+    { credits: "1000", monthlyPrice: 19, label: "1,000 credits" },
+    { credits: "2000", monthlyPrice: 39, label: "2,000 credits" },
+    { credits: "4000", monthlyPrice: 79, label: "4,000 credits" },
+    { credits: "8000", monthlyPrice: 159, label: "8,000 credits" },
+    { credits: "16000", monthlyPrice: 319, label: "16,000 credits" },
+    { credits: "32000", monthlyPrice: 639, label: "32,000 credits" },
+    { credits: "64000", monthlyPrice: 1279, label: "64,000 credits" }
+  ];
+
+  // Individual credits calculation (from prompt.md)
+  const calculatePriceFromCredits = (credits: number) => {
+    return Number((credits * 0.0275).toFixed(2));
+  };
+
+  const calculateCreditsFromPrice = (price: number) => {
+    const rawCredits = price / 0.0275;
+    const fractionalPart = rawCredits % 1;
+    return fractionalPart < 0.5 ? Math.floor(rawCredits) : Math.ceil(rawCredits);
+  };
+
+  const getProPricing = () => {
+    const selectedOption = creditOptions.find(option => option.credits === selectedCredits);
+    if (!selectedOption) return { monthlyPrice: 19, annualPrice: 228, credits: "1,000" };
+
+    const monthlyPrice = isYearly ? selectedOption.monthlyPrice : Math.round(selectedOption.monthlyPrice * 1.24);
+    const annualPrice = selectedOption.monthlyPrice * 12;
+    const credits = isYearly ? `${parseInt(selectedCredits) * 12}` : selectedCredits;
+
+    return { monthlyPrice, annualPrice, credits };
+  };
+
+  const proPricing = getProPricing();
 
   const plans = [
     {
       id: "free",
       name: "Free",
+      description: "Perfect for exploring our AI tools",
       price: { monthly: 0, yearly: 0 },
-      credits: 100,
-      icon: Star,
-      features: [
-        "100 credits/month",
-        "Basic AI models",
-        "720p video quality",
-        "Community support",
-        "5 history items"
-      ],
-      limitations: [
-        "No premium models",
-        "Watermarked outputs",
-        "Limited file exports"
-      ]
-    },
-    {
-      id: "starter",
-      name: "Starter",
-      price: { monthly: 19, yearly: 190 },
-      credits: 2000,
+      credits: "500 credits/month",
+      dailyLimits: "5 text + 2 images daily",
       icon: Zap,
-      popular: true,
+      color: "border-gray-200 dark:border-gray-700",
       features: [
-        "2,000 credits/month",
-        "Premium AI models",
-        "1080p video quality",
-        "Priority support",
-        "30 history items",
-        "No watermarks",
-        "All export formats"
-      ],
-      limitations: []
+        "Access to all 5 AI tools",
+        "500 free credits monthly",
+        "Daily free allowances",
+        "30-item history storage",
+        "Community support",
+        "Basic tutorials access",
+        "Standard processing speed"
+      ]
     },
     {
       id: "pro",
       name: "Pro",
-      price: { monthly: 49, yearly: 490 },
-      credits: 6000,
-      icon: Crown,
+      description: "Ideal for creators and small businesses",
+      price: { monthly: proPricing.monthlyPrice, yearly: proPricing.annualPrice },
+      credits: isYearly ? `${proPricing.credits} credits/year` : `${proPricing.credits} credits/month`,
+      dailyLimits: "Unlimited generations",
+      icon: Star,
+      color: "border-blue-200 dark:border-blue-700 ring-2 ring-blue-500",
+      popular: true,
       features: [
-        "6,000 credits/month",
-        "All premium models",
-        "4K video quality",
-        "Priority support",
-        "Unlimited history",
-        "Custom model training",
-        "API access",
-        "Team collaboration"
-      ],
-      limitations: []
+        "Everything in Free",
+        "Flexible credit packages",
+        "No daily generation limits",
+        "Priority processing speed",
+        "Advanced tutorials access",
+        "Email support",
+        "Custom export options",
+        "API access included",
+        "Commercial usage rights"
+      ]
+    },
+    {
+      id: "enterprise",
+      name: "Enterprise",
+      description: "Custom solutions for large organizations",
+      price: { monthly: null, yearly: null },
+      credits: "Custom credit allocation",
+      dailyLimits: "Unlimited everything",
+      icon: Crown,
+      color: "border-purple-200 dark:border-purple-700",
+      features: [
+        "Everything in Pro",
+        "Custom credit packages",
+        "Dedicated account manager",
+        "SLA guarantees",
+        "Priority support & phone",
+        "Custom integrations",
+        "Volume discounts",
+        "Advanced analytics",
+        "White-label options",
+        "Custom training & onboarding"
+      ]
     }
   ];
 
@@ -159,8 +207,9 @@ const Billing = () => {
         </div>
 
         <Tabs defaultValue="subscription" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="subscription">Subscription</TabsTrigger>
+            <TabsTrigger value="credits">Buy Credits</TabsTrigger>
             <TabsTrigger value="usage">Usage</TabsTrigger>
             <TabsTrigger value="payment">Payment Methods</TabsTrigger>
             <TabsTrigger value="history">Billing History</TabsTrigger>
@@ -186,7 +235,7 @@ const Billing = () => {
                       <Badge variant="default">Active</Badge>
                     </div>
                     <p className="text-gray-600 dark:text-gray-400">
-                      {usageStats.totalCredits.toLocaleString()} credits/month
+                      {plans.find(p => p.id === currentPlan)?.credits}
                     </p>
                     <p className="text-sm text-gray-500">
                       Next billing: February 15, 2024
@@ -194,7 +243,7 @@ const Billing = () => {
                   </div>
                   <div className="text-right">
                     <div className="text-2xl font-bold">
-                      ${plans.find(p => p.id === currentPlan)?.price.monthly}/mo
+                      ${plans.find(p => p.id === currentPlan)?.price?.monthly || 'Custom'}{plans.find(p => p.id === currentPlan)?.price?.monthly ? '/mo' : ''}
                     </div>
                     <p className="text-sm text-gray-500">
                       {remainingCredits.toLocaleString()} credits remaining
@@ -215,8 +264,13 @@ const Billing = () => {
                     onCheckedChange={setIsYearly}
                   />
                   <Label htmlFor="yearly-toggle">
-                    Yearly <Badge variant="secondary" className="ml-1">Save 17%</Badge>
+                    Annual <Badge variant="secondary" className="ml-1">Save 24%</Badge>
                   </Label>
+                  {isYearly && (
+                    <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                      Save 24%
+                    </Badge>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -225,72 +279,226 @@ const Billing = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {plans.map((plan) => {
                 const PlanIcon = plan.icon;
-                const price = isYearly ? plan.price.yearly : plan.price.monthly;
+                const price = plan.price ? (isYearly ? plan.price.yearly : plan.price.monthly) : null;
                 const isCurrentPlan = currentPlan === plan.id;
 
                 return (
-                  <Card key={plan.id} className={`relative ${plan.popular ? 'ring-2 ring-blue-500' : ''} ${isCurrentPlan ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
+                  <Card key={plan.id} className={`relative ${plan.popular ? 'ring-2 ring-blue-500' : ''} ${isCurrentPlan ? 'bg-blue-50 dark:bg-blue-900/20' : ''} ${plan.color}`}>
                     {plan.popular && (
-                      <Badge className="absolute -top-2 left-1/2 transform -translate-x-1/2">
+                      <Badge className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white">
                         Most Popular
                       </Badge>
                     )}
                     <CardHeader className="text-center">
-                      <div className="mx-auto mb-4">
-                        <PlanIcon className="w-8 h-8" />
-                      </div>
-                      <CardTitle className="text-xl">{plan.name}</CardTitle>
-                      <div className="space-y-1">
-                        <div className="text-3xl font-bold">
-                          ${price}
-                          <span className="text-lg font-normal text-gray-500">
-                            /{isYearly ? 'year' : 'month'}
-                          </span>
+                      <div className="flex items-center justify-center mb-4">
+                        <div className={`p-3 rounded-full ${
+                          plan.name === 'Free' ? 'bg-gray-100 dark:bg-gray-800' :
+                          plan.name === 'Pro' ? 'bg-blue-100 dark:bg-blue-900/30' :
+                          'bg-purple-100 dark:bg-purple-900/30'
+                        }`}>
+                          <PlanIcon className="w-6 h-6" />
                         </div>
-                        {isYearly && plan.price.monthly > 0 && (
-                          <p className="text-sm text-gray-500">
-                            ${(plan.price.monthly * 12).toLocaleString()} billed annually
-                          </p>
-                        )}
                       </div>
-                      <p className="text-lg font-medium text-blue-600">
-                        {plan.credits.toLocaleString()} credits/month
-                      </p>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="space-y-2">
-                        {plan.features.map((feature, index) => (
-                          <div key={index} className="flex items-center text-sm">
-                            <CheckCircle className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
-                            {feature}
+                      <CardTitle className="text-2xl font-bold mb-2">{plan.name}</CardTitle>
+                      <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">{plan.description}</p>
+
+                      {price !== null ? (
+                        <div className="mb-4">
+                          <div className="text-4xl font-bold mb-1">
+                            ${plan.name === 'Pro' ? proPricing.monthlyPrice : price}
+                            <span className="text-lg font-normal text-gray-500 dark:text-gray-400">
+                              /{plan.name === 'Pro' ? 'month' : (isYearly ? 'year' : 'month')}
+                            </span>
                           </div>
-                        ))}
+                          {isYearly && price > 0 && plan.name !== 'Pro' && (
+                            <div className="text-sm text-green-600 dark:text-green-400">
+                              Save ${(plan.price.monthly * 12) - plan.price.yearly}/year
+                            </div>
+                          )}
+                          {plan.name === 'Pro' && isYearly && (
+                            <div className="text-sm text-green-600 dark:text-green-400">
+                              Billed annually - Save 24%
+                            </div>
+                          )}
+                          {plan.name === 'Pro' && !isYearly && (
+                            <div className="text-sm text-orange-600 dark:text-orange-400">
+                              Monthly billing - 24% higher
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-2xl font-bold mb-4">Custom Pricing</div>
+                      )}
+
+                      <div className="text-center mb-4">
+                        <Badge variant="secondary" className="text-xs px-3 py-1">
+                          {plan.credits}
+                        </Badge>
                       </div>
 
-                      {plan.limitations.length > 0 && (
-                        <div className="space-y-2 pt-2 border-t">
-                          {plan.limitations.map((limitation, index) => (
-                            <div key={index} className="flex items-center text-sm text-gray-500">
-                              <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                              {limitation}
-                            </div>
-                          ))}
+                      {plan.name === 'Pro' && (
+                        <div className="mb-4">
+                          <label className="text-sm font-medium mb-2 block">Select Credits:</label>
+                          <Select value={selectedCredits} onValueChange={setSelectedCredits}>
+                            <SelectTrigger className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {creditOptions.map((option) => {
+                                const displayPrice = isYearly ? option.monthlyPrice : Math.round(option.monthlyPrice * 1.24);
+                                return (
+                                  <SelectItem key={option.credits} value={option.credits}>
+                                    {option.label} - ${displayPrice}/month
+                                  </SelectItem>
+                                );
+                              })}
+                            </SelectContent>
+                          </Select>
                         </div>
                       )}
 
                       <Button
                         onClick={() => handlePlanChange(plan.id)}
                         disabled={isCurrentPlan}
-                        className="w-full"
+                        className={`w-full ${
+                          plan.name === 'Free' ? 'bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-200' :
+                          plan.name === 'Pro' ? 'bg-blue-600 hover:bg-blue-700' :
+                          'bg-purple-600 hover:bg-purple-700'
+                        }`}
                         variant={isCurrentPlan ? "outline" : "default"}
                       >
-                        {isCurrentPlan ? "Current Plan" : `Upgrade to ${plan.name}`}
+                        {isCurrentPlan ? "Current Plan" :
+                         plan.name === 'Free' ? 'Get Started Free' :
+                         plan.name === 'Enterprise' ? 'Contact Sales' : 'Choose Pro Plan'}
                       </Button>
+                    </CardHeader>
+
+                    <CardContent>
+                      <ul className="space-y-3">
+                        {plan.features.map((feature, featureIndex) => (
+                          <li key={featureIndex} className="flex items-start space-x-3">
+                            <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                            <span className="text-sm text-gray-600 dark:text-gray-300">{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
                     </CardContent>
                   </Card>
                 );
               })}
             </div>
+          </TabsContent>
+
+          {/* Buy Credits Tab */}
+          <TabsContent value="credits" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Gift className="w-5 h-5 mr-2" />
+                  Buy Individual Credits
+                </CardTitle>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Purchase credits on demand without a subscription. Credits never expire.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Credits to Amount Calculator */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold">Buy Credits</h3>
+                    <div>
+                      <Label htmlFor="credits-input">Number of Credits</Label>
+                      <Input
+                        id="credits-input"
+                        type="number"
+                        min="100"
+                        max="90000"
+                        value={customCredits}
+                        onChange={(e) => {
+                          const credits = parseInt(e.target.value) || 0;
+                          setCustomCredits(e.target.value);
+                          if (credits >= 100 && credits <= 90000) {
+                            setCustomAmount(calculatePriceFromCredits(credits).toString());
+                          } else {
+                            setCustomAmount("");
+                          }
+                        }}
+                        placeholder="Enter credits (100 - 90,000)"
+                        className="mt-1"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Minimum: 100 credits | Maximum: 90,000 credits
+                      </p>
+                    </div>
+                    <div>
+                      <Label htmlFor="amount-display">Total Amount</Label>
+                      <div className="text-2xl font-bold text-green-600 mt-1">
+                        ${customCredits ? calculatePriceFromCredits(parseInt(customCredits) || 0).toFixed(2) : '0.00'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Amount to Credits Calculator */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold">Or Enter Amount</h3>
+                    <div>
+                      <Label htmlFor="amount-input">Amount ($)</Label>
+                      <Input
+                        id="amount-input"
+                        type="number"
+                        min="2.75"
+                        max="2475"
+                        step="0.01"
+                        value={customAmount}
+                        onChange={(e) => {
+                          const amount = parseFloat(e.target.value) || 0;
+                          setCustomAmount(e.target.value);
+                          if (amount >= 2.75 && amount <= 2475) {
+                            setCustomCredits(calculateCreditsFromPrice(amount).toString());
+                          } else {
+                            setCustomCredits("");
+                          }
+                        }}
+                        placeholder="Enter amount ($2.75 - $2,475)"
+                        className="mt-1"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Rate: $0.0275 per credit
+                      </p>
+                    </div>
+                    <div>
+                      <Label htmlFor="credits-display">Credits You'll Get</Label>
+                      <div className="text-2xl font-bold text-blue-600 mt-1">
+                        {customAmount ? calculateCreditsFromPrice(parseFloat(customAmount) || 0).toLocaleString() : '0'} credits
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-6">
+                  <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg mb-4">
+                    <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Credit Usage Guide</h4>
+                    <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                      <li>• Chat Generation: Free</li>
+                      <li>• Image Generation: Free</li>
+                      <li>• Image→Video (5s): 100 credits</li>
+                      <li>• Image→Video (10s): 200 credits</li>
+                      <li>• Text→Speech: 100 credits</li>
+                      <li>• Audio→Video: 100 credits/minute</li>
+                      <li>• Image→Video+Audio: 200-400 credits</li>
+                    </ul>
+                  </div>
+
+                  <Button
+                    className="w-full bg-green-600 hover:bg-green-700"
+                    disabled={!customCredits || parseInt(customCredits) < 100 || parseInt(customCredits) > 90000}
+                  >
+                    <Calculator className="w-4 h-4 mr-2" />
+                    Purchase {customCredits ? parseInt(customCredits).toLocaleString() : '0'} Credits for ${customCredits ? calculatePriceFromCredits(parseInt(customCredits) || 0).toFixed(2) : '0.00'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Usage Tab */}
