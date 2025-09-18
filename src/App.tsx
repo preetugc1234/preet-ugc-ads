@@ -34,6 +34,7 @@ import ImageTool from "./pages/dashboard/tools/ImageTool";
 import ImageToVideoTool from "./pages/dashboard/tools/ImageToVideoTool";
 import TextToSpeechTool from "./pages/dashboard/tools/TextToSpeechTool";
 import UGCVideoTool from "./pages/dashboard/tools/UGCVideoTool";
+import History from "./pages/dashboard/History";
 
 // Other Pages
 import Pricing from "./pages/Pricing";
@@ -78,6 +79,7 @@ const App = () => (
           <Route path="/dashboard/image-to-video" element={<ImageToVideoTool />} />
           <Route path="/dashboard/text-to-speech" element={<TextToSpeechTool />} />
           <Route path="/dashboard/ugc-video" element={<UGCVideoTool />} />
+          <Route path="/dashboard/history" element={<History />} />
 
           {/* Other Routes */}
           <Route path="/pricing" element={<Pricing />} />
