@@ -1,0 +1,407 @@
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import {
+  MessageSquare,
+  Image,
+  Video,
+  AudioLines,
+  Music,
+  Film,
+  TrendingUp,
+  Clock,
+  Zap,
+  ArrowRight,
+  Play,
+  Download,
+  MoreVertical,
+  Eye
+} from "lucide-react";
+
+const Dashboard = () => {
+  // Mock data - replace with actual API calls
+  const [stats] = useState({
+    totalGenerations: 247,
+    creditsUsed: 1840,
+    creditsRemaining: 1250,
+    generationsToday: 12
+  });
+
+  const [recentGenerations] = useState([
+    {
+      id: "1",
+      type: "image",
+      title: "Sunset landscape",
+      thumbnail: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=300&h=300&fit=crop&crop=center",
+      createdAt: "2 hours ago",
+      credits: 0,
+      status: "completed"
+    },
+    {
+      id: "2",
+      type: "video",
+      title: "Product showcase animation",
+      thumbnail: "https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=300&h=300&fit=crop&crop=center",
+      createdAt: "4 hours ago",
+      credits: 200,
+      status: "completed"
+    },
+    {
+      id: "3",
+      type: "audio",
+      title: "Welcome message narration",
+      thumbnail: null,
+      createdAt: "1 day ago",
+      credits: 100,
+      status: "completed"
+    },
+    {
+      id: "4",
+      type: "chat",
+      title: "Marketing copy for social media",
+      thumbnail: null,
+      createdAt: "1 day ago",
+      credits: 0,
+      status: "completed"
+    }
+  ]);
+
+  const quickActions = [
+    {
+      name: "Chat",
+      description: "Generate text & get AI assistance",
+      icon: MessageSquare,
+      href: "/dashboard/chat",
+      credits: "Free",
+      color: "from-blue-500 to-blue-600",
+      popular: false
+    },
+    {
+      name: "Image Generation",
+      description: "Create images from text prompts",
+      icon: Image,
+      href: "/dashboard/image",
+      credits: "Free",
+      color: "from-green-500 to-green-600",
+      popular: true
+    },
+    {
+      name: "Image→Video",
+      description: "Convert images to videos",
+      icon: Video,
+      href: "/dashboard/image-to-video",
+      credits: "100/5s",
+      color: "from-purple-500 to-purple-600",
+      popular: false
+    },
+    {
+      name: "Text→Speech",
+      description: "Convert text to natural speech",
+      icon: AudioLines,
+      href: "/dashboard/text-to-speech",
+      credits: "100 credits",
+      color: "from-orange-500 to-orange-600",
+      popular: false
+    },
+    {
+      name: "Image→Video+Audio",
+      description: "Create videos with custom audio",
+      icon: Film,
+      href: "/dashboard/image-video-audio",
+      credits: "200/5s",
+      color: "from-red-500 to-red-600",
+      popular: false
+    },
+    {
+      name: "Audio→Video",
+      description: "Generate videos from audio",
+      icon: Music,
+      href: "/dashboard/audio-to-video",
+      credits: "100/min",
+      color: "from-indigo-500 to-indigo-600",
+      popular: false
+    }
+  ];
+
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case 'image': return Image;
+      case 'video': return Video;
+      case 'audio': return AudioLines;
+      case 'chat': return MessageSquare;
+      default: return MessageSquare;
+    }
+  };
+
+  const getTypeName = (type: string) => {
+    switch (type) {
+      case 'image': return 'Image';
+      case 'video': return 'Video';
+      case 'audio': return 'Audio';
+      case 'chat': return 'Chat';
+      default: return 'Unknown';
+    }
+  };
+
+  return (
+    <DashboardLayout>
+      <div className="p-6 space-y-8">
+        {/* Welcome Section */}
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+            Welcome back, John! 👋
+          </h1>
+          <p className="text-gray-600 dark:text-gray-300">
+            Ready to create something amazing? Choose a tool below to get started.
+          </p>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200 dark:border-blue-800">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                Total Generations
+              </CardTitle>
+              <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+                {stats.totalGenerations.toLocaleString()}
+              </div>
+              <p className="text-xs text-blue-600 dark:text-blue-400">
+                All-time creations
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-green-200 dark:border-green-800">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-green-700 dark:text-green-300">
+                Credits Remaining
+              </CardTitle>
+              <Zap className="h-4 w-4 text-green-600 dark:text-green-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-900 dark:text-green-100">
+                {stats.creditsRemaining.toLocaleString()}
+              </div>
+              <p className="text-xs text-green-600 dark:text-green-400">
+                Pro plan active
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border-purple-200 dark:border-purple-800">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                Credits Used
+              </CardTitle>
+              <TrendingUp className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">
+                {stats.creditsUsed.toLocaleString()}
+              </div>
+              <p className="text-xs text-purple-600 dark:text-purple-400">
+                This month
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border-orange-200 dark:border-orange-800">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-orange-700 dark:text-orange-300">
+                Today's Generations
+              </CardTitle>
+              <Clock className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-orange-900 dark:text-orange-100">
+                {stats.generationsToday}
+              </div>
+              <p className="text-xs text-orange-600 dark:text-orange-400">
+                +3 from yesterday
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Usage Progress */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Zap className="h-5 w-5 text-yellow-500" />
+              <span>Monthly Usage</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  Credits Used: {stats.creditsUsed.toLocaleString()} / {(stats.creditsUsed + stats.creditsRemaining).toLocaleString()}
+                </span>
+                <span className="text-sm font-medium">
+                  {Math.round((stats.creditsUsed / (stats.creditsUsed + stats.creditsRemaining)) * 100)}%
+                </span>
+              </div>
+              <Progress
+                value={(stats.creditsUsed / (stats.creditsUsed + stats.creditsRemaining)) * 100}
+                className="h-2"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Pro plan renews in 18 days. <Link to="/dashboard/billing" className="text-blue-600 hover:text-blue-500">Manage subscription</Link>
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Quick Actions */}
+        <div>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+              AI Tools
+            </h2>
+            <Link to="/dashboard/history">
+              <Button variant="outline" size="sm">
+                View All History
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {quickActions.map((action) => {
+              const Icon = action.icon;
+              return (
+                <Card
+                  key={action.name}
+                  className="relative overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1 cursor-pointer group"
+                >
+                  {action.popular && (
+                    <div className="absolute top-4 right-4">
+                      <Badge className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-0">
+                        Popular
+                      </Badge>
+                    </div>
+                  )}
+                  <Link to={action.href} className="block">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className={`w-12 h-12 rounded-xl bg-gradient-to-r ${action.color} flex items-center justify-center shadow-lg`}>
+                          <Icon className="w-6 h-6 text-white" />
+                        </div>
+                        <Badge variant="secondary" className="text-xs">
+                          {action.credits}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <h3 className="font-semibold text-gray-900 dark:text-white mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                        {action.name}
+                      </h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {action.description}
+                      </p>
+                    </CardContent>
+                  </Link>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Recent Generations */}
+        <div>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+              Recent Generations
+            </h2>
+            <Link to="/dashboard/history">
+              <Button variant="outline" size="sm">
+                View All
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {recentGenerations.map((generation) => {
+              const TypeIcon = getTypeIcon(generation.type);
+              return (
+                <Card key={generation.id} className="group hover:shadow-lg transition-all duration-300">
+                  <CardContent className="p-4">
+                    <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg mb-3 relative overflow-hidden">
+                      {generation.thumbnail ? (
+                        <img
+                          src={generation.thumbnail}
+                          alt={generation.title}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <TypeIcon className="w-12 h-12 text-gray-400" />
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 flex items-center justify-center">
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex space-x-2">
+                          {generation.type === 'video' || generation.type === 'audio' ? (
+                            <Button size="sm" variant="secondary" className="bg-white/90 hover:bg-white">
+                              <Play className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <Button size="sm" variant="secondary" className="bg-white/90 hover:bg-white">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <Button size="sm" variant="secondary" className="bg-white/90 hover:bg-white">
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Badge variant="outline" className="text-xs capitalize">
+                          {getTypeName(generation.type)}
+                        </Badge>
+                        <Button variant="ghost" size="sm" className="p-1 h-auto">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </div>
+
+                      <h4 className="font-medium text-sm text-gray-900 dark:text-white truncate">
+                        {generation.title}
+                      </h4>
+
+                      <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                        <span>{generation.createdAt}</span>
+                        <span className="flex items-center">
+                          {generation.credits > 0 ? (
+                            <>
+                              <Zap className="w-3 h-3 mr-1" />
+                              {generation.credits}
+                            </>
+                          ) : (
+                            "Free"
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </DashboardLayout>
+  );
+};
+
+export default Dashboard;

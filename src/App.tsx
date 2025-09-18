@@ -27,6 +27,9 @@ import TermsConditions from "./pages/resources/TermsConditions";
 import Login from "./pages/auth/Login";
 import Signup from "./pages/auth/Signup";
 
+// Dashboard Pages
+import Dashboard from "./pages/dashboard/Dashboard";
+
 // Other Pages
 import Pricing from "./pages/Pricing";
 import Contact from "./pages/Contact";
@@ -62,6 +65,10 @@ const App = () => (
           {/* Auth Routes */}
           <Route path="/auth/login" element={<Login />} />
           <Route path="/auth/signup" element={<Signup />} />
+
+          {/* Dashboard Routes */}
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard/*" element={<Dashboard />} />
 
           {/* Other Routes */}
           <Route path="/pricing" element={<Pricing />} />
