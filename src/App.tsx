@@ -39,6 +39,7 @@ import Billing from "./pages/dashboard/Billing";
 import Credits from "./pages/dashboard/Credits";
 import Settings from "./pages/dashboard/Settings";
 import Notifications from "./pages/dashboard/Notifications";
+import LearningCenter from "./pages/dashboard/LearningCenter";
 
 // Onboarding Pages
 import Onboarding from "./pages/onboarding/Onboarding";
@@ -94,6 +95,7 @@ const App = () => (
           <Route path="/dashboard/credits" element={<Credits />} />
           <Route path="/dashboard/settings" element={<Settings />} />
           <Route path="/dashboard/notifications" element={<Notifications />} />
+          <Route path="/dashboard/learning" element={<LearningCenter />} />
 
           {/* Other Routes */}
           <Route path="/pricing" element={<Pricing />} />

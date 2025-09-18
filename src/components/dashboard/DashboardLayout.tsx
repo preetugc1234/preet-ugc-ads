@@ -337,6 +337,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
               <Button
                 variant="ghost"
                 size="sm"
+                onClick={() => navigate("/dashboard/learning")}
                 className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 <BookOpen className="h-5 w-5" />
