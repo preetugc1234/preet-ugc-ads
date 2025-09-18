@@ -8,7 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuHeader,
+  DropdownMenuLabel,
   DropdownMenuTrigger,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
@@ -257,7 +257,7 @@ const NotificationCenter = () => {
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="w-96 p-0">
-        <DropdownMenuHeader className="px-4 py-3 border-b">
+        <div className="px-4 py-3 border-b">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold">Notifications</h3>
             <div className="flex items-center space-x-2">
@@ -286,7 +286,7 @@ const NotificationCenter = () => {
               You have {unreadCount} unread notification{unreadCount !== 1 ? 's' : ''}
             </p>
           )}
-        </DropdownMenuHeader>
+        </div>
 
         <ScrollArea className="h-96">
           {notifications.length === 0 ? (
