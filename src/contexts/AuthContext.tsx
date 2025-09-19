@@ -108,7 +108,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
             console.log('✅ User signed in via:', session.user?.app_metadata?.provider || 'unknown')
             console.log('📧 User email:', session.user?.email)
             console.log('🔑 Session expires at:', session.expires_at)
-            await loadUserProfile()
+
+            // Load profile asynchronously without blocking the UI
+            loadUserProfile().catch(console.error)
+
             toast({
               title: "Welcome!",
               description: "You've been successfully signed in.",

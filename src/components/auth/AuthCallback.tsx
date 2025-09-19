@@ -51,25 +51,34 @@ export function AuthCallback() {
         }
 
         if (hasAuthParams) {
-          // Wait longer for Supabase to process the auth callback
+          // For Google OAuth, redirect immediately if authenticated (don't wait for profile loading)
+          if (isAuthenticated) {
+            console.log('✅ User authenticated via OAuth, redirecting to dashboard...')
+            const redirectTo = searchParams.get('redirect_to') || '/dashboard'
+            navigate(redirectTo, { replace: true })
+            return
+          }
+
+          // If not authenticated yet, wait a bit and retry
           const waitTime = Math.min(2000 + (retryCount * 1000), 8000) // Increasing wait time with retries
 
           timeoutId = setTimeout(() => {
-            if (isAuthenticated && !loading) {
+            if (isAuthenticated) {
               // Success - redirect to dashboard
+              console.log('✅ Authentication completed, redirecting to dashboard')
               const redirectTo = searchParams.get('redirect_to') || '/dashboard'
               navigate(redirectTo, { replace: true })
-            } else if (!loading) {
+            } else {
               // If not authenticated after waiting, retry up to 3 times
               if (retryCount < 3) {
-                console.log(`Auth callback retry ${retryCount + 1}`)
+                console.log(`🔄 Auth callback retry ${retryCount + 1}`)
                 setRetryCount(prev => prev + 1)
               } else {
                 // Failed after retries - clear auth data and redirect
-                console.error('Auth callback failed after retries')
+                console.error('❌ Auth callback failed after retries')
                 clearAuthData()
                 setHasAuthError(true)
-                navigate('/login?error=auth_failed', { replace: true })
+                navigate('/simple-login?error=auth_failed', { replace: true })
               }
             }
           }, waitTime)
