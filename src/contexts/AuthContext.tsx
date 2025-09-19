@@ -413,6 +413,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isAdmin: user?.is_admin || false
   }
 
+  // Debug logging for auth state
+  useEffect(() => {
+    console.log('🔍 AuthContext State:', {
+      hasUser: !!user,
+      hasSession: !!session,
+      isAuthenticated: !!session,
+      loading,
+      userId: user?.id || session?.user?.id,
+      email: user?.email || session?.user?.email
+    })
+  }, [user, session, loading])
+
   return (
     <AuthContext.Provider value={value}>
       {children}

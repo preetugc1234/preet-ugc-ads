@@ -137,8 +137,10 @@ export const auth = {
             first_name: userData.firstName,
             last_name: userData.lastName,
             full_name: `${userData.firstName} ${userData.lastName}`
-          },
-          emailRedirectTo: undefined // Disable email confirmation for smooth signup flow
+          }
+          // Note: Email confirmation is controlled by Supabase project settings
+          // If email confirmation is enabled, users will need to verify their email
+          // If disabled, users will be automatically signed in
         }
       })
 
