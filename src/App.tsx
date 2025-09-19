@@ -10,9 +10,9 @@ import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import AuthCallback from "./components/auth/AuthCallback";
 
-// Auth Pages
-import LoginPage from "./pages/auth/LoginPage";
-import SignupPage from "./pages/auth/SignupPage";
+// Simple Auth Pages
+import SimpleLogin from "./pages/auth/SimpleLogin";
+import SimpleSignup from "./pages/auth/SimpleSignup";
 
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -109,13 +109,16 @@ const App = () => (
           <Route path="/resources/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/resources/terms-conditions" element={<TermsConditions />} />
 
-          {/* Auth Routes */}
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
+          {/* Simple Auth Routes */}
+          <Route path="/simple-login" element={<SimpleLogin />} />
+          <Route path="/simple-signup" element={<SimpleSignup />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
-          {/* Legacy auth routes - redirect to new ones */}
-          <Route path="/auth/login" element={<LoginPage />} />
-          <Route path="/auth/signup" element={<SignupPage />} />
+
+          {/* Redirect old routes to simple ones */}
+          <Route path="/login" element={<SimpleLogin />} />
+          <Route path="/signup" element={<SimpleSignup />} />
+          <Route path="/auth/login" element={<SimpleLogin />} />
+          <Route path="/auth/signup" element={<SimpleSignup />} />
 
           {/* Legacy onboarding route - now handled via popup modal */}
           <Route path="/onboarding" element={<Dashboard />} />
