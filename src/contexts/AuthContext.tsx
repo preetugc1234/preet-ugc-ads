@@ -4,7 +4,7 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { supabase, auth } from '../lib/supabase'
+import { supabase, auth, clearAuthData } from '../lib/supabase'
 import { api, User } from '../lib/api'
 import { useToast } from '../hooks/use-toast'
 
@@ -42,8 +42,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     async function initializeAuth() {
       try {
-        // Get initial session
-        const { session: initialSession } = await auth.getSession()
+        // Get initial session with retry logic
+        let initialSession = null
+        let retryCount = 0
+        const maxRetries = 3
+
+        while (retryCount < maxRetries && !initialSession) {
+          try {
+            const { session } = await auth.getSession()
+            initialSession = session
+            break
+          } catch (sessionError) {
+            console.warn(`Session fetch attempt ${retryCount + 1} failed:`, sessionError)
+            retryCount++
+
+            if (retryCount === maxRetries) {
+              // Clear potentially corrupted data and try once more
+              clearAuthData()
+              await new Promise(resolve => setTimeout(resolve, 100))
+              const { session } = await auth.getSession()
+              initialSession = session
+            }
+          }
+        }
 
         if (mounted) {
           setSession(initialSession)
@@ -56,7 +77,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
       } catch (error) {
         console.error('Error initializing auth:', error)
+        // If all else fails, clear auth data and reset state
+        clearAuthData()
         if (mounted) {
+          setSession(null)
+          setUser(null)
           setLoading(false)
         }
       }
@@ -129,10 +154,38 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const signInWithGoogle = async () => {
     try {
       setLoading(true)
+
+      // Clear any existing corrupted auth data before attempting sign in
+      clearAuthData()
+
       const { error } = await auth.signInWithGoogle()
 
       if (error) {
-        throw error
+        console.error('Google OAuth error:', error)
+
+        // Handle specific error cases
+        if (error.message?.includes('popup_closed_by_user')) {
+          toast({
+            title: "Sign in cancelled",
+            description: "The sign in popup was closed. Please try again.",
+            variant: "destructive"
+          })
+        } else if (error.message?.includes('access_denied')) {
+          toast({
+            title: "Access denied",
+            description: "Google sign in was denied. Please try again and grant the necessary permissions.",
+            variant: "destructive"
+          })
+        } else {
+          toast({
+            title: "Sign in failed",
+            description: "There was an error signing you in. Please clear your browser cache and try again.",
+            variant: "destructive"
+          })
+        }
+
+        setLoading(false)
+        return
       }
 
       // The auth state change listener will handle the rest
@@ -140,7 +193,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.error('Error signing in:', error)
       toast({
         title: "Sign in failed",
-        description: "There was an error signing you in. Please try again.",
+        description: "Please clear your browser cache and cookies, then try again.",
         variant: "destructive"
       })
       setLoading(false)

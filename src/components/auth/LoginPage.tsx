@@ -6,10 +6,11 @@
 import React, { useEffect } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { clearAuthData } from '../../lib/supabase'
 import { Button } from '../ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
 import { Alert, AlertDescription } from '../ui/alert'
-import { Loader2, Chrome, ArrowLeft, AlertCircle } from 'lucide-react'
+import { Loader2, Chrome, ArrowLeft, AlertCircle, RefreshCw } from 'lucide-react'
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -35,14 +36,31 @@ export function LoginPage() {
     }
   }
 
+  const handleClearCacheAndRetry = () => {
+    clearAuthData()
+    window.location.reload()
+  }
+
   const getErrorMessage = (errorCode: string | null) => {
     switch (errorCode) {
       case 'auth_failed':
-        return 'Authentication failed. Please try again.'
+        return {
+          title: 'Authentication failed',
+          message: 'There was a problem signing you in. This is often due to browser cache conflicts.',
+          showClearCache: true
+        }
       case 'access_denied':
-        return 'Access was denied. Please try again.'
+        return {
+          title: 'Access denied',
+          message: 'Google sign-in was cancelled or denied. Please try again.',
+          showClearCache: false
+        }
       case 'timeout':
-        return 'Authentication timed out. Please try again.'
+        return {
+          title: 'Authentication timed out',
+          message: 'The sign-in process took too long. Please try again.',
+          showClearCache: true
+        }
       default:
         return null
     }
@@ -77,7 +95,25 @@ export function LoginPage() {
             {errorMessage && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{errorMessage}</AlertDescription>
+                <AlertDescription>
+                  <div className="space-y-3">
+                    <div>
+                      <strong>{errorMessage.title}</strong>
+                      <div className="mt-1">{errorMessage.message}</div>
+                    </div>
+                    {errorMessage.showClearCache && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleClearCacheAndRetry}
+                        className="w-full"
+                      >
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Clear Cache & Retry
+                      </Button>
+                    )}
+                  </div>
+                </AlertDescription>
               </Alert>
             )}
 

@@ -14,30 +14,96 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true
+    detectSessionInUrl: true,
+    flowType: 'pkce',
+    storage: {
+      getItem: (key: string) => {
+        try {
+          return localStorage.getItem(key)
+        } catch (error) {
+          console.warn('Failed to read from localStorage:', error)
+          return null
+        }
+      },
+      setItem: (key: string, value: string) => {
+        try {
+          localStorage.setItem(key, value)
+        } catch (error) {
+          console.warn('Failed to write to localStorage:', error)
+        }
+      },
+      removeItem: (key: string) => {
+        try {
+          localStorage.removeItem(key)
+        } catch (error) {
+          console.warn('Failed to remove from localStorage:', error)
+        }
+      }
+    }
   }
 })
 
 // Backend API configuration
 export const API_BASE_URL = 'https://preet-ugc-ads.onrender.com'
 
+// Clear potentially corrupted auth data
+export const clearAuthData = () => {
+  try {
+    const keysToRemove = [
+      'sb-uchvakaeswmuvqnzjiiu-auth-token',
+      'supabase.auth.token',
+      'sb-auth-token'
+    ]
+    keysToRemove.forEach(key => localStorage.removeItem(key))
+
+    // Clear all supabase related keys
+    Object.keys(localStorage).forEach(key => {
+      if (key.includes('supabase') || key.includes('sb-')) {
+        localStorage.removeItem(key)
+      }
+    })
+  } catch (error) {
+    console.warn('Failed to clear auth data:', error)
+  }
+}
+
 // Authentication helpers
 export const auth = {
   // Sign in with Google
   signInWithGoogle: async () => {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`
-      }
-    })
-    return { data, error }
+    try {
+      // Clear any existing corrupted auth data first
+      clearAuthData()
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent'
+          }
+        }
+      })
+      return { data, error }
+    } catch (error) {
+      console.error('Google sign in error:', error)
+      return { data: null, error }
+    }
   },
 
   // Sign out
   signOut: async () => {
-    const { error } = await supabase.auth.signOut()
-    return { error }
+    try {
+      const { error } = await supabase.auth.signOut()
+      // Clear auth data after sign out
+      clearAuthData()
+      return { error }
+    } catch (error) {
+      // Even if sign out fails, clear local data
+      clearAuthData()
+      return { error }
+    }
   },
 
   // Get current session
