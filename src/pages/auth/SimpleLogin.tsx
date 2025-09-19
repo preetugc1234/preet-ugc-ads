@@ -1,13 +1,23 @@
-import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 
 export function SimpleLogin() {
-  const { signInWithEmail, signInWithGoogle } = useAuth()
+  const { signInWithEmail, signInWithGoogle, isAuthenticated, loading } = useAuth()
+  const navigate = useNavigate()
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   })
+
+  // Redirect to dashboard if already authenticated
+  useEffect(() => {
+    console.log('🔍 SimpleLogin: Auth state changed', { isAuthenticated, loading })
+    if (isAuthenticated && !loading) {
+      console.log('✅ SimpleLogin: Redirecting to dashboard')
+      navigate('/dashboard')
+    }
+  }, [isAuthenticated, loading, navigate])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

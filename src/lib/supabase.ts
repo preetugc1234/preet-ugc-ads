@@ -137,7 +137,8 @@ export const auth = {
             first_name: userData.firstName,
             last_name: userData.lastName,
             full_name: `${userData.firstName} ${userData.lastName}`
-          }
+          },
+          emailRedirectTo: undefined // Disable email confirmation for smooth signup flow
         }
       })
 
@@ -187,6 +188,8 @@ export const auth = {
       // Get the current origin and ensure proper redirect URL
       const currentOrigin = window.location.origin
       const redirectUrl = `${currentOrigin}/auth/callback`
+
+      console.log('🔗 Google OAuth redirect URL:', redirectUrl)
 
       console.log('Starting Google OAuth with redirect:', redirectUrl)
 

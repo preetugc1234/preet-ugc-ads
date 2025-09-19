@@ -25,10 +25,6 @@ interface AuthContextType {
   isAuthenticated: boolean
   isAdmin: boolean
 
-  // Onboarding state
-  showOnboarding: boolean
-  setShowOnboarding: (show: boolean) => void
-  isFirstTimeUser: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -41,8 +37,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [showOnboarding, setShowOnboarding] = useState(false)
-  const [isFirstTimeUser, setIsFirstTimeUser] = useState(false)
   const { toast } = useToast()
 
   // Initialize auth state
@@ -101,24 +95,33 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session)
+        console.log('🔔 Auth state changed:', event, {
+          hasSession: !!session,
+          userId: session?.user?.id,
+          email: session?.user?.email
+        })
 
         if (mounted) {
           setSession(session)
 
           if (event === 'SIGNED_IN' && session) {
+            console.log('✅ User signed in, loading profile...')
             await loadUserProfile()
             toast({
               title: "Welcome!",
               description: "You've been successfully signed in.",
             })
           } else if (event === 'SIGNED_OUT') {
+            console.log('🚪 User signed out')
             setUser(null)
             setLoading(false)
             toast({
               title: "Signed out",
               description: "You've been successfully signed out.",
             })
+          } else if (event === 'TOKEN_REFRESHED' && session) {
+            console.log('🔄 Token refreshed')
+            // Don't load profile again, just update session
           }
         }
       }
@@ -134,35 +137,43 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const loadUserProfile = async () => {
     try {
       setLoading(true)
+      console.log('🔄 Loading user profile from backend...')
+
       const userProfile = await api.getCurrentUser()
       setUser(userProfile)
+      console.log('✅ User profile loaded from backend:', userProfile)
 
-      // Check if this is a first-time user (no onboarding completed)
-      const hasCompletedOnboarding = localStorage.getItem('onboarding_completed')
-      if (!hasCompletedOnboarding) {
-        setIsFirstTimeUser(true)
-        // Show onboarding after a short delay to let dashboard load
-        setTimeout(() => setShowOnboarding(true), 1500)
-      }
     } catch (error) {
-      console.error('Error loading user profile:', error)
-      // If user doesn't exist in backend, create a minimal user object from Supabase session
+      console.error('❌ Error loading user profile from backend:', error)
+
+      // If user doesn't exist in backend but we have a Supabase session,
+      // create a fallback user and let the backend handle user creation on next API call
       if (session?.user) {
+        console.log('📝 Creating fallback user object from Supabase session')
+
         const fallbackUser: User = {
           id: session.user.id,
           email: session.user.email || '',
-          name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || '',
+          name: session.user.user_metadata?.full_name ||
+                session.user.user_metadata?.name ||
+                `${session.user.user_metadata?.first_name || ''} ${session.user.user_metadata?.last_name || ''}`.trim() ||
+                session.user.email?.split('@')[0] ||
+                'User',
           plan: 'free',
-          credits: 1000, // Default credits for new users
+          credits: 1000, // Default credits for new users as per prompt.md
           is_admin: false,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }
         setUser(fallbackUser)
 
-        // New user - definitely show onboarding
-        setIsFirstTimeUser(true)
-        setTimeout(() => setShowOnboarding(true), 1500)
+        console.log('⚠️ Using fallback user - backend will sync on next API call:', fallbackUser)
+
+        // Show a toast to let user know the profile is being set up
+        toast({
+          title: "Setting up your profile",
+          description: "Your account is being created in our system.",
+        })
       } else {
         setUser(null)
       }
@@ -189,7 +200,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         })
       }, 15000) // 15 second timeout
 
-      const { error } = await auth.signUpWithEmail(email, password, userData)
+      const { data, error } = await auth.signUpWithEmail(email, password, userData)
       clearTimeout(timeoutId) // Clear timeout if request completes
 
       if (error) {
@@ -203,14 +214,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
         return
       }
 
-      console.log('✅ Email signup successful')
-      toast({
-        title: "Account created!",
-        description: "Please check your email to verify your account, then sign in.",
-      })
-      setLoading(false) // Force loading off after successful signup
+      console.log('✅ Email signup successful', data)
 
-      // The auth state change listener will handle the rest
+      // Check if user needs email confirmation
+      if (data.user && !data.session) {
+        // Email confirmation required
+        toast({
+          title: "Account created!",
+          description: "Please check your email to verify your account, then sign in.",
+        })
+        setLoading(false)
+      } else if (data.user && data.session) {
+        // User is automatically signed in (no email confirmation required)
+        console.log('🎉 User automatically signed in after signup')
+        toast({
+          title: "Welcome!",
+          description: "Your account has been created successfully.",
+        })
+        // The auth state change listener will handle the rest (redirect to dashboard)
+      } else {
+        // Unexpected case
+        toast({
+          title: "Account created!",
+          description: "Please try signing in with your new account.",
+        })
+        setLoading(false)
+      }
     } catch (error) {
       console.error('❌ Error signing up:', error)
       toast({
@@ -381,10 +410,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     signOut,
     refreshUser,
     isAuthenticated: !!session, // User is authenticated if they have a Supabase session
-    isAdmin: user?.is_admin || false,
-    showOnboarding,
-    setShowOnboarding,
-    isFirstTimeUser
+    isAdmin: user?.is_admin || false
   }
 
   return (

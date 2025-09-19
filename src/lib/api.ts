@@ -49,12 +49,42 @@ export interface GenerationItem {
   final_urls: string[]
   size_bytes: number
   created_at: string
+  credit_cost?: number
+  status?: string
 }
 
 export interface UserHistory {
   generations: GenerationItem[]
   total_count: number
   limit: number
+}
+
+export interface JobCreateRequest {
+  client_job_id: string
+  module: 'chat' | 'image' | 'img2vid_noaudio' | 'tts' | 'img2vid_audio' | 'audio2vid'
+  params: Record<string, any>
+}
+
+export interface JobResponse {
+  id: string
+  client_job_id: string
+  status: 'queued' | 'processing' | 'completed' | 'failed'
+  estimated_cost: number
+  preview_url?: string
+  final_urls?: string[]
+  created_at: string
+  estimated_time?: number
+}
+
+export interface JobStatus {
+  id: string
+  status: 'queued' | 'processing' | 'completed' | 'failed'
+  preview_url?: string
+  final_urls?: string[]
+  progress?: number
+  error_message?: string
+  created_at: string
+  updated_at: string
 }
 
 export interface ApiError {
@@ -221,6 +251,75 @@ class ApiClient {
   async getAdminStats() {
     return this.request('/api/auth/admin/stats')
   }
+
+  // Job management endpoints (as per prompt.md)
+  async createJob(jobData: JobCreateRequest): Promise<JobResponse> {
+    return this.request<JobResponse>('/api/jobs/create', {
+      method: 'POST',
+      body: JSON.stringify(jobData)
+    })
+  }
+
+  async getJobStatus(jobId: string): Promise<JobStatus> {
+    return this.request<JobStatus>(`/api/jobs/${jobId}/status`)
+  }
+
+  async cancelJob(jobId: string): Promise<{ success: boolean; message: string }> {
+    return this.request(`/api/jobs/${jobId}/cancel`, {
+      method: 'POST'
+    })
+  }
+
+  // Cost estimation endpoint
+  async estimateJobCost(module: string, params: Record<string, any>): Promise<{
+    estimated_cost: number
+    estimated_time: number
+    credits_required: number
+  }> {
+    return this.request('/api/jobs/estimate-cost', {
+      method: 'POST',
+      body: JSON.stringify({ module, params })
+    })
+  }
+
+  // Billing endpoints (Razorpay integration as per prompt.md)
+  async createRazorpayOrder(data: {
+    credits: number
+    amount: number
+    currency?: string
+  }): Promise<{
+    order_id: string
+    razorpay_key: string
+    amount: number
+    currency: string
+  }> {
+    return this.request('/api/razorpay/create-order', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async createRazorpaySubscription(planId: string): Promise<{
+    subscription_id: string
+    razorpay_key: string
+    plan_id: string
+  }> {
+    return this.request('/api/razorpay/create-subscription', {
+      method: 'POST',
+      body: JSON.stringify({ plan_id: planId })
+    })
+  }
+
+  async verifyRazorpayPayment(data: {
+    razorpay_payment_id: string
+    razorpay_order_id: string
+    razorpay_signature: string
+  }): Promise<{ success: boolean; credits_added: number; new_balance: number }> {
+    return this.request('/api/razorpay/verify-payment', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
 }
 
 // Export singleton instance
@@ -259,6 +358,50 @@ export const apiHelpers = {
   // Format datetime for display
   formatDateTime: (dateString: string): string => {
     return new Date(dateString).toLocaleString()
+  },
+
+  // Credit calculation helpers (as per prompt.md)
+  calculateCreditsFromPrice: (price: number): number => {
+    const rawCredits = price / 0.0275
+    const fractionalPart = rawCredits % 1
+    return fractionalPart < 0.5 ? Math.floor(rawCredits) : Math.ceil(rawCredits)
+  },
+
+  calculatePriceFromCredits: (credits: number): number => {
+    return Math.round(credits * 0.0275 * 100) / 100 // Round to 2 decimals
+  },
+
+  // Job cost estimation (as per prompt.md)
+  estimateJobCost: (module: string, params: any): number => {
+    switch (module) {
+      case 'chat':
+        return 0 // Free but counts toward daily quota
+      case 'image':
+        return 0 // Free but counts toward daily quota
+      case 'img2vid_noaudio':
+        const duration1 = params.duration || 5
+        return 100 * (duration1 / 5) // 100 credits per 5 seconds
+      case 'tts':
+        return 100 // 100 credits per generation
+      case 'img2vid_audio':
+        const duration2 = params.duration || 5
+        return duration2 <= 5 ? 200 : 400 // 200/5s or 400/10s
+      case 'audio2vid':
+        const durationMin = Math.ceil((params.duration || 60) / 60)
+        return 100 * durationMin // 100 per minute, rounded up
+      default:
+        return 0
+    }
+  },
+
+  // Generate unique client job ID
+  generateClientJobId: (): string => {
+    return `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  },
+
+  // Check if user has sufficient credits
+  hasSufficientCredits: (userCredits: number, requiredCredits: number): boolean => {
+    return userCredits >= requiredCredits
   }
 }
 

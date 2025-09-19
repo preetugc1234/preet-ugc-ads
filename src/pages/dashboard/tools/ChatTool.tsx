@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { MessageSquare, Send, Copy, Download, RotateCcw, Sparkles } from "lucide-react";
+import { MessageSquare, Send, Copy, Download, RotateCcw, Sparkles, AlertCircle } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import ToolEditorLayout from "@/components/dashboard/ToolEditorLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,8 +9,13 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/contexts/AuthContext";
+import { api, apiHelpers } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 const ChatTool = () => {
+  const { user, refreshUser } = useAuth();
+  const { toast } = useToast();
   const [prompt, setPrompt] = useState("");
   const [messages, setMessages] = useState<Array<{id: string, type: 'user' | 'assistant', content: string, timestamp: Date}>>([]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -18,6 +23,7 @@ const ChatTool = () => {
   const [model, setModel] = useState("gpt-4o-mini");
   const [temperature, setTemperature] = useState([0.7]);
   const [maxTokens, setMaxTokens] = useState([2000]);
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const models = [
