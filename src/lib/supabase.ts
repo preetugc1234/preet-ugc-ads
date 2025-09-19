@@ -46,9 +46,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 // Backend API configuration
 export const API_BASE_URL = 'https://preet-ugc-ads.onrender.com'
 
-// Clear potentially corrupted auth data
+// Clear potentially corrupted auth data - AGGRESSIVE APPROACH
 export const clearAuthData = () => {
   try {
+    // Clear localStorage completely
     const keysToRemove = [
       'sb-uchvakaeswmuvqnzjiiu-auth-token',
       'supabase.auth.token',
@@ -58,12 +59,57 @@ export const clearAuthData = () => {
 
     // Clear all supabase related keys
     Object.keys(localStorage).forEach(key => {
-      if (key.includes('supabase') || key.includes('sb-')) {
+      if (key.includes('supabase') || key.includes('sb-') || key.includes('auth')) {
         localStorage.removeItem(key)
+      }
+    })
+
+    // Also clear sessionStorage
+    Object.keys(sessionStorage).forEach(key => {
+      if (key.includes('supabase') || key.includes('sb-') || key.includes('auth')) {
+        sessionStorage.removeItem(key)
       }
     })
   } catch (error) {
     console.warn('Failed to clear auth data:', error)
+  }
+}
+
+// Nuclear option - clear ALL browser storage
+export const clearAllBrowserStorage = async () => {
+  try {
+    // Clear localStorage
+    localStorage.clear()
+
+    // Clear sessionStorage
+    sessionStorage.clear()
+
+    // Clear IndexedDB
+    if ('indexedDB' in window) {
+      const databases = await indexedDB.databases()
+      await Promise.all(
+        databases.map(db => {
+          if (db.name) {
+            return new Promise((resolve, reject) => {
+              const deleteReq = indexedDB.deleteDatabase(db.name!)
+              deleteReq.onsuccess = () => resolve(true)
+              deleteReq.onerror = () => reject(deleteReq.error)
+            })
+          }
+        })
+      )
+    }
+
+    // Clear all cookies for this domain
+    document.cookie.split(";").forEach(function(c) {
+      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+    });
+
+    console.log('All browser storage cleared successfully')
+    return true
+  } catch (error) {
+    console.warn('Failed to clear all browser storage:', error)
+    return false
   }
 }
 
@@ -72,8 +118,11 @@ export const auth = {
   // Sign in with Google
   signInWithGoogle: async () => {
     try {
-      // Clear any existing corrupted auth data first
-      clearAuthData()
+      // AGGRESSIVE: Clear ALL browser storage first
+      await clearAllBrowserStorage()
+
+      // Wait a bit for storage clearing to complete
+      await new Promise(resolve => setTimeout(resolve, 500))
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -81,7 +130,8 @@ export const auth = {
           redirectTo: `${window.location.origin}/auth/callback`,
           queryParams: {
             access_type: 'offline',
-            prompt: 'consent'
+            prompt: 'consent',
+            approval_prompt: 'force' // Force fresh consent
           }
         }
       })

@@ -22,6 +22,11 @@ interface AuthContextType {
   // User utilities
   isAuthenticated: boolean
   isAdmin: boolean
+
+  // Onboarding state
+  showOnboarding: boolean
+  setShowOnboarding: (show: boolean) => void
+  isFirstTimeUser: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -34,6 +39,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [isFirstTimeUser, setIsFirstTimeUser] = useState(false)
   const { toast } = useToast()
 
   // Initialize auth state
@@ -127,6 +134,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setLoading(true)
       const userProfile = await api.getCurrentUser()
       setUser(userProfile)
+
+      // Check if this is a first-time user (no onboarding completed)
+      const hasCompletedOnboarding = localStorage.getItem('onboarding_completed')
+      if (!hasCompletedOnboarding) {
+        setIsFirstTimeUser(true)
+        // Show onboarding after a short delay to let dashboard load
+        setTimeout(() => setShowOnboarding(true), 1500)
+      }
     } catch (error) {
       console.error('Error loading user profile:', error)
       // If user doesn't exist in backend, create a minimal user object from Supabase session
@@ -142,6 +157,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
           updated_at: new Date().toISOString()
         }
         setUser(fallbackUser)
+
+        // New user - definitely show onboarding
+        setIsFirstTimeUser(true)
+        setTimeout(() => setShowOnboarding(true), 1500)
       } else {
         setUser(null)
       }
@@ -237,7 +256,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     signOut,
     refreshUser,
     isAuthenticated: !!session, // User is authenticated if they have a Supabase session
-    isAdmin: user?.is_admin || false
+    isAdmin: user?.is_admin || false,
+    showOnboarding,
+    setShowOnboarding,
+    isFirstTimeUser
   }
 
   return (

@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, apiHelpers } from "@/lib/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import OnboardingModal from "@/components/onboarding/OnboardingModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,7 +28,7 @@ import {
 } from "lucide-react";
 
 const Dashboard = () => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, showOnboarding, setShowOnboarding } = useAuth();
 
   // Fetch user stats
   const { data: userStats, isLoading: statsLoading } = useQuery({
@@ -411,6 +412,12 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Onboarding Modal */}
+      <OnboardingModal
+        isOpen={showOnboarding}
+        onClose={() => setShowOnboarding(false)}
+      />
     </DashboardLayout>
   );
 };

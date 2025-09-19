@@ -3,19 +3,20 @@
  * Handles user authentication with Google OAuth
  */
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { clearAuthData } from '../../lib/supabase'
+import { clearAuthData, clearAllBrowserStorage } from '../../lib/supabase'
 import { Button } from '../ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
 import { Alert, AlertDescription } from '../ui/alert'
-import { Loader2, Chrome, ArrowLeft, AlertCircle, RefreshCw } from 'lucide-react'
+import { Loader2, Chrome, ArrowLeft, AlertCircle, RefreshCw, Trash2 } from 'lucide-react'
 
 export function LoginPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { signInWithGoogle, loading, isAuthenticated } = useAuth()
+  const [isClearing, setIsClearing] = useState(false)
 
   const error = searchParams.get('error')
   const from = searchParams.get('from') || '/dashboard'
@@ -39,6 +40,20 @@ export function LoginPage() {
   const handleClearCacheAndRetry = () => {
     clearAuthData()
     window.location.reload()
+  }
+
+  const handleNuclearClear = async () => {
+    setIsClearing(true)
+    try {
+      await clearAllBrowserStorage()
+      // Wait a moment then reload
+      setTimeout(() => {
+        window.location.reload()
+      }, 1000)
+    } catch (error) {
+      console.error('Failed to clear storage:', error)
+      setIsClearing(false)
+    }
   }
 
   const getErrorMessage = (errorCode: string | null) => {
@@ -172,6 +187,32 @@ export function LoginPage() {
                   Profile & preference management
                 </li>
               </ul>
+            </div>
+
+            {/* Nuclear clear option */}
+            <div className="pt-4 border-t">
+              <div className="text-xs text-muted-foreground text-center mb-3">
+                Still having issues? Try the nuclear option:
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleNuclearClear}
+                disabled={isClearing || loading}
+                className="w-full text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
+              >
+                {isClearing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Clearing All Data...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Clear All Browser Data & Retry
+                  </>
+                )}
+              </Button>
             </div>
 
             {/* Privacy note */}
