@@ -3,6 +3,14 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import ErrorBoundary from "./components/ErrorBoundary";
+
+// Authentication
+import { AuthProvider } from "./contexts/AuthContext";
+import ProtectedRoute from "./components/auth/ProtectedRoute";
+import LoginPage from "./components/auth/LoginPage";
+import AuthCallback from "./components/auth/AuthCallback";
+
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 
@@ -52,15 +60,36 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import Pricing from "./pages/Pricing";
 import Contact from "./pages/Contact";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: (failureCount, error) => {
+        // Don't retry on auth errors (401, 403)
+        if (error instanceof Error && (error.message.includes('401') || error.message.includes('403'))) {
+          return false
+        }
+        // Retry up to 2 times for other errors
+        return failureCount < 2
+      },
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
+      refetchOnWindowFocus: false, // Disable refetch on window focus
+    },
+    mutations: {
+      retry: false, // Don't retry mutations by default
+    }
+  }
+});
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+          <Routes>
           <Route path="/" element={<Index />} />
 
           {/* Product Routes */}
@@ -81,29 +110,87 @@ const App = () => (
           <Route path="/resources/terms-conditions" element={<TermsConditions />} />
 
           {/* Auth Routes */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/auth/login" element={<Login />} />
           <Route path="/auth/signup" element={<Signup />} />
 
           {/* Onboarding Routes */}
           <Route path="/onboarding" element={<Onboarding />} />
 
-          {/* Dashboard Routes */}
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/dashboard/chat" element={<ChatTool />} />
-          <Route path="/dashboard/image" element={<ImageTool />} />
-          <Route path="/dashboard/image-to-video" element={<ImageToVideoTool />} />
-          <Route path="/dashboard/text-to-speech" element={<TextToSpeechTool />} />
-          <Route path="/dashboard/ugc-video" element={<UGCVideoTool />} />
-          <Route path="/dashboard/history" element={<History />} />
-          <Route path="/dashboard/billing" element={<Billing />} />
-          <Route path="/dashboard/credits" element={<Credits />} />
-          <Route path="/dashboard/settings" element={<Settings />} />
-          <Route path="/dashboard/notifications" element={<Notifications />} />
-          <Route path="/dashboard/learning" element={<LearningCenter />} />
+          {/* Dashboard Routes (Protected) */}
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/chat" element={
+            <ProtectedRoute>
+              <ChatTool />
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/image" element={
+            <ProtectedRoute>
+              <ImageTool />
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/image-to-video" element={
+            <ProtectedRoute>
+              <ImageToVideoTool />
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/text-to-speech" element={
+            <ProtectedRoute>
+              <TextToSpeechTool />
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/ugc-video" element={
+            <ProtectedRoute>
+              <UGCVideoTool />
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/history" element={
+            <ProtectedRoute>
+              <History />
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/billing" element={
+            <ProtectedRoute>
+              <Billing />
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/credits" element={
+            <ProtectedRoute>
+              <Credits />
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/settings" element={
+            <ProtectedRoute>
+              <Settings />
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/notifications" element={
+            <ProtectedRoute>
+              <Notifications />
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/learning" element={
+            <ProtectedRoute>
+              <LearningCenter />
+            </ProtectedRoute>
+          } />
 
-          {/* Hidden Admin Routes */}
-          <Route path="/secure-access-portal" element={<AdminAuth />} />
-          <Route path="/dashboard/system-control-panel" element={<AdminDashboard />} />
+          {/* Hidden Admin Routes (Protected + Admin Required) */}
+          <Route path="/secure-access-portal" element={
+            <ProtectedRoute requireAdmin>
+              <AdminAuth />
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard/system-control-panel" element={
+            <ProtectedRoute requireAdmin>
+              <AdminDashboard />
+            </ProtectedRoute>
+          } />
 
           {/* Other Routes */}
           <Route path="/pricing" element={<Pricing />} />
@@ -111,10 +198,12 @@ const App = () => (
 
           {/* Catch-all route */}
           <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+          </Routes>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

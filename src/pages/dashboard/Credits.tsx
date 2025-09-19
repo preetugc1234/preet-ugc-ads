@@ -1,20 +1,41 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
+import { api } from "@/lib/api";
 import { Coins, Plus, Zap, TrendingUp, Gift, Clock, CreditCard } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import CreditHistory from "@/components/dashboard/CreditHistory";
 
 const Credits = () => {
   const [selectedPack, setSelectedPack] = useState<string | null>(null);
+  const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
 
-  const currentCredits = 753;
-  const monthlyAllowance = 2000;
-  const usedThisMonth = 1247;
-  const remainingCredits = monthlyAllowance - usedThisMonth;
+  // Fetch credit balance
+  const { data: creditBalance, isLoading: balanceLoading } = useQuery({
+    queryKey: ['creditBalance'],
+    queryFn: api.getCreditBalance,
+    enabled: isAuthenticated,
+    refetchInterval: 30000 // Refresh every 30 seconds
+  });
+
+  // Fetch user stats
+  const { data: userStats, isLoading: statsLoading } = useQuery({
+    queryKey: ['userStats'],
+    queryFn: api.getUserStats,
+    enabled: isAuthenticated
+  });
+
+  const currentCredits = creditBalance?.credits || user?.credits || 0;
+  const monthlyAllowance = 2000; // This could come from user plan
+  const usedThisMonth = userStats?.credits_used_total || 0;
+  const remainingCredits = Math.max(0, monthlyAllowance - usedThisMonth);
 
   const creditPacks = [
     {
@@ -51,48 +72,6 @@ const Credits = () => {
     }
   ];
 
-  const recentTransactions = [
-    {
-      id: "txn_001",
-      type: "earned",
-      amount: 100,
-      description: "Monthly plan renewal",
-      date: "2024-01-15",
-      icon: Gift
-    },
-    {
-      id: "txn_002",
-      type: "spent",
-      amount: -150,
-      description: "UGC Video Generation (3 videos)",
-      date: "2024-01-14",
-      icon: Zap
-    },
-    {
-      id: "txn_003",
-      type: "spent",
-      amount: -100,
-      description: "Text to Speech (10 generations)",
-      date: "2024-01-13",
-      icon: Zap
-    },
-    {
-      id: "txn_004",
-      type: "purchased",
-      amount: 1000,
-      description: "Credit pack purchase",
-      date: "2024-01-12",
-      icon: Plus
-    },
-    {
-      id: "txn_005",
-      type: "spent",
-      amount: -200,
-      description: "Image to Video (2 videos)",
-      date: "2024-01-11",
-      icon: Zap
-    }
-  ];
 
   const usageBreakdown = [
     { tool: "UGC Video Gen", used: 579, percentage: 46, color: "bg-purple-500" },
@@ -113,22 +92,6 @@ const Credits = () => {
     }
   };
 
-  const getTransactionIcon = (transaction: typeof recentTransactions[0]) => {
-    const IconComponent = transaction.icon;
-    return <IconComponent className="w-4 h-4" />;
-  };
-
-  const getTransactionColor = (type: string) => {
-    switch (type) {
-      case 'earned':
-      case 'purchased':
-        return 'text-green-600 dark:text-green-400';
-      case 'spent':
-        return 'text-red-600 dark:text-red-400';
-      default:
-        return 'text-gray-600 dark:text-gray-400';
-    }
-  };
 
   return (
     <DashboardLayout>
@@ -149,7 +112,13 @@ const Credits = () => {
               <Coins className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{currentCredits.toLocaleString()}</div>
+              <div className="text-2xl font-bold">
+                {balanceLoading ? (
+                  <Skeleton className="h-8 w-16" />
+                ) : (
+                  currentCredits.toLocaleString()
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">
                 Ready to use
               </p>
@@ -162,14 +131,24 @@ const Credits = () => {
               <Gift className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{remainingCredits.toLocaleString()}</div>
+              <div className="text-2xl font-bold">
+                {statsLoading ? (
+                  <Skeleton className="h-8 w-16" />
+                ) : (
+                  remainingCredits.toLocaleString()
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">
-                {usedThisMonth.toLocaleString()} of {monthlyAllowance.toLocaleString()} used
+                {statsLoading ? (
+                  <Skeleton className="h-3 w-24" />
+                ) : (
+                  `${usedThisMonth.toLocaleString()} of ${monthlyAllowance.toLocaleString()} used`
+                )}
               </p>
               <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
                 <div
-                  className="bg-blue-600 h-2 rounded-full"
-                  style={{ width: `${(usedThisMonth / monthlyAllowance) * 100}%` }}
+                  className="bg-blue-600 h-2 rounded-full transition-all"
+                  style={{ width: `${statsLoading ? 0 : (usedThisMonth / monthlyAllowance) * 100}%` }}
                 ></div>
               </div>
             </CardContent>
@@ -349,41 +328,7 @@ const Credits = () => {
 
           {/* Transaction History Tab */}
           <TabsContent value="history" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Clock className="w-5 h-5 mr-2" />
-                  Recent Transactions
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {recentTransactions.map((transaction) => (
-                    <div key={transaction.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <div className="flex items-center justify-center w-8 h-8 bg-gray-100 dark:bg-gray-800 rounded-full">
-                          {getTransactionIcon(transaction)}
-                        </div>
-                        <div>
-                          <p className="font-medium">{transaction.description}</p>
-                          <p className="text-sm text-gray-500">
-                            {new Date(transaction.date).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className={`font-medium ${getTransactionColor(transaction.type)}`}>
-                          {transaction.amount > 0 ? '+' : ''}{transaction.amount.toLocaleString()} credits
-                        </p>
-                        <p className="text-sm text-gray-500 capitalize">
-                          {transaction.type}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <CreditHistory />
           </TabsContent>
         </Tabs>
       </div>

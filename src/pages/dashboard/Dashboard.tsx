@@ -1,10 +1,14 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
+import { api, apiHelpers } from "@/lib/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   MessageSquare,
   Image,
@@ -23,52 +27,52 @@ import {
 } from "lucide-react";
 
 const Dashboard = () => {
-  // Mock data - replace with actual API calls
-  const [stats] = useState({
-    totalGenerations: 247,
-    creditsUsed: 1840,
-    creditsRemaining: 1250,
-    generationsToday: 12
+  const { user, isAuthenticated } = useAuth();
+
+  // Fetch user stats
+  const { data: userStats, isLoading: statsLoading } = useQuery({
+    queryKey: ['userStats'],
+    queryFn: api.getUserStats,
+    enabled: isAuthenticated
   });
 
-  const [recentGenerations] = useState([
-    {
-      id: "1",
-      type: "image",
-      title: "Sunset landscape",
-      thumbnail: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=300&h=300&fit=crop&crop=center",
-      createdAt: "2 hours ago",
-      credits: 0,
-      status: "completed"
-    },
-    {
-      id: "2",
-      type: "video",
-      title: "Product showcase animation",
-      thumbnail: "https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=300&h=300&fit=crop&crop=center",
-      createdAt: "4 hours ago",
-      credits: 200,
-      status: "completed"
-    },
-    {
-      id: "3",
-      type: "audio",
-      title: "Welcome message narration",
-      thumbnail: null,
-      createdAt: "1 day ago",
-      credits: 100,
-      status: "completed"
-    },
-    {
-      id: "4",
-      type: "chat",
-      title: "Marketing copy for social media",
-      thumbnail: null,
-      createdAt: "1 day ago",
-      credits: 0,
-      status: "completed"
-    }
-  ]);
+  // Fetch credit balance
+  const { data: creditBalance, isLoading: balanceLoading } = useQuery({
+    queryKey: ['creditBalance'],
+    queryFn: api.getCreditBalance,
+    enabled: isAuthenticated,
+    refetchInterval: 30000 // Refresh every 30 seconds
+  });
+
+  // Fetch recent generations
+  const { data: userHistory, isLoading: historyLoading } = useQuery({
+    queryKey: ['userHistory'],
+    queryFn: () => api.getUserHistory(8), // Get last 8 items for dashboard
+    enabled: isAuthenticated
+  });
+
+  // Compute stats from real data
+  const stats = {
+    totalGenerations: userStats?.total_generations || 0,
+    creditsUsed: userStats?.credits_used_total || 0,
+    creditsRemaining: creditBalance?.credits || user?.credits || 0,
+    generationsToday: userHistory?.generations?.filter(gen => {
+      const genDate = new Date(gen.created_at).toDateString();
+      const today = new Date().toDateString();
+      return genDate === today;
+    }).length || 0
+  };
+
+  // Format recent generations for display
+  const recentGenerations = userHistory?.generations?.slice(0, 4).map(gen => ({
+    id: gen.id,
+    type: gen.type,
+    title: `${gen.type.charAt(0).toUpperCase() + gen.type.slice(1)} Generation`,
+    thumbnail: gen.preview_url,
+    createdAt: new Date(gen.created_at).toLocaleDateString(),
+    credits: gen.credit_cost || 0,
+    status: gen.status || "completed"
+  })) || [];
 
   const quickActions = [
     {
@@ -144,7 +148,7 @@ const Dashboard = () => {
         {/* Welcome Section */}
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Welcome back, John! 👋
+            Welcome back, {user?.name || 'there'}! 👋
           </h1>
           <p className="text-gray-600 dark:text-gray-300">
             Ready to create something amazing? Choose a tool below to get started.
@@ -162,7 +166,11 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
-                {stats.totalGenerations.toLocaleString()}
+                {statsLoading ? (
+                  <Skeleton className="h-8 w-16" />
+                ) : (
+                  stats.totalGenerations.toLocaleString()
+                )}
               </div>
               <p className="text-xs text-blue-600 dark:text-blue-400">
                 All-time creations
@@ -179,10 +187,14 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-900 dark:text-green-100">
-                {stats.creditsRemaining.toLocaleString()}
+                {balanceLoading ? (
+                  <Skeleton className="h-8 w-16" />
+                ) : (
+                  stats.creditsRemaining.toLocaleString()
+                )}
               </div>
               <p className="text-xs text-green-600 dark:text-green-400">
-                Pro plan active
+                {user?.plan?.toUpperCase() || 'FREE'} plan active
               </p>
             </CardContent>
           </Card>
@@ -196,10 +208,14 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">
-                {stats.creditsUsed.toLocaleString()}
+                {statsLoading ? (
+                  <Skeleton className="h-8 w-16" />
+                ) : (
+                  stats.creditsUsed.toLocaleString()
+                )}
               </div>
               <p className="text-xs text-purple-600 dark:text-purple-400">
-                This month
+                All-time usage
               </p>
             </CardContent>
           </Card>
@@ -213,10 +229,14 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-orange-900 dark:text-orange-100">
-                {stats.generationsToday}
+                {historyLoading ? (
+                  <Skeleton className="h-8 w-16" />
+                ) : (
+                  stats.generationsToday
+                )}
               </div>
               <p className="text-xs text-orange-600 dark:text-orange-400">
-                +3 from yesterday
+                Created today
               </p>
             </CardContent>
           </Card>
