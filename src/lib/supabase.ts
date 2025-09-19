@@ -181,19 +181,14 @@ export const auth = {
   // Sign in with Google
   signInWithGoogle: async () => {
     try {
-      // AGGRESSIVE: Clear ALL browser storage first
-      await clearAllBrowserStorage()
-
-      // Wait a bit for storage clearing to complete
-      await new Promise(resolve => setTimeout(resolve, 500))
+      console.log('🚀 Starting Google OAuth sign in...')
 
       // Get the current origin and ensure proper redirect URL
       const currentOrigin = window.location.origin
       const redirectUrl = `${currentOrigin}/auth/callback`
 
       console.log('🔗 Google OAuth redirect URL:', redirectUrl)
-
-      console.log('Starting Google OAuth with redirect:', redirectUrl)
+      console.log('🌐 Current origin:', currentOrigin)
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -201,21 +196,24 @@ export const auth = {
           redirectTo: redirectUrl,
           queryParams: {
             access_type: 'offline',
-            prompt: 'consent'
+            prompt: 'select_account' // Allow user to select account
           }
         }
       })
 
       if (error) {
-        console.error('OAuth error details:', {
+        console.error('❌ Google OAuth error:', {
           message: error.message,
           status: error.status,
           code: error.code
         })
+      } else {
+        console.log('✅ Google OAuth initiated successfully')
       }
+
       return { data, error }
     } catch (error) {
-      console.error('Google sign in error:', error)
+      console.error('❌ Google sign in error:', error)
       return { data: null, error }
     }
   },
