@@ -104,8 +104,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(userProfile)
     } catch (error) {
       console.error('Error loading user profile:', error)
-      // If user doesn't exist in backend, they'll be created on first API call
-      setUser(null)
+      // If user doesn't exist in backend, create a minimal user object from Supabase session
+      if (session?.user) {
+        const fallbackUser: User = {
+          id: session.user.id,
+          email: session.user.email || '',
+          name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || '',
+          plan: 'free',
+          credits: 1000, // Default credits for new users
+          is_admin: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+        setUser(fallbackUser)
+      } else {
+        setUser(null)
+      }
     } finally {
       setLoading(false)
     }
@@ -169,7 +183,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     signInWithGoogle,
     signOut,
     refreshUser,
-    isAuthenticated: !!session && !!user,
+    isAuthenticated: !!session, // User is authenticated if they have a Supabase session
     isAdmin: user?.is_admin || false
   }
 

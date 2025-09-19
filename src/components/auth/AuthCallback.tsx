@@ -15,21 +15,38 @@ export function AuthCallback() {
   const { isAuthenticated, loading } = useAuth()
 
   useEffect(() => {
-    // Wait for auth state to settle
-    const timer = setTimeout(() => {
-      if (!loading) {
+    // Handle auth callback more efficiently
+    const handleAuthCallback = async () => {
+      // Check if we have URL fragments (Supabase auth)
+      const hashParams = new URLSearchParams(window.location.hash.substring(1))
+      const hasAuthParams = hashParams.get('access_token') || hashParams.get('error')
+
+      if (hasAuthParams) {
+        // Wait a bit for Supabase to process the auth callback
+        const timer = setTimeout(() => {
+          if (isAuthenticated && !loading) {
+            // Success - redirect to dashboard
+            const redirectTo = searchParams.get('redirect_to') || '/dashboard'
+            navigate(redirectTo, { replace: true })
+          } else if (!loading) {
+            // Failed - redirect to login with error
+            navigate('/login?error=auth_failed', { replace: true })
+          }
+        }, 1500) // Reduced wait time
+
+        return () => clearTimeout(timer)
+      } else {
+        // No auth params, likely a direct visit - redirect immediately
         if (isAuthenticated) {
-          // Success - redirect to dashboard
           const redirectTo = searchParams.get('redirect_to') || '/dashboard'
           navigate(redirectTo, { replace: true })
         } else {
-          // Failed - redirect to login with error
-          navigate('/login?error=auth_failed', { replace: true })
+          navigate('/login', { replace: true })
         }
       }
-    }, 2000) // Give some time for auth state to update
+    }
 
-    return () => clearTimeout(timer)
+    handleAuthCallback()
   }, [isAuthenticated, loading, navigate, searchParams])
 
   return (
