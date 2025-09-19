@@ -73,7 +73,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
           setSession(initialSession)
 
           if (initialSession) {
-            await loadUserProfile()
+            // Verify the session is valid by checking if we can get user
+            try {
+              const { data: { user }, error } = await supabase.auth.getUser()
+              if (error || !user) {
+                console.log('⚠️ Invalid session detected, clearing...')
+                // Clear invalid session
+                await supabase.auth.signOut({ scope: 'global' })
+                setSession(null)
+                setUser(null)
+                setLoading(false)
+                return
+              }
+              await loadUserProfile()
+            } catch (error) {
+              console.error('❌ Error validating session:', error)
+              // Clear potentially corrupted session
+              await supabase.auth.signOut({ scope: 'global' })
+              setSession(null)
+              setUser(null)
+              setLoading(false)
+            }
           } else {
             setLoading(false)
           }
@@ -382,37 +402,73 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.log('🚪 Starting sign out process...')
       setLoading(true)
 
-      // Clear local state first
+      // Clear local state immediately
       setUser(null)
       setSession(null)
 
-      const { error } = await auth.signOut()
+      // Sign out from Supabase with global scope
+      const { error } = await supabase.auth.signOut({ scope: 'global' })
 
       if (error) {
         console.error('❌ Supabase sign out error:', error)
-        throw error
+      } else {
+        console.log('✅ Supabase sign out successful')
       }
 
-      console.log('✅ Sign out successful')
+      // Clear all auth-related browser storage
+      try {
+        // Clear specific Supabase keys
+        const authKeys = [
+          'sb-uchvakaeswmuvqnzjiiu-auth-token',
+          'supabase.auth.token',
+          'sb-auth-token'
+        ]
+        authKeys.forEach(key => {
+          localStorage.removeItem(key)
+          sessionStorage.removeItem(key)
+        })
 
-      // Force redirect to landing page after logout
-      window.location.href = '/'
+        // Clear any keys containing 'supabase', 'sb-', or 'auth'
+        Object.keys(localStorage).forEach(key => {
+          if (key.includes('supabase') || key.includes('sb-') || key.includes('auth')) {
+            localStorage.removeItem(key)
+          }
+        })
+
+        Object.keys(sessionStorage).forEach(key => {
+          if (key.includes('supabase') || key.includes('sb-') || key.includes('auth')) {
+            sessionStorage.removeItem(key)
+          }
+        })
+
+        console.log('✅ Auth storage cleared')
+      } catch (clearError) {
+        console.warn('⚠️ Error clearing storage:', clearError)
+      }
+
+      console.log('✅ Sign out completed - redirecting to home')
+
+      // Force redirect to landing page with cache bust
+      window.location.href = '/?t=' + Date.now()
 
     } catch (error) {
       console.error('❌ Error signing out:', error)
 
-      // Even if Supabase signout fails, clear local state and redirect
+      // Force clear everything even if sign out fails
       setUser(null)
       setSession(null)
       setLoading(false)
 
-      toast({
-        title: "Signed out",
-        description: "You have been signed out.",
-      })
+      // Clear storage anyway
+      try {
+        localStorage.clear()
+        sessionStorage.clear()
+      } catch (e) {
+        console.warn('⚠️ Failed to clear storage:', e)
+      }
 
-      // Force redirect to landing page after logout
-      window.location.href = '/'
+      // Still redirect to home
+      window.location.href = '/?t=' + Date.now()
     }
   }
 
