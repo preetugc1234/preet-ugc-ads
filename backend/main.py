@@ -27,9 +27,32 @@ app.add_middleware(
 
 # Import routers
 from src.routes.auth_routes import router as auth_router
+from src.routes.user_routes import router as user_router
+from src.routes.health_routes import router as health_router
+
+# Import error handlers
+from src.middleware.error_handler import (
+    http_exception_handler,
+    validation_exception_handler,
+    database_exception_handler,
+    invalid_object_id_handler,
+    general_exception_handler
+)
+from fastapi.exceptions import RequestValidationError
+from pymongo.errors import PyMongoError
+from bson.errors import InvalidId
 
 # Include routers
 app.include_router(auth_router)
+app.include_router(user_router)
+app.include_router(health_router)
+
+# Add error handlers
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(PyMongoError, database_exception_handler)
+app.add_exception_handler(InvalidId, invalid_object_id_handler)
+app.add_exception_handler(Exception, general_exception_handler)
 
 @app.get("/")
 async def root():
@@ -53,23 +76,7 @@ async def health_check():
         "framework": "FastAPI"
     }
 
-# Error handlers
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request, exc):
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"error": exc.detail, "status_code": exc.status_code}
-    )
-
-@app.exception_handler(Exception)
-async def general_exception_handler(request, exc):
-    return JSONResponse(
-        status_code=500,
-        content={
-            "error": "Internal server error",
-            "message": str(exc) if os.getenv("ENVIRONMENT") == "development" else "Something went wrong"
-        }
-    )
+# Note: Error handlers are now imported and registered above
 
 if __name__ == "__main__":
     uvicorn.run(
