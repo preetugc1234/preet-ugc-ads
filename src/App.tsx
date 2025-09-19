@@ -8,8 +8,11 @@ import ErrorBoundary from "./components/ErrorBoundary";
 // Authentication
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
-import LoginPage from "./components/auth/LoginPage";
 import AuthCallback from "./components/auth/AuthCallback";
+
+// Auth Pages
+import LoginPage from "./pages/auth/LoginPage";
+import SignupPage from "./pages/auth/SignupPage";
 
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -108,11 +111,11 @@ const App = () => (
 
           {/* Auth Routes */}
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           {/* Legacy auth routes - redirect to new ones */}
           <Route path="/auth/login" element={<LoginPage />} />
-          <Route path="/auth/signup" element={<LoginPage />} />
+          <Route path="/auth/signup" element={<SignupPage />} />
 
           {/* Legacy onboarding route - now handled via popup modal */}
           <Route path="/onboarding" element={<Dashboard />} />

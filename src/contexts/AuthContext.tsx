@@ -16,6 +16,8 @@ interface AuthContextType {
 
   // Auth actions
   signInWithGoogle: () => Promise<void>
+  signInWithEmail: (email: string, password: string) => Promise<void>
+  signUpWithEmail: (email: string, password: string, userData: { firstName: string, lastName: string }) => Promise<void>
   signOut: () => Promise<void>
   refreshUser: () => Promise<void>
 
@@ -169,6 +171,77 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }
 
+  // Sign up with email and password
+  const signUpWithEmail = async (email: string, password: string, userData: { firstName: string, lastName: string }) => {
+    try {
+      setLoading(true)
+      const { error } = await auth.signUpWithEmail(email, password, userData)
+
+      if (error) {
+        console.error('Email signup error:', error)
+        toast({
+          title: "Sign up failed",
+          description: error.message || "There was an error creating your account. Please try again.",
+          variant: "destructive"
+        })
+        setLoading(false)
+        return
+      }
+
+      toast({
+        title: "Account created!",
+        description: "Please check your email to verify your account, then sign in.",
+      })
+
+      // The auth state change listener will handle the rest
+    } catch (error) {
+      console.error('Error signing up:', error)
+      toast({
+        title: "Sign up failed",
+        description: "Please clear your browser cache and try again.",
+        variant: "destructive"
+      })
+      setLoading(false)
+    }
+  }
+
+  // Sign in with email and password
+  const signInWithEmail = async (email: string, password: string) => {
+    try {
+      setLoading(true)
+      const { error } = await auth.signInWithEmail(email, password)
+
+      if (error) {
+        console.error('Email signin error:', error)
+
+        let errorMessage = "Invalid email or password. Please try again."
+        if (error.message?.includes('Invalid login credentials')) {
+          errorMessage = "Invalid email or password. Please check your credentials."
+        } else if (error.message?.includes('Email not confirmed')) {
+          errorMessage = "Please check your email and click the verification link first."
+        }
+
+        toast({
+          title: "Sign in failed",
+          description: errorMessage,
+          variant: "destructive"
+        })
+        setLoading(false)
+        return
+      }
+
+      // The auth state change listener will handle the rest
+    } catch (error) {
+      console.error('Error signing in:', error)
+      toast({
+        title: "Sign in failed",
+        description: "Please clear your browser cache and try again.",
+        variant: "destructive"
+      })
+      setLoading(false)
+    }
+  }
+
   // Sign in with Google
   const signInWithGoogle = async () => {
     try {
@@ -253,6 +326,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     session,
     loading,
     signInWithGoogle,
+    signInWithEmail,
+    signUpWithEmail,
     signOut,
     refreshUser,
     isAuthenticated: !!session, // User is authenticated if they have a Supabase session

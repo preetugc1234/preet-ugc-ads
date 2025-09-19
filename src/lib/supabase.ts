@@ -115,6 +115,59 @@ export const clearAllBrowserStorage = async () => {
 
 // Authentication helpers
 export const auth = {
+  // Sign up with email and password
+  signUpWithEmail: async (email: string, password: string, userData: { firstName: string, lastName: string }) => {
+    try {
+      // Clear browser storage first
+      await clearAllBrowserStorage()
+      await new Promise(resolve => setTimeout(resolve, 500))
+
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            first_name: userData.firstName,
+            last_name: userData.lastName,
+            full_name: `${userData.firstName} ${userData.lastName}`
+          }
+        }
+      })
+
+      if (error) {
+        console.error('Email signup error:', error)
+      }
+
+      return { data, error }
+    } catch (error) {
+      console.error('Signup error:', error)
+      return { data: null, error }
+    }
+  },
+
+  // Sign in with email and password
+  signInWithEmail: async (email: string, password: string) => {
+    try {
+      // Clear browser storage first
+      await clearAllBrowserStorage()
+      await new Promise(resolve => setTimeout(resolve, 500))
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      })
+
+      if (error) {
+        console.error('Email signin error:', error)
+      }
+
+      return { data, error }
+    } catch (error) {
+      console.error('Signin error:', error)
+      return { data: null, error }
+    }
+  },
+
   // Sign in with Google
   signInWithGoogle: async () => {
     try {

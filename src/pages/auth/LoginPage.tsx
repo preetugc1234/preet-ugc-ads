@@ -1,25 +1,34 @@
 /**
  * Login Page Component
- * Handles user authentication with Google OAuth
+ * Handles user authentication with both Google OAuth and email/password
  */
 
 import React, { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { clearAuthData, clearAllBrowserStorage } from '../../lib/supabase'
-import { Button } from '../ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
-import { Alert, AlertDescription } from '../ui/alert'
-import { Loader2, Chrome, ArrowLeft, AlertCircle, RefreshCw, Trash2 } from 'lucide-react'
+import { clearAllBrowserStorage } from '../../lib/supabase'
+import { Button } from '../../components/ui/button'
+import { Input } from '../../components/ui/input'
+import { Label } from '../../components/ui/label'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
+import { Alert, AlertDescription } from '../../components/ui/alert'
+import { Separator } from '../../components/ui/separator'
+import { Loader2, Chrome, ArrowLeft, AlertCircle, RefreshCw, Trash2, Eye, EyeOff, Mail, Lock } from 'lucide-react'
 
 export function LoginPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { signInWithGoogle, loading, isAuthenticated } = useAuth()
+  const { signInWithGoogle, signInWithEmail, loading, isAuthenticated } = useAuth()
   const [isClearing, setIsClearing] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
-  // Check if this is signup mode based on URL path
-  const isSignupMode = window.location.pathname.includes('signup')
+  // Form state
+  const [formData, setFormData] = useState({
+    email: '',
+    password: ''
+  })
+
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
 
   const error = searchParams.get('error')
   const from = searchParams.get('from') || '/dashboard'
@@ -31,25 +40,50 @@ export function LoginPage() {
     }
   }, [isAuthenticated, loading, navigate, from])
 
-  const handleGoogleSignIn = async () => {
-    try {
-      await signInWithGoogle()
-      // Auth context will handle the redirect after successful sign in
-    } catch (error) {
-      console.error('Sign in error:', error)
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({ ...prev, [name]: value }))
+    // Clear error when user starts typing
+    if (formErrors[name]) {
+      setFormErrors(prev => ({ ...prev, [name]: '' }))
     }
   }
 
-  const handleClearCacheAndRetry = () => {
-    clearAuthData()
-    window.location.reload()
+  const validateForm = () => {
+    const errors: Record<string, string> = {}
+
+    if (!formData.email.trim()) {
+      errors.email = 'Email is required'
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      errors.email = 'Please enter a valid email address'
+    }
+
+    if (!formData.password) {
+      errors.password = 'Password is required'
+    }
+
+    setFormErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!validateForm()) {
+      return
+    }
+
+    await signInWithEmail(formData.email, formData.password)
+  }
+
+  const handleGoogleLogin = async () => {
+    await signInWithGoogle()
   }
 
   const handleNuclearClear = async () => {
     setIsClearing(true)
     try {
       await clearAllBrowserStorage()
-      // Wait a moment then reload
       setTimeout(() => {
         window.location.reload()
       }, 1000)
@@ -87,7 +121,7 @@ export function LoginPage() {
   const errorMessage = getErrorMessage(error)
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-slate-900 dark:via-blue-900/20 dark:to-slate-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
         {/* Back to home link */}
         <div className="text-center">
@@ -102,14 +136,9 @@ export function LoginPage() {
 
         <Card>
           <CardHeader className="text-center space-y-2">
-            <CardTitle className="text-2xl font-bold">
-              {isSignupMode ? "Create your account" : "Welcome back"}
-            </CardTitle>
+            <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
             <CardDescription>
-              {isSignupMode
-                ? "Join UGC AI to start creating amazing content with AI"
-                : "Sign in to your UGC AI account to continue creating amazing content"
-              }
+              Sign in to your UGC AI account to continue creating amazing content
             </CardDescription>
           </CardHeader>
 
@@ -128,7 +157,7 @@ export function LoginPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={handleClearCacheAndRetry}
+                        onClick={handleNuclearClear}
                         className="w-full"
                       >
                         <RefreshCw className="h-4 w-4 mr-2" />
@@ -142,10 +171,11 @@ export function LoginPage() {
 
             {/* Google Sign In Button */}
             <Button
-              onClick={handleGoogleSignIn}
+              onClick={handleGoogleLogin}
               disabled={loading}
               className="w-full"
               size="lg"
+              variant="outline"
             >
               {loading ? (
                 <>
@@ -155,7 +185,7 @@ export function LoginPage() {
               ) : (
                 <>
                   <Chrome className="h-5 w-5 mr-2" />
-                  {isSignupMode ? "Sign up with Google" : "Continue with Google"}
+                  Continue with Google
                 </>
               )}
             </Button>
@@ -163,19 +193,109 @@ export function LoginPage() {
             {/* Divider */}
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
+                <Separator className="w-full" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
                 <span className="bg-background px-2 text-muted-foreground">
-                  Secure authentication
+                  Or continue with email
                 </span>
               </div>
             </div>
 
+            {/* Email Login Form */}
+            <form onSubmit={handleEmailLogin} className="space-y-4">
+              {/* Email Field */}
+              <div>
+                <Label htmlFor="email">Email Address</Label>
+                <div className="relative mt-1">
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    className="pl-10"
+                    placeholder="Enter your email"
+                    disabled={loading}
+                  />
+                </div>
+                {formErrors.email && (
+                  <p className="text-sm text-red-600 mt-1">{formErrors.email}</p>
+                )}
+              </div>
+
+              {/* Password Field */}
+              <div>
+                <Label htmlFor="password">Password</Label>
+                <div className="relative mt-1">
+                  <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="password"
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    className="pl-10 pr-10"
+                    placeholder="Enter your password"
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {formErrors.password && (
+                  <p className="text-sm text-red-600 mt-1">{formErrors.password}</p>
+                )}
+              </div>
+
+              {/* Remember Me & Forgot Password */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <input
+                    id="remember-me"
+                    name="remember-me"
+                    type="checkbox"
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <Label htmlFor="remember-me" className="ml-2 text-sm">
+                    Remember me
+                  </Label>
+                </div>
+                <Link
+                  to="/forgot-password"
+                  className="text-sm text-primary hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+
+              {/* Submit Button */}
+              <Button
+                type="submit"
+                className="w-full"
+                size="lg"
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  'Sign In'
+                )}
+              </Button>
+            </form>
+
             {/* Features list */}
             <div className="space-y-3 pt-2">
               <div className="text-sm text-muted-foreground">
-                {isSignupMode ? "What you'll get access to:" : "Access your account to:"}
+                Access your account to:
               </div>
               <ul className="space-y-2 text-sm">
                 <li className="flex items-center">
@@ -184,7 +304,7 @@ export function LoginPage() {
                 </li>
                 <li className="flex items-center">
                   <div className="w-2 h-2 bg-primary rounded-full mr-3"></div>
-                  {isSignupMode ? "1000 free credits to start" : "Use your available credits"}
+                  Use your available credits
                 </li>
                 <li className="flex items-center">
                   <div className="w-2 h-2 bg-primary rounded-full mr-3"></div>
@@ -200,7 +320,7 @@ export function LoginPage() {
             {/* Nuclear clear option */}
             <div className="pt-4 border-t">
               <div className="text-xs text-muted-foreground text-center mb-3">
-                Still having issues? Try the nuclear option:
+                Having browser issues?
               </div>
               <Button
                 variant="outline"
@@ -231,23 +351,12 @@ export function LoginPage() {
           </CardContent>
         </Card>
 
-        {/* Additional help */}
+        {/* Don't have account */}
         <div className="text-center text-sm text-muted-foreground">
-          {isSignupMode ? (
-            <>
-              Already have an account?{' '}
-              <Link to="/login" className="text-primary hover:underline">
-                Sign in here
-              </Link>
-            </>
-          ) : (
-            <>
-              Don't have an account?{' '}
-              <Link to="/signup" className="text-primary hover:underline">
-                Sign up here
-              </Link>
-            </>
-          )}
+          Don't have an account?{' '}
+          <Link to="/signup" className="text-primary hover:underline">
+            Sign up here
+          </Link>
         </div>
       </div>
     </div>
