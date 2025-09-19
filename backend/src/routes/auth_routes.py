@@ -9,12 +9,12 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
 import logging
 
-from auth import (
+from ..auth import (
     get_current_user, require_auth, require_admin, AuthUser,
     promote_user_to_admin, revoke_admin_access, get_all_users,
     update_user_profile, supabase_client
 )
-from database import get_db, get_user_by_id, update_user_credits, CreditLedgerModel
+from ..database import get_db, get_user_by_id, update_user_credits, CreditLedgerModel
 from bson import ObjectId
 
 logger = logging.getLogger(__name__)

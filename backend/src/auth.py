@@ -15,7 +15,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from supabase import create_client, Client
 from jose import JWTError, jwt as jose_jwt
 
-from database import (
+from .database import (
     get_db, UserModel, get_user_by_auth_id,
     get_user_by_id, update_user_credits
 )
