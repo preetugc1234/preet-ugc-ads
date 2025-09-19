@@ -82,6 +82,36 @@ export const clearAuthData = () => {
   }
 }
 
+// Emergency session clear - call from browser console if needed
+export const emergencySessionClear = async () => {
+  try {
+    console.log('🧹 Emergency session clear started...')
+
+    // Sign out from Supabase first
+    await supabase.auth.signOut({ scope: 'global' })
+
+    // Clear all auth-related storage
+    clearAuthData()
+
+    // Clear all browser storage
+    localStorage.clear()
+    sessionStorage.clear()
+
+    // Clear cookies
+    document.cookie.split(";").forEach(function(c) {
+      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+    });
+
+    console.log('✅ Emergency session clear completed')
+    console.log('🔄 Reload the page to test fresh state')
+
+    return true
+  } catch (error) {
+    console.error('❌ Emergency session clear failed:', error)
+    return false
+  }
+}
+
 // Nuclear option - clear ALL browser storage
 export const clearAllBrowserStorage = async () => {
   try {
@@ -284,3 +314,9 @@ export const auth = {
 }
 
 export default supabase
+
+// Make emergency clear available globally for debugging
+if (typeof window !== 'undefined') {
+  (window as any).emergencySessionClear = emergencySessionClear
+  console.log('🔧 Debug function available: emergencySessionClear()')
+}
