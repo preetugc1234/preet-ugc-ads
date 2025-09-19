@@ -17,7 +17,8 @@
       "Bash(npx tsc:*)",
       "Bash(git fetch:*)",
       "Bash(git reset:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(python:*)"
     ],
     "deny": [],
     "ask": []
