@@ -26,14 +26,10 @@ app.add_middleware(
 )
 
 # Import routers
-from src.routes import auth, users, jobs, generate, payments
+from src.routes.auth_routes import router as auth_router
 
 # Include routers
-app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
-app.include_router(users.router, prefix="/api/users", tags=["Users"])
-app.include_router(jobs.router, prefix="/api/jobs", tags=["Jobs"])
-app.include_router(generate.router, prefix="/api/generate", tags=["Generation"])
-app.include_router(payments.router, prefix="/api/payments", tags=["Payments"])
+app.include_router(auth_router)
 
 @app.get("/")
 async def root():
