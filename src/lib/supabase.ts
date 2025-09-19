@@ -9,6 +9,13 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = 'https://uchvakaeswmuvqnzjiiu.supabase.co'
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjaHZha2Flc3dtdXZxbnpqaWl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgxMDEwNzQsImV4cCI6MjA3MzY3NzA3NH0.rufufy_1L07QkSDOheIyuH8nD4MeT2LuAeF57znPx6k'
 
+// Debug configuration
+console.log('🔧 Supabase Config:', {
+  url: supabaseUrl,
+  keyLength: supabaseAnonKey.length,
+  origin: typeof window !== 'undefined' ? window.location.origin : 'server'
+})
+
 // Create Supabase client
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {

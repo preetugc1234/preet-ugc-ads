@@ -173,12 +173,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Sign up with email and password
   const signUpWithEmail = async (email: string, password: string, userData: { firstName: string, lastName: string }) => {
+    console.log('🔄 AuthContext: Starting email signup', { email })
+
     try {
       setLoading(true)
+
+      // Add timeout to prevent infinite loading
+      const timeoutId = setTimeout(() => {
+        console.log('⏰ Signup timeout - forcing loading to false')
+        setLoading(false)
+        toast({
+          title: "Signup timed out",
+          description: "The signup process took too long. Please try again.",
+          variant: "destructive"
+        })
+      }, 15000) // 15 second timeout
+
       const { error } = await auth.signUpWithEmail(email, password, userData)
+      clearTimeout(timeoutId) // Clear timeout if request completes
 
       if (error) {
-        console.error('Email signup error:', error)
+        console.error('❌ Email signup error:', error)
         toast({
           title: "Sign up failed",
           description: error.message || "There was an error creating your account. Please try again.",
@@ -188,14 +203,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
         return
       }
 
+      console.log('✅ Email signup successful')
       toast({
         title: "Account created!",
         description: "Please check your email to verify your account, then sign in.",
       })
+      setLoading(false) // Force loading off after successful signup
 
       // The auth state change listener will handle the rest
     } catch (error) {
-      console.error('Error signing up:', error)
+      console.error('❌ Error signing up:', error)
       toast({
         title: "Sign up failed",
         description: "Please clear your browser cache and try again.",
@@ -207,12 +224,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Sign in with email and password
   const signInWithEmail = async (email: string, password: string) => {
+    console.log('🔄 AuthContext: Starting email signin', { email })
+
     try {
       setLoading(true)
+
+      // Add timeout to prevent infinite loading
+      const timeoutId = setTimeout(() => {
+        console.log('⏰ Signin timeout - forcing loading to false')
+        setLoading(false)
+        toast({
+          title: "Sign in timed out",
+          description: "The sign in process took too long. Please try again.",
+          variant: "destructive"
+        })
+      }, 15000) // 15 second timeout
+
       const { error } = await auth.signInWithEmail(email, password)
+      clearTimeout(timeoutId) // Clear timeout if request completes
 
       if (error) {
-        console.error('Email signin error:', error)
+        console.error('❌ Email signin error:', error)
 
         let errorMessage = "Invalid email or password. Please try again."
         if (error.message?.includes('Invalid login credentials')) {
@@ -230,9 +262,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         return
       }
 
+      console.log('✅ Email signin successful')
+
       // The auth state change listener will handle the rest
     } catch (error) {
-      console.error('Error signing in:', error)
+      console.error('❌ Error signing in:', error)
       toast({
         title: "Sign in failed",
         description: "Please clear your browser cache and try again.",
@@ -244,16 +278,30 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Sign in with Google
   const signInWithGoogle = async () => {
+    console.log('🔄 AuthContext: Starting Google OAuth')
+
     try {
       setLoading(true)
+
+      // Add timeout to prevent infinite loading
+      const timeoutId = setTimeout(() => {
+        console.log('⏰ Google OAuth timeout - forcing loading to false')
+        setLoading(false)
+        toast({
+          title: "Google sign in timed out",
+          description: "The Google sign in took too long. Please try again.",
+          variant: "destructive"
+        })
+      }, 20000) // 20 second timeout for OAuth
 
       // Clear any existing corrupted auth data before attempting sign in
       clearAuthData()
 
       const { error } = await auth.signInWithGoogle()
+      clearTimeout(timeoutId) // Clear timeout if request completes
 
       if (error) {
-        console.error('Google OAuth error:', error)
+        console.error('❌ Google OAuth error:', error)
 
         // Handle specific error cases
         if (error.message?.includes('popup_closed_by_user')) {
@@ -280,9 +328,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         return
       }
 
+      console.log('✅ Google OAuth successful')
+
       // The auth state change listener will handle the rest
     } catch (error) {
-      console.error('Error signing in:', error)
+      console.error('❌ Error signing in:', error)
       toast({
         title: "Sign in failed",
         description: "Please clear your browser cache and cookies, then try again.",

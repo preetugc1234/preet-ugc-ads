@@ -88,19 +88,35 @@ export function SignupPage() {
 
   const handleEmailSignup = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log('🔐 Email signup clicked', { email: formData.email, loading })
 
     if (!validateForm()) {
+      console.log('❌ Form validation failed')
       return
     }
 
-    await signUpWithEmail(formData.email, formData.password, {
-      firstName: formData.firstName,
-      lastName: formData.lastName
-    })
+    console.log('📧 Starting email signup...')
+    try {
+      await signUpWithEmail(formData.email, formData.password, {
+        firstName: formData.firstName,
+        lastName: formData.lastName
+      })
+      console.log('✅ Email signup completed')
+    } catch (error) {
+      console.error('❌ Email signup error:', error)
+    }
   }
 
   const handleGoogleSignup = async () => {
-    await signInWithGoogle()
+    console.log('🔐 Google signup clicked', { loading })
+
+    try {
+      console.log('🔄 Starting Google OAuth signup...')
+      await signInWithGoogle()
+      console.log('✅ Google signup completed')
+    } catch (error) {
+      console.error('❌ Google signup error:', error)
+    }
   }
 
   const handleNuclearClear = async () => {
