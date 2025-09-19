@@ -164,12 +164,12 @@ export default function Navbar() {
             >
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
-            <Link to="/auth/login">
+            <Link to="/simple-login">
               <Button variant="ghost" size="sm" className="hover:bg-white/10">
                 Login
               </Button>
             </Link>
-            <Link to="/auth/signup">
+            <Link to="/simple-signup">
               <Button size="sm" className="bg-gradient-primary hover:opacity-90 border-0 shadow-glow">
                 Sign Up
               </Button>
@@ -232,10 +232,10 @@ export default function Navbar() {
                   </div>
 
                   <div className="flex flex-col space-y-2 pt-4">
-                    <Link to="/auth/login" onClick={() => setIsOpen(false)}>
+                    <Link to="/simple-login" onClick={() => setIsOpen(false)}>
                       <Button variant="ghost" size="sm" className="w-full">Login</Button>
                     </Link>
-                    <Link to="/auth/signup" onClick={() => setIsOpen(false)}>
+                    <Link to="/simple-signup" onClick={() => setIsOpen(false)}>
                       <Button size="sm" className="bg-gradient-primary hover:opacity-90 w-full">
                         Sign Up
                       </Button>

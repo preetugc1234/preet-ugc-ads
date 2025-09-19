@@ -395,8 +395,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       console.log('✅ Sign out successful')
 
-      // Force redirect to login page
-      window.location.href = '/simple-login'
+      // Force redirect to landing page after logout
+      window.location.href = '/'
 
     } catch (error) {
       console.error('❌ Error signing out:', error)
@@ -411,8 +411,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         description: "You have been signed out.",
       })
 
-      // Force redirect to login page
-      window.location.href = '/simple-login'
+      // Force redirect to landing page after logout
+      window.location.href = '/'
     }
   }
 
