@@ -30,7 +30,13 @@ export function SimpleSignup() {
   }
 
   const handleGoogleSignup = async () => {
-    await signInWithGoogle()
+    console.log('🔘 Google signup button clicked')
+    try {
+      await signInWithGoogle()
+      console.log('🔄 Google OAuth initiated from signup page')
+    } catch (error) {
+      console.error('❌ Google signup error in SimpleSignup:', error)
+    }
   }
 
   return (

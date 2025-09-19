@@ -22,16 +22,31 @@ export function AuthCallback() {
 
     const handleAuthCallback = async () => {
       try {
+        console.log('🔍 AuthCallback: Starting callback handling')
+        console.log('🔗 Current URL:', window.location.href)
+        console.log('🔗 Hash:', window.location.hash)
+        console.log('🔗 Search:', window.location.search)
+
         // Check if we have URL fragments (Supabase auth)
         const hashParams = new URLSearchParams(window.location.hash.substring(1))
-        const hasAuthParams = hashParams.get('access_token') || hashParams.get('error')
-        const errorParam = hashParams.get('error')
+        const searchParams = new URLSearchParams(window.location.search)
+        const hasAuthParams = hashParams.get('access_token') || hashParams.get('error') || searchParams.get('code')
+        const errorParam = hashParams.get('error') || searchParams.get('error')
+
+        console.log('🔍 Auth params found:', {
+          hasAuthParams,
+          accessToken: !!hashParams.get('access_token'),
+          error: errorParam,
+          code: !!searchParams.get('code'),
+          isAuthenticated,
+          loading
+        })
 
         // Check for errors in the URL
         if (errorParam) {
-          console.error('Auth callback error:', errorParam)
+          console.error('❌ Auth callback error:', errorParam)
           setHasAuthError(true)
-          navigate('/login?error=auth_failed', { replace: true })
+          navigate('/simple-login?error=auth_failed', { replace: true })
           return
         }
 

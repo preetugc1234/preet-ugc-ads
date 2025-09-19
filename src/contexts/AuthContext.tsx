@@ -105,7 +105,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
           setSession(session)
 
           if (event === 'SIGNED_IN' && session) {
-            console.log('✅ User signed in, loading profile...')
+            console.log('✅ User signed in via:', session.user?.app_metadata?.provider || 'unknown')
+            console.log('📧 User email:', session.user?.email)
+            console.log('🔑 Session expires at:', session.expires_at)
             await loadUserProfile()
             toast({
               title: "Welcome!",

@@ -25,7 +25,13 @@ export function SimpleLogin() {
   }
 
   const handleGoogleLogin = async () => {
-    await signInWithGoogle()
+    console.log('🔘 Google login button clicked')
+    try {
+      await signInWithGoogle()
+      console.log('🔄 Google OAuth initiated from login page')
+    } catch (error) {
+      console.error('❌ Google login error in SimpleLogin:', error)
+    }
   }
 
   return (
