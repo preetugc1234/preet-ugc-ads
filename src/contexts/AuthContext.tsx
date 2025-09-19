@@ -379,22 +379,40 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Sign out
   const signOut = async () => {
     try {
+      console.log('🚪 Starting sign out process...')
       setLoading(true)
+
+      // Clear local state first
+      setUser(null)
+      setSession(null)
+
       const { error } = await auth.signOut()
 
       if (error) {
+        console.error('❌ Supabase sign out error:', error)
         throw error
       }
 
-      // The auth state change listener will handle the rest
+      console.log('✅ Sign out successful')
+
+      // Force redirect to login page
+      window.location.href = '/simple-login'
+
     } catch (error) {
-      console.error('Error signing out:', error)
-      toast({
-        title: "Sign out failed",
-        description: "There was an error signing you out. Please try again.",
-        variant: "destructive"
-      })
+      console.error('❌ Error signing out:', error)
+
+      // Even if Supabase signout fails, clear local state and redirect
+      setUser(null)
+      setSession(null)
       setLoading(false)
+
+      toast({
+        title: "Signed out",
+        description: "You have been signed out.",
+      })
+
+      // Force redirect to login page
+      window.location.href = '/simple-login'
     }
   }
 

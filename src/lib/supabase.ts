@@ -196,8 +196,10 @@ export const auth = {
           redirectTo: redirectUrl,
           queryParams: {
             access_type: 'offline',
-            prompt: 'select_account' // Allow user to select account
-          }
+            prompt: 'consent' // Better mobile compatibility
+          },
+          // Better mobile support
+          skipBrowserRedirect: false
         }
       })
 
@@ -221,13 +223,44 @@ export const auth = {
   // Sign out
   signOut: async () => {
     try {
-      const { error } = await supabase.auth.signOut()
-      // Clear auth data after sign out
-      clearAuthData()
+      console.log('🔄 Supabase: Starting sign out...')
+
+      // Sign out from Supabase
+      const { error } = await supabase.auth.signOut({
+        scope: 'global' // Sign out from all sessions
+      })
+
+      if (error) {
+        console.error('❌ Supabase sign out error:', error)
+      } else {
+        console.log('✅ Supabase sign out successful')
+      }
+
+      // Clear only auth-related data, not all browser storage
+      try {
+        const authKeys = [
+          'sb-uchvakaeswmuvqnzjiiu-auth-token',
+          'supabase.auth.token',
+          'sb-auth-token'
+        ]
+        authKeys.forEach(key => {
+          localStorage.removeItem(key)
+          sessionStorage.removeItem(key)
+        })
+
+        // Clear any keys that contain 'supabase' or 'auth'
+        Object.keys(localStorage).forEach(key => {
+          if (key.includes('supabase') || key.includes('sb-') || key.includes('auth')) {
+            localStorage.removeItem(key)
+          }
+        })
+      } catch (clearError) {
+        console.warn('⚠️ Error clearing auth data:', clearError)
+      }
+
       return { error }
     } catch (error) {
-      // Even if sign out fails, clear local data
-      clearAuthData()
+      console.error('❌ Sign out error:', error)
       return { error }
     }
   },

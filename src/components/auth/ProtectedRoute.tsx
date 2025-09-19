@@ -31,7 +31,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
 
   // Redirect to login if not authenticated
   if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />
+    return <Navigate to="/simple-login" state={{ from: location }} replace />
   }
 
   // Redirect to dashboard if admin required but user is not admin
