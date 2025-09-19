@@ -21,6 +21,8 @@ export function LoginPage() {
   const { signInWithGoogle, signInWithEmail, loading, isAuthenticated } = useAuth()
   const [isClearing, setIsClearing] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [localLoading, setLocalLoading] = useState(false)
+  const [forceReset, setForceReset] = useState(false)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -68,32 +70,49 @@ export function LoginPage() {
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('🔐 Email login clicked', { email: formData.email, loading })
+    console.log('🔐 Email login clicked', { email: formData.email, loading, localLoading })
 
     if (!validateForm()) {
       console.log('❌ Form validation failed')
       return
     }
 
+    setLocalLoading(true)
     console.log('📧 Starting email login...')
     try {
       await signInWithEmail(formData.email, formData.password)
       console.log('✅ Email login completed')
     } catch (error) {
       console.error('❌ Email login error:', error)
+    } finally {
+      setLocalLoading(false)
     }
   }
 
   const handleGoogleLogin = async () => {
-    console.log('🔐 Google login clicked', { loading })
+    console.log('🔐 Google login clicked', { loading, localLoading })
 
+    setLocalLoading(true)
     try {
       console.log('🔄 Starting Google OAuth...')
       await signInWithGoogle()
       console.log('✅ Google login completed')
     } catch (error) {
       console.error('❌ Google login error:', error)
+    } finally {
+      setLocalLoading(false)
     }
+  }
+
+  const handleEmergencyReset = () => {
+    console.log('🚨 EMERGENCY RESET clicked')
+    setLocalLoading(false)
+    setIsClearing(false)
+    setForceReset(true)
+    // Force reload after 1 second
+    setTimeout(() => {
+      window.location.reload()
+    }, 1000)
   }
 
   const handleNuclearClear = async () => {
@@ -135,6 +154,7 @@ export function LoginPage() {
   }
 
   const errorMessage = getErrorMessage(error)
+  const isCurrentlyLoading = forceReset ? false : (loading || localLoading)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-slate-900 dark:via-blue-900/20 dark:to-slate-900 flex items-center justify-center p-4">
@@ -159,6 +179,29 @@ export function LoginPage() {
           </CardHeader>
 
           <CardContent className="space-y-6">
+            {/* Debug Info */}
+            <div className="text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded">
+              <strong>DEBUG:</strong> AuthContext loading: {loading.toString()}, Local loading: {localLoading.toString()},
+              Currently loading: {isCurrentlyLoading.toString()}
+            </div>
+
+            {/* Emergency Reset Button */}
+            {(loading || localLoading) && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-4">
+                <div className="text-sm text-red-700 dark:text-red-300 mb-2">
+                  Buttons stuck loading? Use emergency reset:
+                </div>
+                <Button
+                  onClick={handleEmergencyReset}
+                  variant="destructive"
+                  size="sm"
+                  className="w-full"
+                >
+                  🚨 EMERGENCY RESET & RELOAD
+                </Button>
+              </div>
+            )}
+
             {/* Error Alert */}
             {errorMessage && (
               <Alert variant="destructive">
@@ -188,12 +231,12 @@ export function LoginPage() {
             {/* Google Sign In Button */}
             <Button
               onClick={handleGoogleLogin}
-              disabled={loading}
+              disabled={isCurrentlyLoading}
               className="w-full"
               size="lg"
               variant="outline"
             >
-              {loading ? (
+              {isCurrentlyLoading ? (
                 <>
                   <Loader2 className="h-5 w-5 mr-2 animate-spin" />
                   Signing in...
@@ -233,7 +276,7 @@ export function LoginPage() {
                     onChange={handleInputChange}
                     className="pl-10"
                     placeholder="Enter your email"
-                    disabled={loading}
+                    disabled={isCurrentlyLoading}
                   />
                 </div>
                 {formErrors.email && (
@@ -254,7 +297,7 @@ export function LoginPage() {
                     onChange={handleInputChange}
                     className="pl-10 pr-10"
                     placeholder="Enter your password"
-                    disabled={loading}
+                    disabled={isCurrentlyLoading}
                   />
                   <button
                     type="button"
@@ -295,9 +338,9 @@ export function LoginPage() {
                 type="submit"
                 className="w-full"
                 size="lg"
-                disabled={loading}
+                disabled={isCurrentlyLoading}
               >
-                {loading ? (
+                {isCurrentlyLoading ? (
                   <>
                     <Loader2 className="h-5 w-5 mr-2 animate-spin" />
                     Signing in...
@@ -342,7 +385,7 @@ export function LoginPage() {
                 variant="outline"
                 size="sm"
                 onClick={handleNuclearClear}
-                disabled={isClearing || loading}
+                disabled={isClearing || isCurrentlyLoading}
                 className="w-full text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
               >
                 {isClearing ? (

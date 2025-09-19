@@ -22,6 +22,8 @@ export function SignupPage() {
   const [isClearing, setIsClearing] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [localLoading, setLocalLoading] = useState(false)
+  const [forceReset, setForceReset] = useState(false)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -88,13 +90,14 @@ export function SignupPage() {
 
   const handleEmailSignup = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('🔐 Email signup clicked', { email: formData.email, loading })
+    console.log('🔐 Email signup clicked', { email: formData.email, loading, localLoading })
 
     if (!validateForm()) {
       console.log('❌ Form validation failed')
       return
     }
 
+    setLocalLoading(true)
     console.log('📧 Starting email signup...')
     try {
       await signUpWithEmail(formData.email, formData.password, {
@@ -104,19 +107,35 @@ export function SignupPage() {
       console.log('✅ Email signup completed')
     } catch (error) {
       console.error('❌ Email signup error:', error)
+    } finally {
+      setLocalLoading(false)
     }
   }
 
   const handleGoogleSignup = async () => {
-    console.log('🔐 Google signup clicked', { loading })
+    console.log('🔐 Google signup clicked', { loading, localLoading })
 
+    setLocalLoading(true)
     try {
       console.log('🔄 Starting Google OAuth signup...')
       await signInWithGoogle()
       console.log('✅ Google signup completed')
     } catch (error) {
       console.error('❌ Google signup error:', error)
+    } finally {
+      setLocalLoading(false)
     }
+  }
+
+  const handleEmergencyReset = () => {
+    console.log('🚨 EMERGENCY RESET clicked')
+    setLocalLoading(false)
+    setIsClearing(false)
+    setForceReset(true)
+    // Force reload after 1 second
+    setTimeout(() => {
+      window.location.reload()
+    }, 1000)
   }
 
   const handleNuclearClear = async () => {
@@ -131,6 +150,8 @@ export function SignupPage() {
       setIsClearing(false)
     }
   }
+
+  const isCurrentlyLoading = forceReset ? false : (loading || localLoading)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 dark:from-slate-900 dark:via-emerald-900/20 dark:to-slate-900 flex items-center justify-center p-4">
@@ -155,15 +176,38 @@ export function SignupPage() {
           </CardHeader>
 
           <CardContent className="space-y-6">
+            {/* Debug Info */}
+            <div className="text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded">
+              <strong>DEBUG:</strong> AuthContext loading: {loading.toString()}, Local loading: {localLoading.toString()},
+              Currently loading: {isCurrentlyLoading.toString()}
+            </div>
+
+            {/* Emergency Reset Button */}
+            {(loading || localLoading) && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-4">
+                <div className="text-sm text-red-700 dark:text-red-300 mb-2">
+                  Buttons stuck loading? Use emergency reset:
+                </div>
+                <Button
+                  onClick={handleEmergencyReset}
+                  variant="destructive"
+                  size="sm"
+                  className="w-full"
+                >
+                  🚨 EMERGENCY RESET & RELOAD
+                </Button>
+              </div>
+            )}
+
             {/* Google Sign Up Button */}
             <Button
               onClick={handleGoogleSignup}
-              disabled={loading}
+              disabled={isCurrentlyLoading}
               className="w-full"
               size="lg"
               variant="outline"
             >
-              {loading ? (
+              {isCurrentlyLoading ? (
                 <>
                   <Loader2 className="h-5 w-5 mr-2 animate-spin" />
                   Signing up...
@@ -204,7 +248,7 @@ export function SignupPage() {
                       onChange={handleInputChange}
                       className="pl-10"
                       placeholder="John"
-                      disabled={loading}
+                      disabled={isCurrentlyLoading}
                     />
                   </div>
                   {formErrors.firstName && (
@@ -224,7 +268,7 @@ export function SignupPage() {
                       onChange={handleInputChange}
                       className="pl-10"
                       placeholder="Doe"
-                      disabled={loading}
+                      disabled={isCurrentlyLoading}
                     />
                   </div>
                   {formErrors.lastName && (
@@ -246,7 +290,7 @@ export function SignupPage() {
                     onChange={handleInputChange}
                     className="pl-10"
                     placeholder="john.doe@example.com"
-                    disabled={loading}
+                    disabled={isCurrentlyLoading}
                   />
                 </div>
                 {formErrors.email && (
@@ -267,7 +311,7 @@ export function SignupPage() {
                     onChange={handleInputChange}
                     className="pl-10 pr-10"
                     placeholder="Create a strong password"
-                    disabled={loading}
+                    disabled={isCurrentlyLoading}
                   />
                   <button
                     type="button"
@@ -295,7 +339,7 @@ export function SignupPage() {
                     onChange={handleInputChange}
                     className="pl-10 pr-10"
                     placeholder="Confirm your password"
-                    disabled={loading}
+                    disabled={isCurrentlyLoading}
                   />
                   <button
                     type="button"
@@ -319,7 +363,7 @@ export function SignupPage() {
                     onCheckedChange={(checked) =>
                       setFormData(prev => ({ ...prev, agreeToTerms: checked as boolean }))
                     }
-                    disabled={loading}
+                    disabled={isCurrentlyLoading}
                   />
                   <Label htmlFor="agreeToTerms" className="text-sm">
                     I agree to the{' '}
@@ -342,7 +386,7 @@ export function SignupPage() {
                 type="submit"
                 className="w-full"
                 size="lg"
-                disabled={loading}
+                disabled={isCurrentlyLoading}
               >
                 {loading ? (
                   <>
