@@ -124,17 +124,30 @@ export const auth = {
       // Wait a bit for storage clearing to complete
       await new Promise(resolve => setTimeout(resolve, 500))
 
+      // Get the current origin and ensure proper redirect URL
+      const currentOrigin = window.location.origin
+      const redirectUrl = `${currentOrigin}/auth/callback`
+
+      console.log('Starting Google OAuth with redirect:', redirectUrl)
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: redirectUrl,
           queryParams: {
             access_type: 'offline',
-            prompt: 'consent',
-            approval_prompt: 'force' // Force fresh consent
+            prompt: 'consent'
           }
         }
       })
+
+      if (error) {
+        console.error('OAuth error details:', {
+          message: error.message,
+          status: error.status,
+          code: error.code
+        })
+      }
       return { data, error }
     } catch (error) {
       console.error('Google sign in error:', error)

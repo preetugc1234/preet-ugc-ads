@@ -31,9 +31,7 @@ import Support from "./pages/resources/Support";
 import PrivacyPolicy from "./pages/resources/PrivacyPolicy";
 import TermsConditions from "./pages/resources/TermsConditions";
 
-// Auth Pages
-import Login from "./pages/auth/Login";
-import Signup from "./pages/auth/Signup";
+// Note: Removed duplicate auth pages - using consolidated LoginPage for both login and signup
 
 // Dashboard Pages
 import Dashboard from "./pages/dashboard/Dashboard";
@@ -49,8 +47,7 @@ import Settings from "./pages/dashboard/Settings";
 import Notifications from "./pages/dashboard/Notifications";
 import LearningCenter from "./pages/dashboard/LearningCenter";
 
-// Onboarding Pages
-import Onboarding from "./pages/onboarding/Onboarding";
+// Note: Onboarding is now handled via popup modal in dashboard instead of separate page
 
 // Admin Pages
 import AdminAuth from "./pages/admin/AdminAuth";
@@ -111,12 +108,14 @@ const App = () => (
 
           {/* Auth Routes */}
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<LoginPage />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
-          <Route path="/auth/login" element={<Login />} />
-          <Route path="/auth/signup" element={<Signup />} />
+          {/* Legacy auth routes - redirect to new ones */}
+          <Route path="/auth/login" element={<LoginPage />} />
+          <Route path="/auth/signup" element={<LoginPage />} />
 
-          {/* Onboarding Routes */}
-          <Route path="/onboarding" element={<Onboarding />} />
+          {/* Legacy onboarding route - now handled via popup modal */}
+          <Route path="/onboarding" element={<Dashboard />} />
 
           {/* Dashboard Routes (Protected) */}
           <Route path="/dashboard" element={

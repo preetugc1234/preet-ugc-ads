@@ -18,6 +18,9 @@ export function LoginPage() {
   const { signInWithGoogle, loading, isAuthenticated } = useAuth()
   const [isClearing, setIsClearing] = useState(false)
 
+  // Check if this is signup mode based on URL path
+  const isSignupMode = window.location.pathname.includes('signup')
+
   const error = searchParams.get('error')
   const from = searchParams.get('from') || '/dashboard'
 
@@ -99,9 +102,14 @@ export function LoginPage() {
 
         <Card>
           <CardHeader className="text-center space-y-2">
-            <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
+            <CardTitle className="text-2xl font-bold">
+              {isSignupMode ? "Create your account" : "Welcome back"}
+            </CardTitle>
             <CardDescription>
-              Sign in to your UGC AI account to continue creating amazing content
+              {isSignupMode
+                ? "Join UGC AI to start creating amazing content with AI"
+                : "Sign in to your UGC AI account to continue creating amazing content"
+              }
             </CardDescription>
           </CardHeader>
 
@@ -147,7 +155,7 @@ export function LoginPage() {
               ) : (
                 <>
                   <Chrome className="h-5 w-5 mr-2" />
-                  Continue with Google
+                  {isSignupMode ? "Sign up with Google" : "Continue with Google"}
                 </>
               )}
             </Button>
@@ -167,7 +175,7 @@ export function LoginPage() {
             {/* Features list */}
             <div className="space-y-3 pt-2">
               <div className="text-sm text-muted-foreground">
-                What you'll get access to:
+                {isSignupMode ? "What you'll get access to:" : "Access your account to:"}
               </div>
               <ul className="space-y-2 text-sm">
                 <li className="flex items-center">
@@ -176,7 +184,7 @@ export function LoginPage() {
                 </li>
                 <li className="flex items-center">
                   <div className="w-2 h-2 bg-primary rounded-full mr-3"></div>
-                  Credit-based usage system
+                  {isSignupMode ? "1000 free credits to start" : "Use your available credits"}
                 </li>
                 <li className="flex items-center">
                   <div className="w-2 h-2 bg-primary rounded-full mr-3"></div>
@@ -225,10 +233,21 @@ export function LoginPage() {
 
         {/* Additional help */}
         <div className="text-center text-sm text-muted-foreground">
-          Having trouble signing in?{' '}
-          <Link to="/help" className="text-primary hover:underline">
-            Get help
-          </Link>
+          {isSignupMode ? (
+            <>
+              Already have an account?{' '}
+              <Link to="/login" className="text-primary hover:underline">
+                Sign in here
+              </Link>
+            </>
+          ) : (
+            <>
+              Don't have an account?{' '}
+              <Link to="/signup" className="text-primary hover:underline">
+                Sign up here
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </div>
