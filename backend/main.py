@@ -34,6 +34,7 @@ app.add_middleware(
 from src.routes.auth_routes import router as auth_router
 from src.routes.user_routes import router as user_router
 from src.routes.health_routes import router as health_router
+from src.routes.jobs import router as jobs_router
 
 # Import error handlers
 from src.middleware.error_handler import (
@@ -51,6 +52,7 @@ from bson.errors import InvalidId
 app.include_router(auth_router)
 app.include_router(user_router)
 app.include_router(health_router)
+app.include_router(jobs_router, prefix="/api/jobs", tags=["jobs"])
 
 # Add error handlers
 app.add_exception_handler(HTTPException, http_exception_handler)
@@ -58,6 +60,14 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(PyMongoError, database_exception_handler)
 app.add_exception_handler(InvalidId, invalid_object_id_handler)
 app.add_exception_handler(Exception, general_exception_handler)
+
+# Initialize queue management background tasks
+from src.queue_manager import start_background_tasks
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize background tasks on application startup."""
+    start_background_tasks()
 
 @app.get("/")
 async def root():

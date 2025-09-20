@@ -334,6 +334,72 @@ def create_job_with_deduction(
                 logger.error(f"Failed to create job with credit deduction: {e}")
                 return None
 
+def refund_job_credits(
+    job_id: ObjectId,
+    user_id: ObjectId,
+    refund_amount: int,
+    admin_id: Optional[ObjectId] = None,
+    reason: str = "job_failed"
+) -> bool:
+    """Refund credits for a failed job."""
+    db = get_db()
+
+    with db.client.start_session() as session:
+        with session.start_transaction():
+            try:
+                # Add credits back to user
+                user_update_result = db.users.find_one_and_update(
+                    {"_id": user_id},
+                    {
+                        "$inc": {"credits": refund_amount},
+                        "$set": {"updatedAt": datetime.now(timezone.utc)}
+                    },
+                    return_document=True,
+                    session=session
+                )
+
+                if not user_update_result:
+                    session.abort_transaction()
+                    return False
+
+                # Create refund ledger entry
+                ledger_entry = CreditLedgerModel.create_ledger_entry(
+                    user_id=user_id,
+                    change=refund_amount,
+                    balance_after=user_update_result["credits"],
+                    reason=reason,
+                    job_id=job_id,
+                    admin_id=admin_id
+                )
+                db.credit_ledger.insert_one(ledger_entry, session=session)
+
+                session.commit_transaction()
+                logger.info(f"Refunded {refund_amount} credits for job {job_id}")
+                return True
+
+            except Exception as e:
+                session.abort_transaction()
+                logger.error(f"Failed to refund credits for job {job_id}: {e}")
+                return False
+
+def get_user_credit_balance(user_id: ObjectId) -> int:
+    """Get current credit balance for user."""
+    db = get_db()
+    user = db.users.find_one({"_id": user_id}, {"credits": 1})
+    return user.get("credits", 0) if user else 0
+
+def get_user_credit_history(user_id: ObjectId, limit: int = 50) -> List[Dict[str, Any]]:
+    """Get user's credit transaction history."""
+    db = get_db()
+    return list(db.credit_ledger.find(
+        {"userId": user_id}
+    ).sort("createdAt", DESCENDING).limit(limit))
+
+def validate_sufficient_credits(user_id: ObjectId, required_credits: int) -> bool:
+    """Check if user has sufficient credits without deducting."""
+    current_balance = get_user_credit_balance(user_id)
+    return current_balance >= required_credits
+
 # Initialize database connection on module import
 try:
     db_manager.connect()
