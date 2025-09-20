@@ -16,3 +16,4 @@ python-dotenv
 aiofiles
 Pillow
 jinja2
+fal-client

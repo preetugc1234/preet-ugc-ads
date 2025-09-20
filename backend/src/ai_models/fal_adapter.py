@@ -12,6 +12,7 @@ import base64
 import json
 from datetime import datetime
 import time
+import fal_client
 
 logger = logging.getLogger(__name__)
 
@@ -25,13 +26,103 @@ class FalAdapter:
         # Fal AI model endpoints
         self.models = {
             "tts": "fal-ai/elevenlabs-text-to-speech",
-            "img2vid_noaudio": "fal-ai/kling-video-v1/pro/image-to-video",
+            "img2vid_noaudio": "fal-ai/kling-video/v2.1/pro/image-to-video",  # Updated to v2.1 Pro
             "img2vid_audio": "fal-ai/kling-video-v1/image-to-video",
             "audio2vid": "fal-ai/veed/audio-to-video"  # Custom UGC endpoint
         }
 
+        # Configure fal_client with API key
+        if self.api_key:
+            os.environ["FAL_KEY"] = self.api_key
+
         if not self.api_key:
             logger.warning("Fal AI API key not configured")
+
+    # Async submission methods for long-running requests
+    async def submit_img2vid_noaudio_async(self, params: Dict[str, Any], webhook_url: str = None) -> Dict[str, Any]:
+        """Submit Image-to-Video (no audio) request asynchronously with optional webhook."""
+        try:
+            image_url = params.get("image_url")
+            prompt = params.get("prompt", "")
+            duration = min(params.get("duration_seconds", 10), 10)
+
+            if not image_url:
+                raise Exception("Image URL is required")
+
+            arguments = {
+                "image_url": image_url,
+                "prompt": prompt,
+                "duration": str(duration),
+                "negative_prompt": params.get("negative_prompt", "blur, distort, and low quality"),
+                "cfg_scale": params.get("cfg_scale", 0.5)
+            }
+
+            if params.get("tail_image_url"):
+                arguments["tail_image_url"] = params["tail_image_url"]
+
+            # Submit request for async processing
+            handler = await asyncio.to_thread(
+                fal_client.submit,
+                self.models["img2vid_noaudio"],
+                arguments=arguments,
+                webhook_url=webhook_url
+            )
+
+            return {
+                "success": True,
+                "request_id": handler.request_id,
+                "status": "submitted",
+                "model": "kling-v2.1-pro",
+                "estimated_processing_time": "6 minutes"
+            }
+
+        except Exception as e:
+            logger.error(f"Async submission failed: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
+    async def get_async_result(self, request_id: str) -> Dict[str, Any]:
+        """Get result from async submission."""
+        try:
+            result = await asyncio.to_thread(
+                fal_client.result,
+                self.models["img2vid_noaudio"],
+                request_id
+            )
+
+            if result and "video" in result:
+                video_data = result["video"]
+                return {
+                    "success": True,
+                    "video_url": video_data.get("url"),
+                    "model": "kling-v2.1-pro",
+                    "status": "completed"
+                }
+            else:
+                return {
+                    "success": False,
+                    "status": "failed",
+                    "error": "No video generated"
+                }
+
+        except Exception as e:
+            logger.error(f"Failed to get async result: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "status": "error"
+            }
+
+    async def upload_file_to_fal(self, file_path: str) -> str:
+        """Upload file to Fal AI storage and return URL."""
+        try:
+            url = await asyncio.to_thread(fal_client.upload_file, file_path)
+            return url
+        except Exception as e:
+            logger.error(f"Failed to upload file to Fal: {e}")
+            raise
 
     # Text-to-Speech Methods
     async def generate_tts_preview(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -125,40 +216,46 @@ class FalAdapter:
 
     # Image-to-Video (No Audio) Methods
     async def generate_img2vid_noaudio_preview(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate Image-to-Video preview (no audio) using Kling V2 Pro."""
+        """Generate Image-to-Video preview (no audio) using Kling v2.1 Pro."""
         try:
             image_url = params.get("image_url")
             prompt = params.get("prompt", "")
-            duration = min(params.get("duration", 5), 5)  # Max 5s for preview
+            duration = min(params.get("duration_seconds", 5), 5)  # Max 5s for preview
 
             if not image_url:
                 raise Exception("Image URL is required")
 
-            payload = {
+            # Use fal_client for Kling v2.1 Pro
+            arguments = {
                 "image_url": image_url,
                 "prompt": prompt,
-                "duration": duration,
-                "aspect_ratio": params.get("aspect_ratio", "16:9"),
-                "mode": "pro",
-                "enable_prompt_optimizer": True
+                "duration": str(duration),
+                "negative_prompt": params.get("negative_prompt", "blur, distort, and low quality"),
+                "cfg_scale": params.get("cfg_scale", 0.5)
             }
 
-            result = await self._make_request(self.models["img2vid_noaudio"], payload)
+            # Submit request asynchronously
+            result = await asyncio.to_thread(
+                fal_client.subscribe,
+                self.models["img2vid_noaudio"],
+                arguments=arguments,
+                with_logs=True
+            )
 
             if result and "video" in result:
                 video_data = result["video"]
                 return {
                     "success": True,
                     "video_url": video_data.get("url"),
-                    "thumbnail_url": video_data.get("thumbnail_url"),
                     "duration": duration,
-                    "aspect_ratio": payload["aspect_ratio"],
-                    "model": "kling-v2-pro",
+                    "aspect_ratio": params.get("aspect_ratio", "16:9"),
+                    "model": "kling-v2.1-pro",
                     "has_audio": False,
-                    "preview": True
+                    "preview": True,
+                    "processing_time": "~2-3 minutes"
                 }
             else:
-                raise Exception("No video generated")
+                raise Exception("No video generated from Kling v2.1 Pro")
 
         except Exception as e:
             logger.error(f"Image-to-video (no audio) preview failed: {e}")
@@ -169,45 +266,51 @@ class FalAdapter:
             }
 
     async def generate_img2vid_noaudio_final(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate final Image-to-Video (no audio) using Kling V2 Pro."""
+        """Generate final Image-to-Video (no audio) using Kling v2.1 Pro."""
         try:
             image_url = params.get("image_url")
             prompt = params.get("prompt", "")
-            duration = min(params.get("duration", 10), 10)  # Max 10s for final
+            duration = min(params.get("duration_seconds", 10), 10)  # Max 10s for final
 
             if not image_url:
                 raise Exception("Image URL is required")
 
-            payload = {
+            # Use fal_client for Kling v2.1 Pro with full parameters
+            arguments = {
                 "image_url": image_url,
                 "prompt": prompt,
-                "duration": duration,
-                "aspect_ratio": params.get("aspect_ratio", "16:9"),
-                "mode": "pro",
-                "enable_prompt_optimizer": True,
-                "quality": "high",
-                "fps": 24
+                "duration": str(duration),
+                "negative_prompt": params.get("negative_prompt", "blur, distort, and low quality"),
+                "cfg_scale": params.get("cfg_scale", 0.5)
             }
 
-            result = await self._make_request(self.models["img2vid_noaudio"], payload)
+            # Add tail image if provided for more sophisticated videos
+            if params.get("tail_image_url"):
+                arguments["tail_image_url"] = params["tail_image_url"]
+
+            # Submit request asynchronously
+            result = await asyncio.to_thread(
+                fal_client.subscribe,
+                self.models["img2vid_noaudio"],
+                arguments=arguments,
+                with_logs=True
+            )
 
             if result and "video" in result:
                 video_data = result["video"]
                 return {
                     "success": True,
                     "video_url": video_data.get("url"),
-                    "thumbnail_url": video_data.get("thumbnail_url"),
                     "duration": duration,
-                    "aspect_ratio": payload["aspect_ratio"],
-                    "quality": "high",
-                    "fps": 24,
-                    "file_size": video_data.get("file_size", 0),
-                    "model": "kling-v2-pro",
+                    "aspect_ratio": params.get("aspect_ratio", "16:9"),
+                    "quality": "pro",
+                    "model": "kling-v2.1-pro",
                     "has_audio": False,
-                    "preview": False
+                    "preview": False,
+                    "processing_time": "~6 minutes"
                 }
             else:
-                raise Exception("No video generated")
+                raise Exception("No video generated from Kling v2.1 Pro")
 
         except Exception as e:
             logger.error(f"Image-to-video (no audio) final failed: {e}")

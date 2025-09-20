@@ -44,8 +44,8 @@ const MODULE_CONFIGS: Record<string, ModelConfig> = {
   "img2vid_noaudio": {
     name: "Image to Video (No Audio)",
     provider: "fal",
-    model: "fal-ai/kling-video-v1/pro/image-to-video",
-    avg_time_seconds: 45
+    model: "fal-ai/kling-video/v2.1/pro/image-to-video",
+    avg_time_seconds: 360  // 6 minutes for Kling v2.1 Pro
   },
   "tts": {
     name: "Text to Speech",
@@ -278,13 +278,16 @@ class ModelAdapter {
         break
 
       case 'img2vid_noaudio':
-        endpoint = 'fal-ai/kling-video/v1/image-to-video'
+        endpoint = 'fal-ai/kling-video/v2.1/pro/image-to-video'
         requestPayload = {
           image_url: params.image_url,
-          duration_seconds: Math.min(params.duration_seconds || 5, isPreview ? 3 : 10),
-          aspect_ratio: params.aspect_ratio || '16:9',
-          fps: isPreview ? 24 : 30,
-          mode: isPreview ? 'standard' : 'pro'
+          prompt: params.prompt || '',
+          duration: String(Math.min(params.duration_seconds || 5, isPreview ? 5 : 10)),
+          negative_prompt: params.negative_prompt || 'blur, distort, and low quality',
+          cfg_scale: params.cfg_scale || 0.5
+        }
+        if (params.tail_image_url) {
+          requestPayload.tail_image_url = params.tail_image_url
         }
         break
 

@@ -382,7 +382,7 @@ class QueueManager:
         timeouts = {
             "chat": 2,
             "image": 5,
-            "img2vid_noaudio": 15,
+            "img2vid_noaudio": 10,  # 10 minutes for Kling v2.1 Pro (6 min + buffer)
             "tts": 3,
             "img2vid_audio": 20,
             "audio2vid": 25
