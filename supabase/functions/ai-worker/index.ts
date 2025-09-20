@@ -56,8 +56,8 @@ const MODULE_CONFIGS: Record<string, ModelConfig> = {
   "img2vid_audio": {
     name: "Image to Video (With Audio)",
     provider: "fal",
-    model: "fal-ai/kling-video-v1/image-to-video",
-    avg_time_seconds: 60
+    model: "fal-ai/kling-video/v1/pro/ai-avatar",
+    avg_time_seconds: 300  // 5 minutes for AI Avatar
   },
   "audio2vid": {
     name: "Audio to Video",
@@ -292,15 +292,13 @@ class ModelAdapter {
         break
 
       case 'img2vid_audio':
-        endpoint = 'fal-ai/kling-video/v1/image-to-video'
+        endpoint = 'fal-ai/kling-video/v1/pro/ai-avatar'
         requestPayload = {
           image_url: params.image_url,
-          duration_seconds: Math.min(params.duration_seconds || 5, isPreview ? 3 : 10),
-          aspect_ratio: params.aspect_ratio || '16:9',
-          fps: isPreview ? 24 : 30,
-          mode: isPreview ? 'standard' : 'pro',
-          include_audio: true,
-          audio_prompt: params.audio_prompt || 'Natural ambient sounds'
+          audio_url: params.audio_url
+        }
+        if (!params.audio_url) {
+          throw new Error('Audio URL is required for AI Avatar')
         }
         break
 

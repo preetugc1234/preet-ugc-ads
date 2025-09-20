@@ -26,8 +26,8 @@ class FalAdapter:
         # Fal AI model endpoints
         self.models = {
             "tts": "fal-ai/elevenlabs-text-to-speech",
-            "img2vid_noaudio": "fal-ai/kling-video/v2.1/pro/image-to-video",  # Updated to v2.1 Pro
-            "img2vid_audio": "fal-ai/kling-video-v1/image-to-video",
+            "img2vid_noaudio": "fal-ai/kling-video/v2.1/pro/image-to-video",  # Kling v2.1 Pro (no audio)
+            "img2vid_audio": "fal-ai/kling-video/v1/pro/ai-avatar",  # Kling v1 Pro AI Avatar (with audio)
             "audio2vid": "fal-ai/veed/audio-to-video"  # Custom UGC endpoint
         }
 
@@ -320,49 +320,47 @@ class FalAdapter:
                 "video_url": None
             }
 
-    # Image-to-Video (With Audio) Methods
+    # Image-to-Video (With Audio) Methods - Using Kling v1 Pro AI Avatar
     async def generate_img2vid_audio_preview(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate Image-to-Video preview (with audio) using Kling V1 Pro."""
+        """Generate Image-to-Video preview (with audio) using Kling v1 Pro AI Avatar."""
         try:
             image_url = params.get("image_url")
-            prompt = params.get("prompt", "")
             audio_url = params.get("audio_url")
-            duration = min(params.get("duration", 5), 5)  # Max 5s for preview
 
             if not image_url:
                 raise Exception("Image URL is required")
+            if not audio_url:
+                raise Exception("Audio URL is required for AI Avatar")
 
-            payload = {
+            # Kling v1 Pro AI Avatar parameters (simplified for preview)
+            arguments = {
                 "image_url": image_url,
-                "prompt": prompt,
-                "duration": duration,
-                "aspect_ratio": params.get("aspect_ratio", "16:9"),
-                "mode": "pro",
-                "enable_prompt_optimizer": True
+                "audio_url": audio_url
             }
 
-            # Add audio if provided
-            if audio_url:
-                payload["audio_url"] = audio_url
-                payload["audio_sync"] = True
-
-            result = await self._make_request(self.models["img2vid_audio"], payload)
+            # Submit request using fal_client
+            result = await asyncio.to_thread(
+                fal_client.subscribe,
+                self.models["img2vid_audio"],
+                arguments=arguments,
+                with_logs=True
+            )
 
             if result and "video" in result:
                 video_data = result["video"]
                 return {
                     "success": True,
                     "video_url": video_data.get("url"),
-                    "thumbnail_url": video_data.get("thumbnail_url"),
-                    "duration": duration,
-                    "aspect_ratio": payload["aspect_ratio"],
-                    "model": "kling-v1-pro",
-                    "has_audio": bool(audio_url),
-                    "audio_synced": bool(audio_url),
-                    "preview": True
+                    "duration": params.get("duration_seconds", 5),
+                    "aspect_ratio": params.get("aspect_ratio", "1:1"),  # AI Avatar typically square
+                    "model": "kling-v1-pro-ai-avatar",
+                    "has_audio": True,
+                    "audio_synced": True,
+                    "preview": True,
+                    "processing_time": "~3-4 minutes"
                 }
             else:
-                raise Exception("No video generated")
+                raise Exception("No video generated from Kling v1 Pro AI Avatar")
 
         except Exception as e:
             logger.error(f"Image-to-video (with audio) preview failed: {e}")
@@ -373,54 +371,46 @@ class FalAdapter:
             }
 
     async def generate_img2vid_audio_final(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate final Image-to-Video (with audio) using Kling V1 Pro."""
+        """Generate final Image-to-Video (with audio) using Kling v1 Pro AI Avatar."""
         try:
             image_url = params.get("image_url")
-            prompt = params.get("prompt", "")
             audio_url = params.get("audio_url")
-            duration = min(params.get("duration", 10), 10)  # Max 10s for final
 
             if not image_url:
                 raise Exception("Image URL is required")
+            if not audio_url:
+                raise Exception("Audio URL is required for AI Avatar")
 
-            payload = {
+            # Kling v1 Pro AI Avatar parameters
+            arguments = {
                 "image_url": image_url,
-                "prompt": prompt,
-                "duration": duration,
-                "aspect_ratio": params.get("aspect_ratio", "16:9"),
-                "mode": "pro",
-                "enable_prompt_optimizer": True,
-                "quality": "high",
-                "fps": 24
+                "audio_url": audio_url
             }
 
-            # Add audio if provided
-            if audio_url:
-                payload["audio_url"] = audio_url
-                payload["audio_sync"] = True
-                payload["audio_fade_in"] = 0.5
-                payload["audio_fade_out"] = 0.5
-
-            result = await self._make_request(self.models["img2vid_audio"], payload)
+            # Submit request using fal_client
+            result = await asyncio.to_thread(
+                fal_client.subscribe,
+                self.models["img2vid_audio"],
+                arguments=arguments,
+                with_logs=True
+            )
 
             if result and "video" in result:
                 video_data = result["video"]
                 return {
                     "success": True,
                     "video_url": video_data.get("url"),
-                    "thumbnail_url": video_data.get("thumbnail_url"),
-                    "duration": duration,
-                    "aspect_ratio": payload["aspect_ratio"],
-                    "quality": "high",
-                    "fps": 24,
-                    "file_size": video_data.get("file_size", 0),
-                    "model": "kling-v1-pro",
-                    "has_audio": bool(audio_url),
-                    "audio_synced": bool(audio_url),
-                    "preview": False
+                    "duration": params.get("duration_seconds", 10),
+                    "aspect_ratio": params.get("aspect_ratio", "1:1"),  # AI Avatar typically square
+                    "quality": "pro",
+                    "model": "kling-v1-pro-ai-avatar",
+                    "has_audio": True,
+                    "audio_synced": True,
+                    "preview": False,
+                    "processing_time": "~4-5 minutes"
                 }
             else:
-                raise Exception("No video generated")
+                raise Exception("No video generated from Kling v1 Pro AI Avatar")
 
         except Exception as e:
             logger.error(f"Image-to-video (with audio) final failed: {e}")
