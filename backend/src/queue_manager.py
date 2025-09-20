@@ -165,36 +165,180 @@ class QueueManager:
             asyncio.create_task(self._mock_job_processing(job_id, job))
 
     async def _mock_job_processing(self, job_id: ObjectId, job: dict):
-        """Mock job processing for demo purposes when Supabase is not available."""
+        """Process job using local AI adapters when Supabase is not available."""
         try:
-            # Simulate processing time
-            await asyncio.sleep(5)
+            logger.info(f"Processing job {job_id} locally with module {job['module']}")
 
-            # Mock preview ready
-            from ..database import get_db
+            # Import AI adapters
+            from .ai_models.openrouter_adapter import OpenRouterAdapter
+            from .ai_models.fal_adapter import FalAdapter
+            from .ai_models.asset_handler import AssetHandler
+
             db = get_db()
+            module = job['module']
+            params = job['params']
+            user_id = str(job['userId'])
 
-            preview_url = f"https://via.placeholder.com/512x512?text=Preview+{job['module']}"
+            # Initialize adapters
+            asset_handler = AssetHandler()
 
-            db.jobs.update_one(
-                {"_id": job_id},
-                {
-                    "$set": {
-                        "previewUrl": preview_url,
-                        "status": "preview_ready",
-                        "updatedAt": datetime.now(timezone.utc)
-                    }
-                }
-            )
+            # Process based on module type
+            if module == 'chat':
+                # OpenRouter Chat
+                adapter = OpenRouterAdapter()
 
-            logger.info(f"Mock preview ready for job {job_id}")
+                # Generate preview
+                preview_result = await adapter.generate_chat_preview(params)
+                if preview_result.get('success'):
+                    preview_asset = await asset_handler.handle_chat_result(
+                        preview_result, str(job_id), user_id, True
+                    )
 
-            # Simulate final processing
-            await asyncio.sleep(10)
+                    if preview_asset.get('success'):
+                        db.jobs.update_one(
+                            {"_id": job_id},
+                            {
+                                "$set": {
+                                    "previewUrl": preview_asset.get('urls', [''])[0] if preview_asset.get('urls') else '',
+                                    "status": "preview_ready",
+                                    "previewMeta": preview_asset.get('metadata', {}),
+                                    "updatedAt": datetime.now(timezone.utc)
+                                }
+                            }
+                        )
+                        logger.info(f"Chat preview ready for job {job_id}")
 
-            # Mock completion
-            final_urls = [f"https://via.placeholder.com/1024x1024?text=Final+{job['module']}"]
+                # Generate final
+                final_result = await adapter.generate_chat_final(params)
+                if final_result.get('success'):
+                    final_asset = await asset_handler.handle_chat_result(
+                        final_result, str(job_id), user_id, False
+                    )
+                    final_urls = final_asset.get('urls', []) if final_asset.get('success') else []
+                else:
+                    raise Exception(f"Chat final generation failed: {final_result.get('error', 'Unknown error')}")
 
+            elif module == 'image':
+                # OpenRouter Image (Gemini 2.5 Flash)
+                adapter = OpenRouterAdapter()
+
+                # Generate preview
+                preview_result = await adapter.generate_image_preview(params)
+                if preview_result.get('success'):
+                    preview_asset = await asset_handler.handle_image_result(
+                        preview_result, str(job_id), user_id, True
+                    )
+
+                    if preview_asset.get('success'):
+                        db.jobs.update_one(
+                            {"_id": job_id},
+                            {
+                                "$set": {
+                                    "previewUrl": preview_asset.get('urls', [''])[0] if preview_asset.get('urls') else '',
+                                    "status": "preview_ready",
+                                    "previewMeta": preview_asset.get('metadata', {}),
+                                    "updatedAt": datetime.now(timezone.utc)
+                                }
+                            }
+                        )
+                        logger.info(f"Image preview ready for job {job_id}")
+
+                # Generate final
+                final_result = await adapter.generate_image_final(params)
+                if final_result.get('success'):
+                    final_asset = await asset_handler.handle_image_result(
+                        final_result, str(job_id), user_id, False
+                    )
+                    final_urls = final_asset.get('urls', []) if final_asset.get('success') else []
+                else:
+                    raise Exception(f"Image final generation failed: {final_result.get('error', 'Unknown error')}")
+
+            elif module == 'tts':
+                # Fal AI TTS
+                adapter = FalAdapter()
+
+                # Generate preview
+                preview_result = await adapter.generate_tts_preview(params)
+                if preview_result.get('success'):
+                    preview_asset = await asset_handler.handle_tts_result(
+                        preview_result, str(job_id), user_id, True
+                    )
+
+                    if preview_asset.get('success'):
+                        db.jobs.update_one(
+                            {"_id": job_id},
+                            {
+                                "$set": {
+                                    "previewUrl": preview_asset.get('urls', [''])[0] if preview_asset.get('urls') else '',
+                                    "status": "preview_ready",
+                                    "previewMeta": preview_asset.get('metadata', {}),
+                                    "updatedAt": datetime.now(timezone.utc)
+                                }
+                            }
+                        )
+                        logger.info(f"TTS preview ready for job {job_id}")
+
+                # Generate final
+                final_result = await adapter.generate_tts_final(params)
+                if final_result.get('success'):
+                    final_asset = await asset_handler.handle_tts_result(
+                        final_result, str(job_id), user_id, False
+                    )
+                    final_urls = final_asset.get('urls', []) if final_asset.get('success') else []
+                else:
+                    raise Exception(f"TTS final generation failed: {final_result.get('error', 'Unknown error')}")
+
+            elif module in ['img2vid_noaudio', 'img2vid_audio', 'audio2vid']:
+                # Fal AI Video workflows
+                adapter = FalAdapter()
+
+                # Generate preview
+                if module == 'img2vid_noaudio':
+                    preview_result = await adapter.generate_img2vid_noaudio_preview(params)
+                elif module == 'img2vid_audio':
+                    preview_result = await adapter.generate_img2vid_audio_preview(params)
+                else:  # audio2vid
+                    preview_result = await adapter.generate_audio2vid_preview(params)
+
+                if preview_result.get('success'):
+                    preview_asset = await asset_handler.handle_video_result(
+                        preview_result, str(job_id), user_id, True
+                    )
+
+                    if preview_asset.get('success'):
+                        db.jobs.update_one(
+                            {"_id": job_id},
+                            {
+                                "$set": {
+                                    "previewUrl": preview_asset.get('urls', [''])[0] if preview_asset.get('urls') else '',
+                                    "status": "preview_ready",
+                                    "previewMeta": preview_asset.get('metadata', {}),
+                                    "updatedAt": datetime.now(timezone.utc)
+                                }
+                            }
+                        )
+                        logger.info(f"Video preview ready for job {job_id}")
+
+                # Generate final
+                if module == 'img2vid_noaudio':
+                    final_result = await adapter.generate_img2vid_noaudio_final(params)
+                elif module == 'img2vid_audio':
+                    final_result = await adapter.generate_img2vid_audio_final(params)
+                else:  # audio2vid
+                    final_result = await adapter.generate_audio2vid_final(params)
+
+                if final_result.get('success'):
+                    final_asset = await asset_handler.handle_video_result(
+                        final_result, str(job_id), user_id, False
+                    )
+                    final_urls = final_asset.get('urls', []) if final_asset.get('success') else []
+                else:
+                    raise Exception(f"Video final generation failed: {final_result.get('error', 'Unknown error')}")
+
+            else:
+                raise Exception(f"Unsupported module: {module}")
+
+            # Update job as completed
             db.jobs.update_one(
                 {"_id": job_id},
                 {
@@ -208,30 +352,30 @@ class QueueManager:
             )
 
             # Create generation record
-            from ..database import GenerationModel
+            from .database import GenerationModel
             generation_doc = GenerationModel.create_generation(
                 user_id=job["userId"],
                 job_id=job["_id"],
                 generation_type=job["module"],
-                preview_url=preview_url,
+                preview_url=db.jobs.find_one({"_id": job_id}).get("previewUrl", ""),
                 final_urls=final_urls,
-                size_bytes=1024
+                size_bytes=sum([1024 for _ in final_urls])  # Mock size calculation
             )
 
             db.generations.insert_one(generation_doc)
 
             # Handle history eviction
-            from ..database import cleanup_old_generations
+            from .database import cleanup_old_generations
             cleanup_old_generations(job["userId"], max_count=30)
 
             # Remove from timeout tracking
             self.job_timeouts.pop(str(job_id), None)
 
-            logger.info(f"Mock job {job_id} completed successfully")
+            logger.info(f"Local AI processing completed for job {job_id}")
 
         except Exception as e:
-            logger.error(f"Mock processing failed for job {job_id}: {e}")
-            await self._handle_job_failure(job_id, f"Mock processing failed: {str(e)}")
+            logger.error(f"Local AI processing failed for job {job_id}: {e}")
+            await self._handle_job_failure(job_id, f"Local AI processing failed: {str(e)}")
 
     def _get_module_timeout(self, module: str) -> int:
         """Get timeout in minutes for each module type."""
