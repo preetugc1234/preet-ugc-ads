@@ -270,6 +270,52 @@ class ApiClient {
     })
   }
 
+  // User job history and management
+  async getUserHistory(): Promise<{
+    success: boolean
+    generations: GenerationItem[]
+    total_count: number
+    message: string
+  }> {
+    return this.request('/api/jobs/user/history')
+  }
+
+  async getUserJobs(status?: string, limit: number = 20): Promise<{
+    success: boolean
+    jobs: JobStatus[]
+    total_count: number
+    message: string
+  }> {
+    const params = new URLSearchParams()
+    if (status) params.append('status', status)
+    params.append('limit', limit.toString())
+
+    return this.request(`/api/jobs/user/jobs?${params}`)
+  }
+
+  async retryJob(jobId: string): Promise<{ success: boolean; message: string }> {
+    return this.request(`/api/jobs/${jobId}/retry`, {
+      method: 'POST'
+    })
+  }
+
+  async getAvailableModules(): Promise<{
+    success: boolean
+    modules: Record<string, any>
+    message: string
+  }> {
+    return this.request('/api/jobs/modules')
+  }
+
+  // Admin-only endpoints
+  async getQueueStatus(): Promise<{
+    success: boolean
+    queue_status: any
+    message: string
+  }> {
+    return this.request('/api/jobs/queue/status')
+  }
+
   // Cost estimation endpoint
   async estimateJobCost(module: string, params: Record<string, any>): Promise<{
     estimated_cost: number

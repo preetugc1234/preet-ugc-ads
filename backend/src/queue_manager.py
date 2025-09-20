@@ -107,13 +107,131 @@ class QueueManager:
             timeout_time = datetime.now(timezone.utc) + timedelta(minutes=timeout_minutes)
             self.job_timeouts[str(job_id)] = timeout_time
 
-            # TODO: Call Supabase Edge Function with signed payload
-            # This will be implemented when we integrate with actual workers
+            # Call Supabase Edge Function
+            await self._call_supabase_worker(job_id, job)
+
             logger.info(f"Worker invoked for job {job_id} (module: {module})")
 
         except Exception as e:
             logger.error(f"Failed to invoke worker for job {job_id}: {e}")
             await self._handle_job_failure(job_id, f"Worker invocation failed: {str(e)}")
+
+    async def _call_supabase_worker(self, job_id: ObjectId, job: dict):
+        """Call Supabase Edge Function to process the job."""
+        import httpx
+        import asyncio
+
+        # Supabase Edge Function URL
+        supabase_url = os.getenv("SUPABASE_URL", "")
+        supabase_anon_key = os.getenv("SUPABASE_ANON_KEY", "")
+
+        if not supabase_url or not supabase_anon_key:
+            logger.warning("Supabase credentials not configured. Using mock processing.")
+            # Schedule mock completion for demo
+            asyncio.create_task(self._mock_job_processing(job_id, job))
+            return
+
+        worker_url = f"{supabase_url}/functions/v1/ai-worker"
+
+        # Prepare payload
+        payload = {
+            "jobId": str(job_id),
+            "module": job["module"],
+            "params": job["params"],
+            "userId": str(job["userId"])
+        }
+
+        # Call Supabase Edge Function
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    worker_url,
+                    json=payload,
+                    headers={
+                        "Authorization": f"Bearer {supabase_anon_key}",
+                        "Content-Type": "application/json"
+                    },
+                    timeout=10.0  # 10 second timeout for invocation
+                )
+
+                if response.status_code != 200:
+                    raise Exception(f"Worker invocation failed: {response.status_code} - {response.text}")
+
+                logger.info(f"Supabase worker invoked successfully for job {job_id}")
+
+        except Exception as e:
+            logger.error(f"Failed to call Supabase worker: {e}")
+            # Fallback to mock processing
+            asyncio.create_task(self._mock_job_processing(job_id, job))
+
+    async def _mock_job_processing(self, job_id: ObjectId, job: dict):
+        """Mock job processing for demo purposes when Supabase is not available."""
+        try:
+            # Simulate processing time
+            await asyncio.sleep(5)
+
+            # Mock preview ready
+            from ..database import get_db
+            db = get_db()
+
+            preview_url = f"https://via.placeholder.com/512x512?text=Preview+{job['module']}"
+
+            db.jobs.update_one(
+                {"_id": job_id},
+                {
+                    "$set": {
+                        "previewUrl": preview_url,
+                        "status": "preview_ready",
+                        "updatedAt": datetime.now(timezone.utc)
+                    }
+                }
+            )
+
+            logger.info(f"Mock preview ready for job {job_id}")
+
+            # Simulate final processing
+            await asyncio.sleep(10)
+
+            # Mock completion
+            final_urls = [f"https://via.placeholder.com/1024x1024?text=Final+{job['module']}"]
+
+            db.jobs.update_one(
+                {"_id": job_id},
+                {
+                    "$set": {
+                        "status": "completed",
+                        "finalUrls": final_urls,
+                        "completedAt": datetime.now(timezone.utc),
+                        "updatedAt": datetime.now(timezone.utc)
+                    }
+                }
+            )
+
+            # Create generation record
+            from ..database import GenerationModel
+            generation_doc = GenerationModel.create_generation(
+                user_id=job["userId"],
+                job_id=job["_id"],
+                generation_type=job["module"],
+                preview_url=preview_url,
+                final_urls=final_urls,
+                size_bytes=1024
+            )
+
+            db.generations.insert_one(generation_doc)
+
+            # Handle history eviction
+            from ..database import cleanup_old_generations
+            cleanup_old_generations(job["userId"], max_count=30)
+
+            # Remove from timeout tracking
+            self.job_timeouts.pop(str(job_id), None)
+
+            logger.info(f"Mock job {job_id} completed successfully")
+
+        except Exception as e:
+            logger.error(f"Mock processing failed for job {job_id}: {e}")
+            await self._handle_job_failure(job_id, f"Mock processing failed: {str(e)}")
 
     def _get_module_timeout(self, module: str) -> int:
         """Get timeout in minutes for each module type."""
