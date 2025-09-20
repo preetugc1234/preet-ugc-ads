@@ -64,7 +64,7 @@ MODULE_CONFIGS = {
     },
     "audio2vid": {
         "name": "Audio to Video",
-        "cost_per_minute": 100,
+        "cost_per_30_seconds": 100,
         "provider": "veed",
         "model": "veed-ugc",
         "avg_time_seconds": 90
@@ -145,10 +145,17 @@ def estimate_job_cost(module: str, params: Dict[str, Any]) -> int:
         duration = params.get("duration", 5)  # Default 5 seconds
         return int((duration / 5) * config["cost_per_second"] * 5)  # Round to 5-second increments
 
-    # Minute-based cost modules
+    # Minute-based cost modules (legacy - kept for compatibility)
     if "cost_per_minute" in config:
         duration_minutes = params.get("duration_minutes", 1)
         return int(duration_minutes) * config["cost_per_minute"]
+
+    # 30-second increment cost modules
+    if "cost_per_30_seconds" in config:
+        duration_seconds = params.get("duration_seconds", 30)  # Default 30 seconds
+        # Round up to nearest 30-second increment
+        increments = (duration_seconds + 29) // 30  # Ceiling division
+        return increments * config["cost_per_30_seconds"]
 
     return 0
 

@@ -387,8 +387,9 @@ export const apiHelpers = {
         const duration2 = params.duration || 5
         return duration2 <= 5 ? 200 : 400 // 200/5s or 400/10s
       case 'audio2vid':
-        const durationMin = Math.ceil((params.duration || 60) / 60)
-        return 100 * durationMin // 100 per minute, rounded up
+        const durationSeconds = params.duration || 30
+        const duration30SecIncrements = Math.ceil(durationSeconds / 30) // Convert to 30-second increments
+        return 100 * duration30SecIncrements // 100 per 30 seconds, rounded up
       default:
         return 0
     }

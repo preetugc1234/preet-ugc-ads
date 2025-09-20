@@ -35,6 +35,13 @@ MODULE_CONFIGS = {
         "provider": "fal",
         "model": "11labs-v2.5",
         "avg_time_seconds": 10
+    },
+    "audio2vid": {
+        "name": "Audio to Video",
+        "cost_per_30_seconds": 100,
+        "provider": "veed",
+        "model": "veed-ugc",
+        "avg_time_seconds": 90
     }
 }
 
@@ -47,6 +54,13 @@ def estimate_job_cost(module: str, params: dict) -> int:
     # Fixed cost modules
     if "cost" in config:
         return config["cost"]
+
+    # 30-second increment cost modules
+    if "cost_per_30_seconds" in config:
+        duration_seconds = params.get("duration_seconds", 30)  # Default 30 seconds
+        # Round up to nearest 30-second increment
+        increments = (duration_seconds + 29) // 30  # Ceiling division
+        return increments * config["cost_per_30_seconds"]
 
     return 0
 
@@ -99,6 +113,8 @@ async def test_job_creation_flow():
                 test_params["duration"] = 10  # 10 seconds
             elif "cost_per_minute" in config:
                 test_params["duration_minutes"] = 2  # 2 minutes
+            elif "cost_per_30_seconds" in config:
+                test_params["duration_seconds"] = 60  # 60 seconds (should cost 200 credits)
 
             cost = estimate_job_cost(module, test_params)
             time_est = calculate_estimated_time(module, test_params)
@@ -108,7 +124,7 @@ async def test_job_creation_flow():
         print("3. Testing job creation for each module...")
         created_jobs = []
 
-        for module in ["chat", "image", "tts"]:  # Test free and paid modules
+        for module in ["chat", "image", "tts", "audio2vid"]:  # Test free and paid modules
             print(f"   Creating job for module: {module}")
 
             # Prepare test parameters
@@ -120,6 +136,9 @@ async def test_job_creation_flow():
             if module == "tts":
                 test_params["text"] = "Hello, this is a test text-to-speech generation."
                 test_params["voice"] = "default"
+            elif module == "audio2vid":
+                test_params["duration_seconds"] = 45  # 45 seconds (should cost 200 credits - 2 increments)
+                test_params["audio_file"] = "test_audio.mp3"
 
             cost = estimate_job_cost(module, test_params)
 

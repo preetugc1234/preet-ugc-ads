@@ -100,7 +100,7 @@ const UGCVideoTool = () => {
 
   const calculateCost = () => {
     if (mode === "audio-to-video") {
-      return 100; // 100 credits per minute, minimum 100
+      return 100; // 100 credits per 30 seconds, minimum 100
     } else {
       // Image to Video with Audio
       const baseCost = durations.find(d => d.value === duration)?.credits || 200;

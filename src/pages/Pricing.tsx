@@ -396,7 +396,7 @@ const Pricing = () => {
                   <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg">
                     <h4 className="font-medium text-purple-800 dark:text-purple-200 mb-2">UGC Video Generation</h4>
                     <ul className="text-sm text-purple-700 dark:text-purple-300 space-y-1">
-                      <li>• Audio→Video: 100 credits/minute</li>
+                      <li>• Audio→Video: 100 credits/30 seconds</li>
                       <li>• Image→Video+Audio (5s): 200 credits</li>
                       <li>• Image→Video+Audio (10s): 400 credits</li>
                       <li>• Custom UGC content varies by length</li>

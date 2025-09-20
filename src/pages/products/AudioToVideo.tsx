@@ -289,23 +289,23 @@ const AudioToVideo = () => {
       {/* Pricing Section */}
       <section className="py-16 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold mb-6">Simple Per-Minute Pricing</h2>
+          <h2 className="text-3xl font-bold mb-6">Simple 30-Second Increment Pricing</h2>
           <Card className="p-8 bg-gradient-to-br from-violet-50 to-fuchsia-50 dark:from-slate-800 dark:to-slate-700 border-0 shadow-xl">
             <CardContent className="p-0">
               <div className="text-4xl font-bold text-violet-600 mb-2">100 Credits</div>
-              <div className="text-lg text-gray-600 dark:text-gray-300 mb-6">Per minute of audio (rounded up)</div>
+              <div className="text-lg text-gray-600 dark:text-gray-300 mb-6">Per 30 seconds of audio (rounded up)</div>
               <div className="grid md:grid-cols-3 gap-4 text-sm">
                 <div className="p-3 bg-white/60 dark:bg-slate-700/60 rounded-lg">
+                  <div className="font-semibold">45-second audio</div>
+                  <div className="text-violet-600">200 credits</div>
+                </div>
+                <div className="p-3 bg-white/60 dark:bg-slate-700/60 rounded-lg">
+                  <div className="font-semibold">2-minute audio</div>
+                  <div className="text-violet-600">400 credits</div>
+                </div>
+                <div className="p-3 bg-white/60 dark:bg-slate-700/60 rounded-lg">
                   <div className="font-semibold">5-minute audio</div>
-                  <div className="text-violet-600">500 credits</div>
-                </div>
-                <div className="p-3 bg-white/60 dark:bg-slate-700/60 rounded-lg">
-                  <div className="font-semibold">15-minute audio</div>
-                  <div className="text-violet-600">1,500 credits</div>
-                </div>
-                <div className="p-3 bg-white/60 dark:bg-slate-700/60 rounded-lg">
-                  <div className="font-semibold">30-minute audio</div>
-                  <div className="text-violet-600">3,000 credits</div>
+                  <div className="text-violet-600">1,000 credits</div>
                 </div>
               </div>
               <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg">

@@ -484,7 +484,7 @@ const Billing = () => {
                       <li>• Image→Video (5s): 100 credits</li>
                       <li>• Image→Video (10s): 200 credits</li>
                       <li>• Text→Speech: 100 credits</li>
-                      <li>• Audio→Video: 100 credits/minute</li>
+                      <li>• Audio→Video: 100 credits/30 seconds</li>
                       <li>• Image→Video+Audio (5s): 200 credits</li>
                       <li>• Image→Video+Audio (10s): 400 credits</li>
                     </ul>
