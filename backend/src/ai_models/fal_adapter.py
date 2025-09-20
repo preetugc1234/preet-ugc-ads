@@ -357,7 +357,7 @@ class FalAdapter:
                     "has_audio": True,
                     "audio_synced": True,
                     "preview": True,
-                    "processing_time": "~3-4 minutes"
+                    "processing_time": "~7-8 minutes"
                 }
             else:
                 raise Exception("No video generated from Kling v1 Pro AI Avatar")
@@ -407,7 +407,7 @@ class FalAdapter:
                     "has_audio": True,
                     "audio_synced": True,
                     "preview": False,
-                    "processing_time": "~4-5 minutes"
+                    "processing_time": "~7-8 minutes"
                 }
             else:
                 raise Exception("No video generated from Kling v1 Pro AI Avatar")

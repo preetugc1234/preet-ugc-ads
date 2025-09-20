@@ -384,7 +384,7 @@ class QueueManager:
             "image": 5,
             "img2vid_noaudio": 10,  # 10 minutes for Kling v2.1 Pro (6 min + buffer)
             "tts": 3,
-            "img2vid_audio": 8,  # 8 minutes for Kling v1 Pro AI Avatar (5 min + buffer)
+            "img2vid_audio": 12,  # 12 minutes for Kling v1 Pro AI Avatar (8 min + buffer)
             "audio2vid": 25
         }
         return timeouts.get(module, 10)  # Default 10 minutes

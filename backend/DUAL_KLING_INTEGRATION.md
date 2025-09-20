@@ -34,7 +34,7 @@ Successfully integrated dual Kling workflows to support both image-to-video gene
 ### 2. **Kling v1 Pro AI Avatar** (Image-to-Video, With Audio)
 - **Endpoint**: `fal-ai/kling-video/v1/pro/ai-avatar`
 - **Use Case**: Audio-driven talking avatars and character animation
-- **Processing Time**: ~4-5 minutes
+- **Processing Time**: ~7-8 minutes
 - **Aspect Ratio**: Typically 1:1 (square)
 
 **Parameters:**
@@ -118,7 +118,7 @@ result = await adapter.generate_img2vid_audio_final(params)
 ```python
 timeouts = {
     "img2vid_noaudio": 10,  # 10 min for v2.1 Pro (6 min + buffer)
-    "img2vid_audio": 8,     # 8 min for AI Avatar (5 min + buffer)
+    "img2vid_audio": 12,    # 12 min for AI Avatar (8 min + buffer)
 }
 ```
 
@@ -150,7 +150,7 @@ case 'img2vid_audio':
 |---------|---------------------------|--------------------------------|
 | **Primary Use** | Cinematic video generation | Talking avatars |
 | **Input Requirements** | Image + Optional prompt | Image + Audio (required) |
-| **Processing Time** | ~6 minutes | ~4-5 minutes |
+| **Processing Time** | ~6 minutes | ~7-8 minutes |
 | **Duration** | 5-10 seconds | Variable (audio length) |
 | **Aspect Ratio** | Flexible | Typically 1:1 |
 | **Prompt Support** | Advanced prompts | Audio-driven |
@@ -182,7 +182,7 @@ case 'img2vid_audio':
   "model": "kling-v1-pro-ai-avatar",
   "has_audio": true,
   "audio_synced": true,
-  "processing_time": "~4-5 minutes"
+  "processing_time": "~7-8 minutes"
 }
 ```
 
@@ -252,7 +252,7 @@ Development: http://localhost:8000/api/webhooks/fal
 ### **AI Avatar Advantages**
 - 🎭 Perfect lip-sync with audio
 - 👤 Optimized for portrait animation
-- ⚡ Faster processing (4-5 min vs 6 min)
+- 🎯 Optimized processing (7-8 min for quality)
 - 🔊 Built-in audio synchronization
 - 📱 Mobile-friendly square format
 

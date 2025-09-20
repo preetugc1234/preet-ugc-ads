@@ -57,7 +57,7 @@ const MODULE_CONFIGS: Record<string, ModelConfig> = {
     name: "Image to Video (With Audio)",
     provider: "fal",
     model: "fal-ai/kling-video/v1/pro/ai-avatar",
-    avg_time_seconds: 300  // 5 minutes for AI Avatar
+    avg_time_seconds: 480  // 8 minutes for AI Avatar
   },
   "audio2vid": {
     name: "Audio to Video",
