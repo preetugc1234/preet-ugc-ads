@@ -13,6 +13,7 @@ import json
 from datetime import datetime
 import time
 import fal_client
+from fal_client import Client
 
 logger = logging.getLogger(__name__)
 
@@ -23,15 +24,19 @@ class FalAdapter:
         self.api_key = os.getenv("FAL_API_KEY")
         self.base_url = "https://fal.run"
 
+        # Initialize new fal client
+        self.fal = Client(key=self.api_key) if self.api_key else None
+
         # Fal AI model endpoints
         self.models = {
             "tts": "fal-ai/elevenlabs-text-to-speech",
+            "tts_turbo": "fal-ai/elevenlabs/tts/turbo-v2.5",  # ElevenLabs TTS Turbo v2.5
             "img2vid_noaudio": "fal-ai/kling-video/v2.1/pro/image-to-video",  # Kling v2.1 Pro (no audio)
             "img2vid_audio": "fal-ai/kling-video/v1/pro/ai-avatar",  # Kling v1 Pro AI Avatar (with audio)
             "audio2vid": "fal-ai/veed/audio-to-video"  # Custom UGC endpoint
         }
 
-        # Configure fal_client with API key
+        # Configure environment variable for backward compatibility
         if self.api_key:
             os.environ["FAL_KEY"] = self.api_key
 
@@ -124,7 +129,205 @@ class FalAdapter:
             logger.error(f"Failed to upload file to Fal: {e}")
             raise
 
-    # Text-to-Speech Methods
+    # ElevenLabs TTS Turbo v2.5 Methods (New Implementation)
+    async def submit_tts_turbo_async(self, params: Dict[str, Any], webhook_url: str = None) -> Dict[str, Any]:
+        """Submit ElevenLabs TTS Turbo v2.5 request asynchronously with 12-minute timeout support."""
+        try:
+            if not self.fal:
+                raise Exception("Fal client not initialized - check API key")
+
+            text = params.get("text")
+            if not text:
+                raise Exception("Text is required for TTS")
+
+            if len(text) > 5000:
+                raise Exception("Text length exceeds maximum of 5000 characters")
+
+            input_data = {
+                "text": text,
+                "voice": params.get("voice", "Rachel"),
+                "stability": params.get("stability", 0.5),
+                "similarity_boost": params.get("similarity_boost", 0.75),
+                "speed": params.get("speed", 1.0)
+            }
+
+            # Optional parameters
+            if params.get("style") is not None:
+                input_data["style"] = params["style"]
+            if params.get("timestamps"):
+                input_data["timestamps"] = params["timestamps"]
+            if params.get("previous_text"):
+                input_data["previous_text"] = params["previous_text"]
+            if params.get("next_text"):
+                input_data["next_text"] = params["next_text"]
+            if params.get("language_code"):
+                input_data["language_code"] = params["language_code"]
+
+            # Submit with logs and queue handling for long-running request
+            result = await asyncio.to_thread(
+                self.fal.subscribe,
+                self.models["tts_turbo"],
+                {
+                    "input": input_data,
+                    "logs": True,
+                    "onQueueUpdate": self._queue_update_handler if not webhook_url else None
+                }
+            )
+
+            if hasattr(result, 'requestId'):
+                return {
+                    "success": True,
+                    "request_id": result.requestId,
+                    "status": "submitted",
+                    "model": "elevenlabs-tts-turbo-v2.5",
+                    "estimated_processing_time": "8 minutes",
+                    "timeout_buffer": "4 minutes",
+                    "total_timeout": "12 minutes"
+                }
+            else:
+                # Immediate result case
+                return self._format_tts_result(result, is_async=False)
+
+        except Exception as e:
+            logger.error(f"TTS Turbo async submission failed: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
+    async def check_tts_turbo_status(self, request_id: str) -> Dict[str, Any]:
+        """Check status of ElevenLabs TTS Turbo request."""
+        try:
+            if not self.fal:
+                raise Exception("Fal client not initialized - check API key")
+
+            status = await asyncio.to_thread(
+                self.fal.queue.status,
+                self.models["tts_turbo"],
+                {"requestId": request_id, "logs": True}
+            )
+
+            return {
+                "success": True,
+                "request_id": request_id,
+                "status": status.get("status", "unknown"),
+                "logs": status.get("logs", []),
+                "queue_position": status.get("queue_position"),
+                "estimated_time": status.get("estimated_time")
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to check TTS Turbo status: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "request_id": request_id
+            }
+
+    async def get_tts_turbo_result(self, request_id: str) -> Dict[str, Any]:
+        """Get result from completed ElevenLabs TTS Turbo request."""
+        try:
+            if not self.fal:
+                raise Exception("Fal client not initialized - check API key")
+
+            result = await asyncio.to_thread(
+                self.fal.queue.result,
+                self.models["tts_turbo"],
+                {"requestId": request_id}
+            )
+
+            return self._format_tts_result(result, request_id=request_id)
+
+        except Exception as e:
+            logger.error(f"Failed to get TTS Turbo result: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "request_id": request_id
+            }
+
+    async def stream_tts_turbo(self, params: Dict[str, Any]):
+        """Stream ElevenLabs TTS Turbo v2.5 for real-time audio generation."""
+        try:
+            if not self.fal:
+                raise Exception("Fal client not initialized - check API key")
+
+            text = params.get("text")
+            if not text:
+                raise Exception("Text is required for TTS")
+
+            input_data = {
+                "text": text,
+                "voice": params.get("voice", "Rachel"),
+                "stability": params.get("stability", 0.5),
+                "similarity_boost": params.get("similarity_boost", 0.75),
+                "speed": params.get("speed", 1.0)
+            }
+
+            # Optional parameters
+            if params.get("style") is not None:
+                input_data["style"] = params["style"]
+            if params.get("language_code"):
+                input_data["language_code"] = params["language_code"]
+
+            # Use streaming API
+            async def stream_generator():
+                stream = await asyncio.to_thread(
+                    self.fal.stream,
+                    self.models["tts_turbo"],
+                    {"input": input_data}
+                )
+
+                async for event in stream:
+                    yield event
+
+                # Get final result
+                result = await stream.done()
+                yield {"type": "final", "data": result}
+
+            return stream_generator()
+
+        except Exception as e:
+            logger.error(f"TTS Turbo streaming failed: {e}")
+            raise
+
+    def _format_tts_result(self, result, request_id=None, is_async=True):
+        """Format TTS result response."""
+        try:
+            if result and hasattr(result, 'data') and "audio" in result.data:
+                audio_data = result.data["audio"]
+                timestamps = result.data.get("timestamps", [])
+
+                response = {
+                    "success": True,
+                    "audio_url": audio_data.get("url"),
+                    "timestamps": timestamps,
+                    "model": "elevenlabs-tts-turbo-v2.5",
+                    "processing_completed": True
+                }
+
+                if request_id:
+                    response["request_id"] = request_id
+                if hasattr(result, 'requestId'):
+                    response["request_id"] = result.requestId
+
+                return response
+            else:
+                return {
+                    "success": False,
+                    "error": "No audio generated",
+                    "request_id": request_id
+                }
+
+        except Exception as e:
+            logger.error(f"Failed to format TTS result: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "request_id": request_id
+            }
+
+    # Text-to-Speech Methods (Legacy)
     async def generate_tts_preview(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Generate TTS preview using ElevenLabs via Fal AI."""
         try:
@@ -418,6 +621,177 @@ class FalAdapter:
                 "success": False,
                 "error": str(e),
                 "video_url": None
+            }
+
+    # New Kling AI Avatar methods using modern fal client
+    async def submit_kling_avatar_async(self, params: Dict[str, Any], webhook_url: str = None) -> Dict[str, Any]:
+        """Submit Kling AI Avatar request asynchronously with 12-minute timeout support."""
+        try:
+            if not self.fal:
+                raise Exception("Fal client not initialized - check API key")
+
+            image_url = params.get("image_url")
+            audio_url = params.get("audio_url")
+            prompt = params.get("prompt", "")
+
+            if not image_url:
+                raise Exception("Image URL is required")
+            if not audio_url:
+                raise Exception("Audio URL is required")
+
+            input_data = {
+                "image_url": image_url,
+                "audio_url": audio_url
+            }
+
+            if prompt:
+                input_data["prompt"] = prompt
+
+            # Submit with logs and queue handling for long-running request
+            result = await asyncio.to_thread(
+                self.fal.subscribe,
+                self.models["img2vid_audio"],
+                {
+                    "input": input_data,
+                    "logs": True,
+                    "onQueueUpdate": self._queue_update_handler if not webhook_url else None
+                }
+            )
+
+            if hasattr(result, 'requestId'):
+                return {
+                    "success": True,
+                    "request_id": result.requestId,
+                    "status": "submitted",
+                    "model": "kling-v1-pro-ai-avatar",
+                    "estimated_processing_time": "7-8 minutes",
+                    "timeout_buffer": "4 minutes",
+                    "total_timeout": "12 minutes"
+                }
+            else:
+                # Immediate result case
+                return self._format_avatar_result(result, is_async=False)
+
+        except Exception as e:
+            logger.error(f"Kling Avatar async submission failed: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
+    async def check_kling_avatar_status(self, request_id: str) -> Dict[str, Any]:
+        """Check status of Kling AI Avatar request."""
+        try:
+            if not self.fal:
+                raise Exception("Fal client not initialized - check API key")
+
+            status = await asyncio.to_thread(
+                self.fal.queue.status,
+                self.models["img2vid_audio"],
+                {"requestId": request_id, "logs": True}
+            )
+
+            return {
+                "success": True,
+                "request_id": request_id,
+                "status": status.get("status", "unknown"),
+                "logs": status.get("logs", []),
+                "queue_position": status.get("queue_position"),
+                "estimated_time": status.get("estimated_time")
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to check Kling Avatar status: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "request_id": request_id
+            }
+
+    async def get_kling_avatar_result(self, request_id: str) -> Dict[str, Any]:
+        """Get result from completed Kling AI Avatar request."""
+        try:
+            if not self.fal:
+                raise Exception("Fal client not initialized - check API key")
+
+            result = await asyncio.to_thread(
+                self.fal.queue.result,
+                self.models["img2vid_audio"],
+                {"requestId": request_id}
+            )
+
+            return self._format_avatar_result(result, request_id=request_id)
+
+        except Exception as e:
+            logger.error(f"Failed to get Kling Avatar result: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "request_id": request_id
+            }
+
+    async def upload_file(self, file_data: bytes, filename: str) -> str:
+        """Upload file to Fal storage and return URL."""
+        try:
+            if not self.fal:
+                raise Exception("Fal client not initialized - check API key")
+
+            # Convert bytes to file-like object
+            import io
+            file_obj = io.BytesIO(file_data)
+            file_obj.name = filename
+
+            url = await asyncio.to_thread(self.fal.storage.upload, file_obj)
+            return url
+
+        except Exception as e:
+            logger.error(f"Failed to upload file to Fal: {e}")
+            raise
+
+    def _queue_update_handler(self, update):
+        """Handle queue updates for long-running requests."""
+        if update.get("status") == "IN_PROGRESS":
+            logs = update.get("logs", [])
+            for log in logs:
+                if "message" in log:
+                    logger.info(f"Kling Avatar Progress: {log['message']}")
+
+    def _format_avatar_result(self, result, request_id=None, is_async=True):
+        """Format Kling AI Avatar result response."""
+        try:
+            if result and hasattr(result, 'data') and "video" in result.data:
+                video_data = result.data["video"]
+                duration = result.data.get("duration", 0)
+
+                response = {
+                    "success": True,
+                    "video_url": video_data.get("url"),
+                    "duration": duration,
+                    "model": "kling-v1-pro-ai-avatar",
+                    "has_audio": True,
+                    "audio_synced": True,
+                    "processing_completed": True
+                }
+
+                if request_id:
+                    response["request_id"] = request_id
+                if hasattr(result, 'requestId'):
+                    response["request_id"] = result.requestId
+
+                return response
+            else:
+                return {
+                    "success": False,
+                    "error": "No video generated",
+                    "request_id": request_id
+                }
+
+        except Exception as e:
+            logger.error(f"Failed to format avatar result: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "request_id": request_id
             }
 
     # Audio-to-Video (UGC) Methods

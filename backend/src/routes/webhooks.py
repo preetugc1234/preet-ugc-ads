@@ -86,6 +86,8 @@ async def process_fal_completion(job_id: ObjectId, user_id: str, module: str, re
         asset_handler = AssetHandler()
 
         # Process based on module type
+        asset_data = None
+
         if module == "img2vid_noaudio":
             # Handle video result
             video_result = {
@@ -100,46 +102,72 @@ async def process_fal_completion(job_id: ObjectId, user_id: str, module: str, re
                 video_result, str(job_id), user_id, False
             )
 
-            if asset_data.get("success"):
-                final_urls = asset_data.get("urls", [])
+        elif module == "img2vid_audio" or module == "kling_avatar":
+            # Handle Kling AI Avatar result
+            video_result = {
+                "success": True,
+                "video_url": result.get("video", {}).get("url"),
+                "duration": result.get("duration", 0),
+                "model": "kling-v1-pro-ai-avatar",
+                "has_audio": True,
+                "audio_synced": True
+            }
 
-                # Update job as completed
-                db.jobs.update_one(
-                    {"_id": job_id},
-                    {
-                        "$set": {
-                            "status": "completed",
-                            "finalUrls": final_urls,
-                            "completedAt": datetime.now(timezone.utc),
-                            "updatedAt": datetime.now(timezone.utc)
-                        }
+            asset_data = await asset_handler.handle_video_result(
+                video_result, str(job_id), user_id, True  # has_audio = True
+            )
+
+        elif module == "tts" or module == "tts_turbo":
+            # Handle ElevenLabs TTS Turbo v2.5 result
+            audio_result = {
+                "success": True,
+                "audio_url": result.get("audio", {}).get("url"),
+                "timestamps": result.get("timestamps", []),
+                "model": "elevenlabs-tts-turbo-v2.5",
+                "has_audio": True
+            }
+
+            asset_data = await asset_handler.handle_audio_result(
+                audio_result, str(job_id), user_id
+            )
+
+        if asset_data and asset_data.get("success"):
+            final_urls = asset_data.get("urls", [])
+
+            # Update job as completed
+            db.jobs.update_one(
+                {"_id": job_id},
+                {
+                    "$set": {
+                        "status": "completed",
+                        "finalUrls": final_urls,
+                        "completedAt": datetime.now(timezone.utc),
+                        "updatedAt": datetime.now(timezone.utc)
                     }
-                )
+                }
+            )
 
-                # Create generation record
-                from ..database import GenerationModel
-                generation_doc = GenerationModel.create_generation(
-                    user_id=ObjectId(user_id),
-                    job_id=job_id,
-                    generation_type=module,
-                    preview_url=db.jobs.find_one({"_id": job_id}).get("previewUrl", ""),
-                    final_urls=final_urls,
-                    size_bytes=sum([1024 for _ in final_urls])
-                )
+            # Create generation record
+            from ..database import GenerationModel
+            generation_doc = GenerationModel.create_generation(
+                user_id=ObjectId(user_id),
+                job_id=job_id,
+                generation_type=module,
+                preview_url=db.jobs.find_one({"_id": job_id}).get("previewUrl", ""),
+                final_urls=final_urls,
+                size_bytes=sum([1024 for _ in final_urls])
+            )
 
-                db.generations.insert_one(generation_doc)
+            db.generations.insert_one(generation_doc)
 
-                # Handle history eviction
-                from ..database import cleanup_old_generations
-                cleanup_old_generations(ObjectId(user_id), max_count=30)
+            # Handle history eviction
+            from ..database import cleanup_old_generations
+            cleanup_old_generations(ObjectId(user_id), max_count=30)
 
-                logger.info(f"Fal AI job {job_id} completed successfully via webhook")
-
-            else:
-                raise Exception("Failed to process video asset")
+            logger.info(f"Fal AI job {job_id} completed successfully via webhook")
 
         else:
-            logger.warning(f"Unsupported module for Fal webhook: {module}")
+            raise Exception("Failed to process video asset or unsupported module")
 
     except Exception as e:
         logger.error(f"Error processing Fal completion: {e}")

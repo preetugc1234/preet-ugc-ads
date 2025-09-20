@@ -21,7 +21,11 @@
       "Bash(python:*)",
       "Bash(pip install:*)",
       "Bash(npm install:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(dir /b C:UsersmtDesktoppreet-ugc-adsbackend)",
+      "Bash(dir \"C:\\Users\\mt\\Desktop\\preet-ugc-ads\\backend\")",
+      "Bash(dir:*)",
+      "Bash(pip show:*)"
     ],
     "deny": [],
     "ask": []
