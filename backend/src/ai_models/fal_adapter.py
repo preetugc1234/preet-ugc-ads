@@ -995,17 +995,17 @@ class FalAdapter:
             }
 
     def _calculate_audio2vid_processing_time(self, params: Dict[str, Any]) -> Dict[str, str]:
-        """Calculate processing time for audio-to-video: 100 seconds for 30 seconds of audio."""
+        """Calculate processing time for audio-to-video: 200 seconds for 30 seconds of audio."""
         try:
             # Get audio duration in seconds (default 30s if not provided)
             audio_duration = params.get("audio_duration_seconds", 30)
 
-            # Processing formula: 100 seconds for 30 seconds of audio
-            # This equals approximately 3.33 seconds per second of audio
-            processing_seconds = int((audio_duration / 30) * 100)
+            # Processing formula: 200 seconds for 30 seconds of audio
+            # This equals approximately 6.67 seconds per second of audio
+            processing_seconds = int((audio_duration / 30) * 200)
 
-            # Add 2-minute buffer for queue and initialization
-            buffer_seconds = 120
+            # Add 3-4 minute buffer for queue and initialization (240 seconds = 4 minutes)
+            buffer_seconds = 240
             total_seconds = processing_seconds + buffer_seconds
 
             # Format display time
@@ -1030,10 +1030,10 @@ class FalAdapter:
         except Exception as e:
             logger.error(f"Failed to calculate processing time: {e}")
             return {
-                "display": "3-5 minutes",
-                "total_timeout": "10 minutes",
-                "processing_seconds": 180,
-                "total_seconds": 600
+                "display": "5-7 minutes",
+                "total_timeout": "12 minutes",
+                "processing_seconds": 360,
+                "total_seconds": 720
             }
 
     def _format_audio2vid_result(self, result, request_id=None, is_async=True):

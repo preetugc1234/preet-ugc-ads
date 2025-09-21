@@ -144,10 +144,12 @@ const UGCVideoTool = () => {
 
   const calculateProcessingTime = () => {
     if (mode === "audio-to-video") {
-      // 100 seconds for 30 seconds of audio (approximately 3.33 seconds per audio second)
-      const processingSeconds = Math.round((audioDuration / 30) * 100);
-      const minutes = Math.floor(processingSeconds / 60);
-      const seconds = processingSeconds % 60;
+      // 200 seconds for 30 seconds of audio (approximately 6.67 seconds per audio second)
+      const processingSeconds = Math.round((audioDuration / 30) * 200);
+      // Add 4-minute buffer for safety
+      const totalSeconds = processingSeconds + 240;
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
 
       if (minutes > 0) {
         return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
@@ -313,7 +315,7 @@ const UGCVideoTool = () => {
                   </p>
                   <div className="flex items-center mt-2 text-xs text-blue-700 dark:text-blue-300">
                     <Clock className="w-3 h-3 mr-1" />
-                    Processing: ~100 seconds for 30 seconds of audio
+                    Processing: ~200 seconds for 30 seconds of audio (includes 4m buffer)
                   </div>
                 </div>
               </TabsContent>

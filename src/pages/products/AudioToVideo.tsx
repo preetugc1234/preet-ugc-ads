@@ -24,8 +24,8 @@ const AudioToVideo = () => {
     },
     {
       icon: <Clock className="h-8 w-8 text-primary" />,
-      title: "Fast Processing",
-      description: "~100 seconds processing time for 30 seconds of audio"
+      title: "Reliable Processing",
+      description: "~200 seconds processing time for 30 seconds of audio with buffer"
     }
   ];
 
@@ -311,7 +311,7 @@ const AudioToVideo = () => {
               <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
                 <p className="text-sm text-blue-700 dark:text-blue-300">
                   <Clock className="h-4 w-4 inline mr-1" />
-                  Processing time: ~100 seconds for 30 seconds of audio with realistic AI avatars.
+                  Processing time: ~200 seconds for 30 seconds of audio with 4-minute buffer for reliability.
                 </p>
               </div>
             </CardContent>
