@@ -1,5 +1,5 @@
 """
-OpenRouter API adapter for GPT-4o mini chat and Gemini 2.5 Flash image generation
+OpenRouter API adapter for GPT-4o mini chat and FAL AI image generation
 Specialized for marketing, social media, and content creation workflows
 """
 
@@ -15,7 +15,7 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 class OpenRouterAdapter:
-    """OpenRouter API integration for chat and image generation with marketing focus."""
+    """OpenRouter API integration for chat and FAL AI image generation with marketing focus."""
 
     def __init__(self):
         self.gpt_api_key = os.getenv("OPENROUTER_GPT_API_KEY")
@@ -23,6 +23,10 @@ class OpenRouterAdapter:
         self.base_url = "https://openrouter.ai/api/v1"
         self.app_name = "UGC AI Platform"
         self.app_url = "https://preet-ugc-ads.lovable.app"
+
+        # Import FAL adapter for actual image generation
+        from .fal_adapter import FalAdapter
+        self.fal_adapter = FalAdapter()
 
         if not self.gpt_api_key:
             logger.warning("OpenRouter GPT API key not configured")
@@ -206,24 +210,28 @@ Always format your responses with clear headings and structured content for maxi
             }
 
     async def generate_image_preview(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate image preview using Gemini 2.5 Flash with text and optional image input."""
+        """Generate image preview using FAL AI FLUX Schnell."""
         try:
-            text_prompt = params.get("prompt", "A professional marketing image")
-            image_input = params.get("image_input")  # Optional base64 image or URL
+            # Use FAL adapter for actual image generation
+            result = await self.fal_adapter.generate_image_preview(params)
 
-            # Simulate processing time (1 minute processing + 1 minute buffer = 2 minutes)
-            processing_time = "2m"
-
-            return {
-                "success": True,
-                "status": "processing",
-                "text_prompt": text_prompt,
-                "has_image_input": bool(image_input),
-                "model": "gemini-2.5-flash",
-                "estimated_processing_time": processing_time,
-                "preview": True,
-                "message": "Image generation request submitted successfully"
-            }
+            if result["success"]:
+                return {
+                    "success": True,
+                    "image_url": result.get("image_url"),
+                    "text_prompt": result.get("text_prompt"),
+                    "enhanced_prompt": result.get("enhanced_prompt"),
+                    "has_image_input": result.get("has_image_input", False),
+                    "style": result.get("style"),
+                    "aspect_ratio": result.get("aspect_ratio"),
+                    "quality": result.get("quality"),
+                    "model": "flux-schnell",
+                    "estimated_processing_time": "~2m",
+                    "preview": True,
+                    "message": "Image generated successfully"
+                }
+            else:
+                return result
 
         except Exception as e:
             logger.error(f"Image preview generation failed: {e}")
@@ -234,87 +242,27 @@ Always format your responses with clear headings and structured content for maxi
             }
 
     async def generate_image_final(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate final image using Gemini 2.5 Flash with text and optional image input."""
+        """Generate final image using FAL AI FLUX Schnell."""
         try:
-            text_prompt = params.get("prompt", "A professional marketing image")
-            image_input = params.get("image_input")  # Optional base64 image or URL
-            style = params.get("style", "photorealistic")
-            aspect_ratio = params.get("aspect_ratio", "1:1")
-            quality = params.get("quality", "high")
+            # Use FAL adapter for actual image generation
+            result = await self.fal_adapter.generate_image_final(params)
 
-            # Build messages for multimodal input
-            messages = [
-                {
-                    "role": "system",
-                    "content": f"You are Gemini 2.5 Flash specializing in marketing and social media image generation. Create a {quality} quality image in {aspect_ratio} aspect ratio with {style} style that would be perfect for social media, advertising, or marketing content."
-                }
-            ]
-
-            # Prepare user message content
-            user_content = []
-
-            # Add detailed text prompt optimized for marketing
-            enhanced_prompt = f"Create a professional {style} marketing image with {aspect_ratio} aspect ratio: {text_prompt}"
-            if image_input:
-                enhanced_prompt += " Use the provided image as reference or input for better results."
-
-            user_content.append({
-                "type": "text",
-                "text": enhanced_prompt
-            })
-
-            # Add image input if provided
-            if image_input:
-                if image_input.startswith("data:image"):
-                    # Base64 image data
-                    user_content.append({
-                        "type": "image_url",
-                        "image_url": {"url": image_input}
-                    })
-                elif image_input.startswith("http"):
-                    # Image URL
-                    user_content.append({
-                        "type": "image_url",
-                        "image_url": {"url": image_input}
-                    })
-
-            messages.append({
-                "role": "user",
-                "content": user_content
-            })
-
-            payload = {
-                "model": "google/gemini-2.0-flash-exp",
-                "messages": messages,
-                "max_tokens": 1000,
-                "temperature": 0.7
-            }
-
-            result = await self._make_request("/chat/completions", payload, use_gpt_key=False)
-
-            if result and "choices" in result and len(result["choices"]) > 0:
-                content = result["choices"][0]["message"]["content"]
-
-                # For now, simulate image generation since OpenRouter Gemini doesn't directly generate images
-                # In a real implementation, this would call the actual image generation API
-                mock_image_url = f"https://via.placeholder.com/1024x1024/4F46E5/FFFFFF?text=Marketing+Image+Generated"
-
+            if result["success"]:
                 return {
                     "success": True,
-                    "image_url": mock_image_url,
-                    "text_prompt": text_prompt,
-                    "enhanced_prompt": enhanced_prompt,
-                    "has_image_input": bool(image_input),
-                    "style": style,
-                    "aspect_ratio": aspect_ratio,
-                    "quality": quality,
-                    "model": "gemini-2.5-flash",
-                    "tokens_used": result.get("usage", {}).get("total_tokens", 0),
-                    "processing_time": "2m",
+                    "image_url": result.get("image_url"),
+                    "text_prompt": result.get("text_prompt"),
+                    "enhanced_prompt": result.get("enhanced_prompt"),
+                    "has_image_input": result.get("has_image_input", False),
+                    "style": result.get("style"),
+                    "aspect_ratio": result.get("aspect_ratio"),
+                    "quality": result.get("quality"),
+                    "model": "flux-schnell",
+                    "processing_time": "~2m",
                     "preview": False
                 }
             else:
-                raise Exception("No response from OpenRouter")
+                return result
 
         except Exception as e:
             logger.error(f"Image final generation failed: {e}")
@@ -393,6 +341,20 @@ Always format your responses with clear headings and structured content for maxi
                 "type": "chat",
                 "processing_time": "~10s",
                 "best_for": "Long-form content, strategy docs, analysis"
+            }
+        ]
+
+    def get_available_image_models(self) -> List[Dict[str, Any]]:
+        """Get list of available image generation models."""
+        return [
+            {
+                "id": "fal-ai/flux/schnell",
+                "name": "FLUX Schnell",
+                "description": "Fast image generation model optimized for marketing and social media content",
+                "type": "image_generation",
+                "processing_time": "~2m",
+                "supported_sizes": ["1:1", "16:9", "9:16", "4:3", "3:4", "21:9", "9:21"],
+                "best_for": "Marketing images, social media content, product visuals"
             }
         ]
 

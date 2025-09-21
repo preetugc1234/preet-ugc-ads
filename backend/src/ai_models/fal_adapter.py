@@ -32,7 +32,8 @@ class FalAdapter:
             "tts_turbo": "fal-ai/elevenlabs/tts/turbo-v2.5",  # ElevenLabs TTS Turbo v2.5
             "img2vid_noaudio": "fal-ai/kling-video/v2.1/pro/image-to-video",  # Kling v2.1 Pro (no audio)
             "img2vid_audio": "fal-ai/kling-video/v1/pro/ai-avatar",  # Kling v1 Pro AI Avatar (with audio)
-            "audio2vid": "veed/avatars/audio-to-video"  # Veed Avatars Audio-to-Video via Fal AI
+            "audio2vid": "veed/avatars/audio-to-video",  # Veed Avatars Audio-to-Video via Fal AI
+            "image_generation": "fal-ai/flux/schnell"  # FLUX Schnell for image generation
         }
 
         # Configure environment variable for backward compatibility
@@ -1402,3 +1403,131 @@ class FalAdapter:
                 "gender": "female"
             }
         ]
+
+    # Image Generation Methods
+    async def generate_image_preview(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate image preview using FLUX Schnell."""
+        try:
+            text_prompt = params.get("prompt", "A beautiful landscape")
+            style = params.get("style", "photorealistic")
+            aspect_ratio = params.get("aspect_ratio", "1:1")
+            quality = params.get("quality", "high")
+
+            # Enhance prompt for better results
+            enhanced_prompt = f"{style} style: {text_prompt}"
+
+            # Convert aspect ratio to image size
+            image_size = self._get_image_size(aspect_ratio)
+
+            # Use fal_client for FLUX Schnell image generation
+            arguments = {
+                "prompt": enhanced_prompt,
+                "image_size": image_size,
+                "num_inference_steps": 4,  # FLUX Schnell is optimized for 4 steps
+                "seed": None,  # Random seed
+                "enable_safety_checker": True
+            }
+
+            # Submit request asynchronously for preview (fast)
+            result = await asyncio.to_thread(
+                fal_client.subscribe,
+                self.models["image_generation"],
+                arguments=arguments,
+                with_logs=True
+            )
+
+            if result and "images" in result and len(result["images"]) > 0:
+                image_data = result["images"][0]
+                return {
+                    "success": True,
+                    "image_url": image_data.get("url"),
+                    "text_prompt": text_prompt,
+                    "enhanced_prompt": enhanced_prompt,
+                    "style": style,
+                    "aspect_ratio": aspect_ratio,
+                    "quality": quality,
+                    "model": "flux-schnell",
+                    "preview": True,
+                    "processing_time": "~2m"
+                }
+            else:
+                raise Exception("No image generated from FLUX Schnell")
+
+        except Exception as e:
+            logger.error(f"Image preview generation failed: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "text_prompt": params.get("prompt", "A beautiful landscape")
+            }
+
+    async def generate_image_final(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate final high-quality image using FLUX Schnell."""
+        try:
+            text_prompt = params.get("prompt", "A beautiful landscape")
+            image_input = params.get("image_input")  # Optional reference image
+            style = params.get("style", "photorealistic")
+            aspect_ratio = params.get("aspect_ratio", "1:1")
+            quality = params.get("quality", "high")
+
+            # Enhance prompt for marketing focus
+            enhanced_prompt = f"Professional {style} marketing image: {text_prompt}, high quality, detailed, commercial use"
+
+            # Convert aspect ratio to image size
+            image_size = self._get_image_size(aspect_ratio)
+
+            # Use fal_client for FLUX Schnell image generation
+            arguments = {
+                "prompt": enhanced_prompt,
+                "image_size": image_size,
+                "num_inference_steps": 4,  # FLUX Schnell optimized steps
+                "seed": None,  # Random seed for variety
+                "enable_safety_checker": True
+            }
+
+            # Submit request asynchronously for final (higher quality)
+            result = await asyncio.to_thread(
+                fal_client.subscribe,
+                self.models["image_generation"],
+                arguments=arguments,
+                with_logs=True
+            )
+
+            if result and "images" in result and len(result["images"]) > 0:
+                image_data = result["images"][0]
+                return {
+                    "success": True,
+                    "image_url": image_data.get("url"),
+                    "text_prompt": text_prompt,
+                    "enhanced_prompt": enhanced_prompt,
+                    "has_image_input": bool(image_input),
+                    "style": style,
+                    "aspect_ratio": aspect_ratio,
+                    "quality": quality,
+                    "model": "flux-schnell",
+                    "processing_time": "~2m",
+                    "preview": False
+                }
+            else:
+                raise Exception("No image generated from FLUX Schnell")
+
+        except Exception as e:
+            logger.error(f"Image final generation failed: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "text_prompt": params.get("prompt", "A beautiful landscape")
+            }
+
+    def _get_image_size(self, aspect_ratio: str) -> str:
+        """Convert aspect ratio to FLUX Schnell compatible image size."""
+        size_map = {
+            "1:1": "square_hd",       # 1024x1024
+            "16:9": "landscape_16_9", # 1344x768
+            "9:16": "portrait_9_16",  # 768x1344
+            "4:3": "landscape_4_3",   # 1152x896
+            "3:4": "portrait_3_4",    # 896x1152
+            "21:9": "landscape_21_9", # 1536x640
+            "9:21": "portrait_9_21"   # 640x1536
+        }
+        return size_map.get(aspect_ratio, "square_hd")

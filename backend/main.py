@@ -36,6 +36,7 @@ from src.routes.user_routes import router as user_router
 from src.routes.health_routes import router as health_router
 from src.routes.jobs import router as jobs_router
 from src.routes.webhooks import router as webhooks_router
+from src.routes.generate import router as generate_router
 
 # Import error handlers
 from src.middleware.error_handler import (
@@ -55,6 +56,7 @@ app.include_router(user_router)
 app.include_router(health_router)
 app.include_router(jobs_router, prefix="/api/jobs", tags=["jobs"])
 app.include_router(webhooks_router, prefix="/api/webhooks", tags=["webhooks"])
+app.include_router(generate_router, prefix="/api/generate", tags=["generation"])
 
 # Add error handlers
 app.add_exception_handler(HTTPException, http_exception_handler)
