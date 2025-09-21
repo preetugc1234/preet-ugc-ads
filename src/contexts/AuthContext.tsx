@@ -185,7 +185,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 session.user.email?.split('@')[0] ||
                 'User',
           plan: 'free',
-          credits: 1000, // Default credits for new users as per prompt.md
+          credits: 250, // Default credits for free plan users (250/month)
           is_admin: false,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()

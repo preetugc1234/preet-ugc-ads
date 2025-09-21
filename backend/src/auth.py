@@ -158,7 +158,7 @@ async def create_user_from_supabase(supabase_user: Dict[str, Any]) -> Optional[D
             email=email,
             name=name,
             plan="free",
-            credits=500  # Free tier starting credits
+            credits=250  # Free tier starting credits (250/month)
         )
 
         # Insert user

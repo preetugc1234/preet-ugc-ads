@@ -401,13 +401,13 @@ gemini-2.5-flash — fast image preview / text→image preview.
 
 Fal AI (your chosen Fal models)
 
-Kling v2 pro — image→video (no audio).
+Kling v2.1 pro — image→video (no audio).
 
 11Labs v2.5 — TTS (text→speech).
 
 veed — audio→video UGC.
 
-Kling v1 pro — image→video with audio (custom UGC).
+Kling v1 pro ai avtar — image→video with audio (custom UGC).
 
 Adapter layer
 
@@ -1178,4 +1178,8 @@ Implement History UI & eviction demo (simulate older items deletion).
 Integrate Stripe Checkout last after flows are stable.
 
 
-Important Note: Replace word stripe with razorpay. cause in india there is only razorpay avalable. and i will also use supabase for auth0. as the structure, system design and architecture build perfect app. see my razorpay is not approve so i will give you demo account api of razorpay for how api, pricing and credit system and all that works with our app. as you know its not include real money its just a demo checkout system with razorpay. make it perfect and make it like you are expert software developer in google.
+Important Note: Replace word stripe with razorpay. cause in india there is only razorpay avalable. 
+and i will also use supabase for auth0. as the structure, system design and architecture build perfect app. 
+see my razorpay is not approve so i will give you demo account api of razorpay for how api, pricing 
+and credit system and all that works with our app. as you know its not include real money its just a
+demo checkout system with razorpay. make it perfect and make it like you are expert software developer in google.

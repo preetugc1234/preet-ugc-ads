@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import NotificationCenter from "@/components/notifications/NotificationCenter";
+import { useAuth } from "@/contexts/AuthContext";
 
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -40,24 +41,34 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Mock user data - replace with actual auth context
-  const user = {
-    name: "Preet",
-    email: "preet@ugcai.com",
-    avatar: "",
-    credits: 1250,
-    plan: "Pro",
-    isAdmin: true // Set to true so you can access admin panel
-  };
+  // Use real auth context
+  const { user, signOut, loading } = useAuth();
+
+  // Handle case where user is not loaded yet
+  if (loading || !user) {
+    return (
+      <div className="h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-slate-600 dark:text-slate-400">Loading your dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   const toggleTheme = () => {
     setIsDark(!isDark);
     document.documentElement.classList.toggle('dark');
   };
 
-  const handleLogout = () => {
-    // Implement logout logic
-    navigate('/');
+  const handleLogout = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Error signing out:', error);
+      // Force navigation even if logout fails
+      navigate('/');
+    }
   };
 
   const toolsNavigation = [
@@ -113,7 +124,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
     }
   ];
 
-  const adminNavigation = user.isAdmin ? [
+  const adminNavigation = user.is_admin ? [
     {
       name: "Admin Panel",
       href: "/dashboard/admin",

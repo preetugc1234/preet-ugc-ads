@@ -111,7 +111,7 @@ class UserModel:
         email: str,
         name: str,
         plan: str = "free",
-        credits: int = 500
+        credits: int = 250
     ) -> Dict[str, Any]:
         """Create a new user document."""
         return {
