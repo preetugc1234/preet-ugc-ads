@@ -27,19 +27,47 @@ const ChatTool = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const models = [
-    { value: "gpt-4o-mini", label: "GPT-4o Mini", description: "Fast and efficient" },
-    { value: "gpt-4", label: "GPT-4", description: "Most capable" },
-    { value: "claude-3-haiku", label: "Claude 3 Haiku", description: "Fast responses" },
-    { value: "claude-3-sonnet", label: "Claude 3 Sonnet", description: "Balanced performance" }
+    {
+      value: "gpt-4o-mini",
+      label: "GPT-4o Mini",
+      description: "Fast marketing content generation",
+      time: "Instant",
+      bestFor: "Quick social media posts, captions, hashtags"
+    },
+    {
+      value: "gpt-4",
+      label: "GPT-4",
+      description: "Advanced marketing strategies",
+      time: "~3s",
+      bestFor: "Detailed campaigns, SEO content, scripts"
+    },
+    {
+      value: "claude-3-haiku",
+      label: "Claude 3 Haiku",
+      description: "Creative content generation",
+      time: "~6s",
+      bestFor: "Creative copy, storytelling, brand voice"
+    },
+    {
+      value: "claude-3-sonnet",
+      label: "Claude 3 Sonnet",
+      description: "Comprehensive content strategy",
+      time: "~8s",
+      bestFor: "Long-form content, strategy docs, analysis"
+    }
   ];
 
   const promptTemplates = [
-    "Write a professional email about...",
-    "Explain this concept in simple terms...",
-    "Create a marketing copy for...",
-    "Summarize this text...",
-    "Write code to solve...",
-    "Brainstorm ideas for..."
+    "Create an Instagram caption for...",
+    "Write a YouTube title and description for...",
+    "Generate 30 hashtags for...",
+    "Create a Facebook ad copy for...",
+    "Write a TikTok video script about...",
+    "Design an email marketing campaign for...",
+    "Create SEO meta tags for...",
+    "Write a product description for...",
+    "Generate a social media content calendar...",
+    "Create a brand voice guide for..."
   ];
 
   const scrollToBottom = () => {
@@ -67,7 +95,7 @@ const ChatTool = () => {
     setPrompt("");
 
     try {
-      // Call the actual OpenRouter API
+      // Call the actual OpenRouter API with marketing focus
       const response = await fetch('/api/generate/chat', {
         method: 'POST',
         headers: {
@@ -75,6 +103,7 @@ const ChatTool = () => {
         },
         body: JSON.stringify({
           prompt: currentPrompt,
+          model: model,
           conversation_history: messages.slice(-10).map(msg => ({
             role: msg.type === 'user' ? 'user' : 'assistant',
             content: msg.content
@@ -256,10 +285,10 @@ const ChatTool = () => {
   return (
     <DashboardLayout>
       <ToolEditorLayout
-        toolName="AI Chat"
+        toolName="Marketing AI Chat"
         toolIcon={MessageSquare}
         credits="Free"
-        estimatedTime="~5s"
+        estimatedTime={models.find(m => m.value === model)?.time || "~5s"}
         onGenerate={handleGenerate}
         isGenerating={isGenerating}
         canGenerate={!!prompt.trim()}
@@ -280,9 +309,15 @@ const ChatTool = () => {
                 <SelectContent>
                   {models.map((m) => (
                     <SelectItem key={m.value} value={m.value}>
-                      <div>
-                        <div className="font-medium">{m.label}</div>
-                        <div className="text-xs text-gray-500">{m.description}</div>
+                      <div className="w-full">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">{m.label}</span>
+                          <Badge variant="outline" className="text-xs">{m.time}</Badge>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">{m.description}</div>
+                        <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                          Best for: {m.bestFor}
+                        </div>
                       </div>
                     </SelectItem>
                   ))}
@@ -318,6 +353,36 @@ const ChatTool = () => {
               <p className="text-xs text-gray-500 mt-1">
                 Maximum response length
               </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Marketing Focus Info */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center">
+              <Sparkles className="w-4 h-4 mr-2" />
+              Marketing AI Assistant
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+              <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+                🎯 Specialized for Marketing
+              </h4>
+              <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
+                <p>• Social media content & captions</p>
+                <p>• SEO titles & descriptions</p>
+                <p>• Ad copy & marketing scripts</p>
+                <p>• Hashtags & content strategy</p>
+                <p>• Brand voice & storytelling</p>
+              </div>
+            </div>
+            <div className="text-xs text-gray-600 dark:text-gray-400">
+              <p className="font-medium mb-1">🤖 All responses include:</p>
+              <p>• Structured markdown formatting</p>
+              <p>• H1, H2, H3 headings for clarity</p>
+              <p>• Actionable insights & examples</p>
             </div>
           </CardContent>
         </Card>

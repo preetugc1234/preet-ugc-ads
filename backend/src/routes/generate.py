@@ -63,6 +63,7 @@ class Audio2VideoResponse(BaseModel):
 
 class ChatRequest(BaseModel):
     prompt: str
+    model: Optional[str] = "gpt-4o-mini"  # Model selection
     conversation_history: Optional[list] = []
     max_tokens: Optional[int] = 1000
     temperature: Optional[float] = 0.7
@@ -113,10 +114,11 @@ class TTSResponse(BaseModel):
 
 @router.post("/chat", response_model=ChatResponse)
 async def generate_chat(request: ChatRequest):
-    """Chat generation using GPT-4o mini via OpenRouter (Free)"""
+    """Marketing-focused chat generation using OpenRouter models"""
     try:
         result = await openrouter_adapter.generate_chat_final({
             "prompt": request.prompt,
+            "model": request.model,
             "conversation_history": request.conversation_history,
             "max_tokens": request.max_tokens,
             "temperature": request.temperature
@@ -125,7 +127,7 @@ async def generate_chat(request: ChatRequest):
         return ChatResponse(
             success=result["success"],
             content=result.get("content"),
-            model="gpt-4o-mini",
+            model=result.get("model", request.model),
             tokens_used=result.get("tokens_used", 0),
             error=result.get("error")
         )
@@ -134,7 +136,7 @@ async def generate_chat(request: ChatRequest):
         return ChatResponse(
             success=False,
             content=None,
-            model="gpt-4o-mini",
+            model=request.model,
             error=str(e)
         )
 

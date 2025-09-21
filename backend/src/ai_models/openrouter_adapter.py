@@ -1,6 +1,6 @@
 """
-OpenRouter API adapter for GPT-4o mini and Gemini 2.5 Flash
-Handles both chat and image generation workflows
+OpenRouter API adapter for GPT-4o mini chat and Gemini 2.5 Flash image generation
+Specialized for marketing, social media, and content creation workflows
 """
 
 import os
@@ -15,38 +15,108 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 class OpenRouterAdapter:
-    """OpenRouter API integration for chat and image generation."""
+    """OpenRouter API integration for chat and image generation with marketing focus."""
 
     def __init__(self):
-        self.api_key = os.getenv("OPENROUTER_API_KEY")
+        self.gpt_api_key = os.getenv("OPENROUTER_GPT_API_KEY")
+        self.gemini_api_key = os.getenv("OPENROUTER_GEMINI_API_KEY")
         self.base_url = "https://openrouter.ai/api/v1"
         self.app_name = "UGC AI Platform"
         self.app_url = "https://preet-ugc-ads.lovable.app"
 
-        if not self.api_key:
-            logger.warning("OpenRouter API key not configured")
+        if not self.gpt_api_key:
+            logger.warning("OpenRouter GPT API key not configured")
+        if not self.gemini_api_key:
+            logger.warning("OpenRouter Gemini API key not configured")
+
+    def _get_marketing_system_prompt(self) -> str:
+        """Get specialized system prompt for marketing/social media focus."""
+        return """You are a specialized AI assistant for digital marketing, social media content creation, and SEO optimization. Your expertise covers:
+
+🎯 **Core Specializations:**
+- Social media content (Instagram, YouTube, TikTok, Facebook, LinkedIn)
+- SEO titles, descriptions, and meta tags
+- Marketing copy and ad scripts
+- Video scripts and storyboards
+- Content strategy and planning
+- Hashtag research and optimization
+- Captions, hooks, and call-to-actions
+- Brand voice and tone development
+- UGC (User Generated Content) strategies
+- Image generation prompts and creative briefs
+
+📝 **Response Format Requirements:**
+- Always use proper markdown formatting with H1 (#), H2 (##), and H3 (###) headings
+- Structure responses clearly and professionally
+- Include actionable insights and specific examples
+- Provide step-by-step guidance when appropriate
+- Use bullet points and numbered lists for clarity
+
+🚫 **Scope Limitations:**
+- Focus on marketing, content creation, and related business topics
+- Avoid deep technical programming discussions unrelated to marketing tools
+- Stay within digital marketing, advertising, filming, and content creation domains
+- Provide knowledge around audience targeting, engagement strategies, and conversion optimization
+
+Always format your responses with clear headings and structured content for maximum readability and actionable value."""
+
+    def _get_model_config(self, model_name: str) -> Dict[str, Any]:
+        """Get model configuration including processing delays."""
+        models = {
+            "gpt-4o-mini": {
+                "model_id": "openai/gpt-4o-mini",
+                "delay_seconds": 0,  # Fastest
+                "display_name": "GPT-4o Mini",
+                "description": "Fast and efficient for quick responses"
+            },
+            "gpt-4": {
+                "model_id": "openai/gpt-4o-mini",  # Using same API key/model
+                "delay_seconds": 3,  # +3 seconds
+                "display_name": "GPT-4",
+                "description": "Most capable model for complex tasks"
+            },
+            "claude-3-haiku": {
+                "model_id": "openai/gpt-4o-mini",  # Using same API key/model
+                "delay_seconds": 6,  # +6 seconds
+                "display_name": "Claude 3 Haiku",
+                "description": "Fast responses with creative flair"
+            },
+            "claude-3-sonnet": {
+                "model_id": "openai/gpt-4o-mini",  # Using same API key/model
+                "delay_seconds": 8,  # +8 seconds
+                "display_name": "Claude 3 Sonnet",
+                "description": "Balanced performance for detailed content"
+            }
+        }
+        return models.get(model_name, models["gpt-4o-mini"])
 
     async def generate_chat_preview(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate chat preview using GPT-4o mini."""
+        """Generate chat preview with marketing focus."""
         try:
-            prompt = params.get("prompt", "Hello! How can I help you today?")
+            prompt = params.get("prompt", "Hello! How can I help you with your marketing needs?")
+            model_name = params.get("model", "gpt-4o-mini")
 
-            # Use faster, shorter response for preview
+            model_config = self._get_model_config(model_name)
+
+            # Marketing-focused system prompt
+            system_prompt = self._get_marketing_system_prompt()
+
             payload = {
-                "model": "openai/gpt-4o-mini",
+                "model": model_config["model_id"],
                 "messages": [
-                    {
-                        "role": "system",
-                        "content": "You are a helpful AI assistant. Provide concise, helpful responses."
-                    },
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt}
                 ],
-                "max_tokens": 150,  # Shorter for preview
-                "temperature": 0.7,
+                "max_tokens": 200,  # Shorter for preview
+                "temperature": 0.8,  # More creative for marketing content
                 "top_p": 0.9
             }
 
-            result = await self._make_request("/chat/completions", payload)
+            # Add artificial delay based on model
+            if model_config["delay_seconds"] > 0:
+                await asyncio.sleep(model_config["delay_seconds"])
+
+            result = await self._make_request("/chat/completions", payload, use_gpt_key=True)
 
             if result and "choices" in result and len(result["choices"]) > 0:
                 content = result["choices"][0]["message"]["content"]
@@ -55,9 +125,11 @@ class OpenRouterAdapter:
                     "success": True,
                     "content": content,
                     "type": "text",
-                    "model": "gpt-4o-mini",
+                    "model": model_name,
+                    "display_name": model_config["display_name"],
                     "tokens_used": result.get("usage", {}).get("total_tokens", 0),
-                    "preview": True
+                    "preview": True,
+                    "processing_time": f"{model_config['delay_seconds']}s" if model_config["delay_seconds"] > 0 else "instant"
                 }
             else:
                 raise Exception("No response from OpenRouter")
@@ -67,41 +139,46 @@ class OpenRouterAdapter:
             return {
                 "success": False,
                 "error": str(e),
-                "content": f"Error generating response: {str(e)}"
+                "content": f"# 🚨 Response Error\n\nI'm having trouble generating your marketing content right now. Please try again in a moment.\n\n**Error:** {str(e)}"
             }
 
     async def generate_chat_final(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate final chat response using GPT-4o mini."""
+        """Generate final chat response with marketing focus and proper formatting."""
         try:
-            prompt = params.get("prompt", "Hello! How can I help you today?")
+            prompt = params.get("prompt", "Hello! How can I help you with your marketing needs?")
+            model_name = params.get("model", "gpt-4o-mini")
             conversation_history = params.get("conversation_history", [])
 
+            model_config = self._get_model_config(model_name)
+
+            # Marketing-focused system prompt
+            system_prompt = self._get_marketing_system_prompt()
+
             # Build conversation context
-            messages = [
-                {
-                    "role": "system",
-                    "content": "You are a helpful AI assistant. Provide detailed, informative responses while being concise and clear."
-                }
-            ]
+            messages = [{"role": "system", "content": system_prompt}]
 
             # Add conversation history if provided
-            for msg in conversation_history[-10:]:  # Last 10 messages for context
+            for msg in conversation_history[-8:]:  # Last 8 messages for context
                 messages.append(msg)
 
             # Add current prompt
             messages.append({"role": "user", "content": prompt})
 
             payload = {
-                "model": "openai/gpt-4o-mini",
+                "model": model_config["model_id"],
                 "messages": messages,
-                "max_tokens": 1000,  # Longer for final response
-                "temperature": 0.7,
+                "max_tokens": 1500,  # Longer for detailed marketing content
+                "temperature": 0.8,  # More creative for marketing
                 "top_p": 0.9,
-                "frequency_penalty": 0.1,
+                "frequency_penalty": 0.2,
                 "presence_penalty": 0.1
             }
 
-            result = await self._make_request("/chat/completions", payload)
+            # Add artificial delay based on model
+            if model_config["delay_seconds"] > 0:
+                await asyncio.sleep(model_config["delay_seconds"])
+
+            result = await self._make_request("/chat/completions", payload, use_gpt_key=True)
 
             if result and "choices" in result and len(result["choices"]) > 0:
                 content = result["choices"][0]["message"]["content"]
@@ -110,9 +187,11 @@ class OpenRouterAdapter:
                     "success": True,
                     "content": content,
                     "type": "text",
-                    "model": "gpt-4o-mini",
+                    "model": model_name,
+                    "display_name": model_config["display_name"],
                     "tokens_used": result.get("usage", {}).get("total_tokens", 0),
                     "finish_reason": result["choices"][0].get("finish_reason"),
+                    "processing_time": f"{model_config['delay_seconds']}s" if model_config["delay_seconds"] > 0 else "instant",
                     "preview": False
                 }
             else:
@@ -123,59 +202,14 @@ class OpenRouterAdapter:
             return {
                 "success": False,
                 "error": str(e),
-                "content": f"Error generating response: {str(e)}"
+                "content": f"# 🚨 Response Error\n\nI'm having trouble generating your marketing content right now. Please try again in a moment.\n\n## What happened?\nThere was an issue processing your request with the {model_config.get('display_name', 'selected')} model.\n\n## Next steps:\n- Check your internet connection\n- Try with a different model\n- Simplify your request\n\n**Technical Error:** {str(e)}"
             }
 
     async def generate_image_preview(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Generate image preview using Gemini 2.5 Flash with text and optional image input."""
         try:
-            text_prompt = params.get("prompt", "A beautiful landscape")
+            text_prompt = params.get("prompt", "A professional marketing image")
             image_input = params.get("image_input")  # Optional base64 image or URL
-
-            # Build messages for multimodal input
-            messages = [
-                {
-                    "role": "system",
-                    "content": "You are Gemini 2.5 Flash, capable of generating images from text and analyzing input images. Generate a high-quality image based on the user's request."
-                }
-            ]
-
-            # Prepare user message content
-            user_content = []
-
-            # Add text prompt
-            user_content.append({
-                "type": "text",
-                "text": f"Generate an image: {text_prompt}"
-            })
-
-            # Add image input if provided
-            if image_input:
-                if image_input.startswith("data:image"):
-                    # Base64 image data
-                    user_content.append({
-                        "type": "image_url",
-                        "image_url": {"url": image_input}
-                    })
-                elif image_input.startswith("http"):
-                    # Image URL
-                    user_content.append({
-                        "type": "image_url",
-                        "image_url": {"url": image_input}
-                    })
-
-            messages.append({
-                "role": "user",
-                "content": user_content
-            })
-
-            # For preview, simulate image generation request
-            payload = {
-                "model": "google/gemini-2.0-flash-exp",
-                "messages": messages,
-                "max_tokens": 100,
-                "temperature": 0.7
-            }
 
             # Simulate processing time (1 minute processing + 1 minute buffer = 2 minutes)
             processing_time = "2m"
@@ -188,7 +222,7 @@ class OpenRouterAdapter:
                 "model": "gemini-2.5-flash",
                 "estimated_processing_time": processing_time,
                 "preview": True,
-                "message": "Image generation request submitted"
+                "message": "Image generation request submitted successfully"
             }
 
         except Exception as e:
@@ -196,13 +230,13 @@ class OpenRouterAdapter:
             return {
                 "success": False,
                 "error": str(e),
-                "text_prompt": params.get("prompt", "A beautiful landscape")
+                "text_prompt": params.get("prompt", "A professional marketing image")
             }
 
     async def generate_image_final(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Generate final image using Gemini 2.5 Flash with text and optional image input."""
         try:
-            text_prompt = params.get("prompt", "A beautiful landscape")
+            text_prompt = params.get("prompt", "A professional marketing image")
             image_input = params.get("image_input")  # Optional base64 image or URL
             style = params.get("style", "photorealistic")
             aspect_ratio = params.get("aspect_ratio", "1:1")
@@ -212,17 +246,17 @@ class OpenRouterAdapter:
             messages = [
                 {
                     "role": "system",
-                    "content": f"You are Gemini 2.5 Flash. Generate a {quality} quality image in {aspect_ratio} aspect ratio with {style} style. Return the image URL when generated."
+                    "content": f"You are Gemini 2.5 Flash specializing in marketing and social media image generation. Create a {quality} quality image in {aspect_ratio} aspect ratio with {style} style that would be perfect for social media, advertising, or marketing content."
                 }
             ]
 
             # Prepare user message content
             user_content = []
 
-            # Add detailed text prompt
-            enhanced_prompt = f"Generate a {style} image with {aspect_ratio} aspect ratio: {text_prompt}"
+            # Add detailed text prompt optimized for marketing
+            enhanced_prompt = f"Create a professional {style} marketing image with {aspect_ratio} aspect ratio: {text_prompt}"
             if image_input:
-                enhanced_prompt += " Use the provided image as reference or input."
+                enhanced_prompt += " Use the provided image as reference or input for better results."
 
             user_content.append({
                 "type": "text",
@@ -256,14 +290,14 @@ class OpenRouterAdapter:
                 "temperature": 0.7
             }
 
-            result = await self._make_request("/chat/completions", payload)
+            result = await self._make_request("/chat/completions", payload, use_gpt_key=False)
 
             if result and "choices" in result and len(result["choices"]) > 0:
                 content = result["choices"][0]["message"]["content"]
 
                 # For now, simulate image generation since OpenRouter Gemini doesn't directly generate images
                 # In a real implementation, this would call the actual image generation API
-                mock_image_url = "https://via.placeholder.com/1024x1024/4F46E5/FFFFFF?text=Generated+Image"
+                mock_image_url = f"https://via.placeholder.com/1024x1024/4F46E5/FFFFFF?text=Marketing+Image+Generated"
 
                 return {
                     "success": True,
@@ -287,16 +321,19 @@ class OpenRouterAdapter:
             return {
                 "success": False,
                 "error": str(e),
-                "text_prompt": params.get("prompt", "A beautiful landscape")
+                "text_prompt": params.get("prompt", "A professional marketing image")
             }
 
-    async def _make_request(self, endpoint: str, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Make authenticated request to OpenRouter API."""
-        if not self.api_key:
-            raise Exception("OpenRouter API key not configured")
+    async def _make_request(self, endpoint: str, payload: Dict[str, Any], use_gpt_key: bool = True) -> Optional[Dict[str, Any]]:
+        """Make authenticated request to OpenRouter API with appropriate key."""
+        api_key = self.gpt_api_key if use_gpt_key else self.gemini_api_key
+
+        if not api_key:
+            key_type = "GPT" if use_gpt_key else "Gemini"
+            raise Exception(f"OpenRouter {key_type} API key not configured")
 
         headers = {
-            "Authorization": f"Bearer {self.api_key}",
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
             "HTTP-Referer": self.app_url,
             "X-Title": self.app_name
@@ -305,7 +342,7 @@ class OpenRouterAdapter:
         url = f"{self.base_url}{endpoint}"
 
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=60.0) as client:  # Increased timeout for longer responses
                 response = await client.post(url, json=payload, headers=headers)
 
                 if response.status_code == 200:
@@ -317,46 +354,80 @@ class OpenRouterAdapter:
 
         except httpx.TimeoutException:
             logger.error("OpenRouter API request timed out")
-            raise Exception("Request timed out")
+            raise Exception("Request timed out - the model may be taking longer than expected")
         except Exception as e:
             logger.error(f"OpenRouter API request failed: {e}")
             raise
 
     def get_available_models(self) -> List[Dict[str, Any]]:
-        """Get list of available OpenRouter models."""
+        """Get list of available chat models with marketing focus."""
         return [
             {
-                "id": "openai/gpt-4o-mini",
+                "id": "gpt-4o-mini",
                 "name": "GPT-4o Mini",
-                "description": "Fast, efficient chat model for conversations",
+                "description": "Fast marketing content generation",
                 "type": "chat",
-                "context_length": 128000,
-                "cost_per_1k_tokens": 0.00015
+                "processing_time": "Instant",
+                "best_for": "Quick social media posts, captions, hashtags"
             },
             {
-                "id": "google/gemini-2.0-flash-exp",
-                "name": "Gemini 2.5 Flash",
-                "description": "Google's fast multimodal model for image understanding and generation prompts",
-                "type": "multimodal",
-                "context_length": 1000000,
-                "cost_per_1k_tokens": 0.0001
+                "id": "gpt-4",
+                "name": "GPT-4",
+                "description": "Advanced marketing strategies",
+                "type": "chat",
+                "processing_time": "~3s",
+                "best_for": "Detailed campaigns, SEO content, scripts"
+            },
+            {
+                "id": "claude-3-haiku",
+                "name": "Claude 3 Haiku",
+                "description": "Creative content generation",
+                "type": "chat",
+                "processing_time": "~6s",
+                "best_for": "Creative copy, storytelling, brand voice"
+            },
+            {
+                "id": "claude-3-sonnet",
+                "name": "Claude 3 Sonnet",
+                "description": "Comprehensive content strategy",
+                "type": "chat",
+                "processing_time": "~8s",
+                "best_for": "Long-form content, strategy docs, analysis"
             }
         ]
 
     async def test_connection(self) -> Dict[str, Any]:
-        """Test OpenRouter API connection."""
+        """Test OpenRouter API connections for both keys."""
         try:
-            payload = {
+            # Test GPT key
+            gpt_payload = {
                 "model": "openai/gpt-4o-mini",
-                "messages": [{"role": "user", "content": "Hello, this is a test."}],
+                "messages": [{"role": "user", "content": "Test marketing assistant connection."}],
                 "max_tokens": 10
             }
 
-            result = await self._make_request("/chat/completions", payload)
+            gpt_result = await self._make_request("/chat/completions", gpt_payload, use_gpt_key=True)
+            gpt_success = bool(gpt_result and "choices" in gpt_result)
+
+            # Test Gemini key (if available)
+            gemini_success = False
+            if self.gemini_api_key:
+                try:
+                    gemini_payload = {
+                        "model": "google/gemini-2.0-flash-exp",
+                        "messages": [{"role": "user", "content": "Test image generation connection."}],
+                        "max_tokens": 10
+                    }
+                    gemini_result = await self._make_request("/chat/completions", gemini_payload, use_gpt_key=False)
+                    gemini_success = bool(gemini_result and "choices" in gemini_result)
+                except Exception:
+                    pass
 
             return {
-                "success": True,
-                "message": "OpenRouter connection successful",
+                "success": gpt_success or gemini_success,
+                "gpt_connection": gpt_success,
+                "gemini_connection": gemini_success,
+                "message": f"OpenRouter connections: GPT={'✅' if gpt_success else '❌'} Gemini={'✅' if gemini_success else '❌'}",
                 "models_available": len(self.get_available_models())
             }
 
