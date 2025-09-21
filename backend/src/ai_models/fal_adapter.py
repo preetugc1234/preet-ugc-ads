@@ -893,9 +893,14 @@ class FalAdapter:
 
             audio_url = params.get("audio_url")
             avatar_id = params.get("avatar_id", "emily_vertical_primary")
+            audio_duration = params.get("audio_duration_seconds", 30)
 
             if not audio_url:
                 raise Exception("Audio URL is required")
+
+            # Validate audio duration (max 5 minutes = 300 seconds)
+            if audio_duration > 300:
+                raise Exception("Audio duration cannot exceed 5 minutes (300 seconds)")
 
             # Validate avatar_id
             valid_avatars = self.get_available_avatars()
@@ -999,6 +1004,9 @@ class FalAdapter:
         try:
             # Get audio duration in seconds (default 30s if not provided)
             audio_duration = params.get("audio_duration_seconds", 30)
+
+            # Validate and clamp audio duration to 5 minutes maximum
+            audio_duration = min(audio_duration, 300)
 
             # Processing formula: 200 seconds for 30 seconds of audio
             # This equals approximately 6.67 seconds per second of audio

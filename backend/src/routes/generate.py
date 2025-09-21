@@ -46,6 +46,10 @@ class Audio2VideoRequest(BaseModel):
     avatar_id: Optional[str] = "emily_vertical_primary"
     audio_duration_seconds: Optional[int] = 30
 
+    def validate_audio_duration(self):
+        if self.audio_duration_seconds and self.audio_duration_seconds > 300:  # 5 minutes = 300 seconds
+            raise ValueError("Audio duration cannot exceed 5 minutes (300 seconds)")
+
 class Audio2VideoResponse(BaseModel):
     success: bool
     request_id: Optional[str] = None
@@ -351,6 +355,10 @@ async def stream_tts_turbo(request: TTSTurboRequest):
 async def submit_audio2video(request: Audio2VideoRequest):
     """Submit Audio-to-Video request using veed/avatars/audio-to-video"""
     try:
+        # Validate audio duration
+        if request.audio_duration_seconds and request.audio_duration_seconds > 300:
+            raise HTTPException(status_code=400, detail="Audio duration cannot exceed 5 minutes (300 seconds)")
+
         result = await fal_adapter.submit_audio2vid_async({
             "audio_url": request.audio_url,
             "avatar_id": request.avatar_id,

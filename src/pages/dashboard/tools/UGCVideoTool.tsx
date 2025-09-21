@@ -79,13 +79,25 @@ const UGCVideoTool = () => {
     const file = event.target.files?.[0];
     if (file) {
       const url = URL.createObjectURL(file);
-      setUploadedAudio(url);
 
       // Create audio element to detect duration
       const audio = new Audio(url);
       audio.addEventListener('loadedmetadata', () => {
         const duration = Math.round(audio.duration);
+
+        // Check if duration exceeds 5 minutes (300 seconds)
+        if (duration > 300) {
+          alert('Audio duration cannot exceed 5 minutes. Please upload a shorter audio file.');
+          event.target.value = ''; // Clear the file input
+          return;
+        }
+
+        setUploadedAudio(url);
         setAudioDuration(duration);
+      });
+
+      audio.addEventListener('error', () => {
+        alert('Error loading audio file. Please try a different file.');
       });
     }
   };
@@ -133,7 +145,9 @@ const UGCVideoTool = () => {
   const calculateCost = () => {
     if (mode === "audio-to-video") {
       // 100 credits per 30 seconds of audio (rounded up)
-      const thirtySecondChunks = Math.ceil(audioDuration / 30);
+      // Maximum 5 minutes (300 seconds) = 10 chunks × 100 = 1000 credits max
+      const clampedDuration = Math.min(audioDuration, 300); // Ensure max 5 minutes
+      const thirtySecondChunks = Math.ceil(clampedDuration / 30);
       return thirtySecondChunks * 100;
     } else {
       // Image to Video with Audio
@@ -145,7 +159,9 @@ const UGCVideoTool = () => {
   const calculateProcessingTime = () => {
     if (mode === "audio-to-video") {
       // 200 seconds for 30 seconds of audio (approximately 6.67 seconds per audio second)
-      const processingSeconds = Math.round((audioDuration / 30) * 200);
+      // Maximum 5 minutes (300 seconds) audio
+      const clampedDuration = Math.min(audioDuration, 300); // Ensure max 5 minutes
+      const processingSeconds = Math.round((clampedDuration / 30) * 200);
       // Add 4-minute buffer for safety
       const totalSeconds = processingSeconds + 240;
       const minutes = Math.floor(totalSeconds / 60);
@@ -171,7 +187,9 @@ const UGCVideoTool = () => {
     total: calculateCost()
   };
 
-  const canGenerate = mode === "audio-to-video" ? uploadedAudio : (uploadedImage && uploadedAudio);
+  const canGenerate = mode === "audio-to-video"
+    ? (uploadedAudio && audioDuration <= 300)
+    : (uploadedImage && uploadedAudio && audioDuration <= 300);
 
   const previewPane = (
     <Card>
@@ -367,7 +385,7 @@ const UGCVideoTool = () => {
                       Upload audio file
                     </p>
                     <p className="text-xs text-gray-500 mb-3">
-                      MP3, WAV, M4A up to 50MB • 100 credits per 30s
+                      MP3, WAV, M4A up to 5 minutes • 100 credits per 30s
                     </p>
                     <Button size="sm" onClick={() => document.getElementById('audio-upload')?.click()}>
                       <Upload className="w-4 h-4 mr-1" />
@@ -473,25 +491,52 @@ const UGCVideoTool = () => {
                 </div>
 
                 {uploadedAudio && (
-                  <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
+                  <div className={`p-3 rounded-lg ${
+                    audioDuration > 300
+                      ? "bg-red-50 dark:bg-red-900/20"
+                      : "bg-green-50 dark:bg-green-900/20"
+                  }`}>
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-green-800 dark:text-green-200">
+                        <p className={`text-sm font-medium ${
+                          audioDuration > 300
+                            ? "text-red-800 dark:text-red-200"
+                            : "text-green-800 dark:text-green-200"
+                        }`}>
                           Audio Duration: {audioDuration} seconds
+                          {audioDuration > 300 && " (exceeds 5 min limit)"}
                         </p>
-                        <p className="text-xs text-green-600 dark:text-green-300">
+                        <p className={`text-xs ${
+                          audioDuration > 300
+                            ? "text-red-600 dark:text-red-300"
+                            : "text-green-600 dark:text-green-300"
+                        }`}>
                           Processing Time: ~{calculateProcessingTime()}
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-medium text-green-800 dark:text-green-200">
+                        <p className={`text-sm font-medium ${
+                          audioDuration > 300
+                            ? "text-red-800 dark:text-red-200"
+                            : "text-green-800 dark:text-green-200"
+                        }`}>
                           Cost: {calculateCost()} credits
                         </p>
-                        <p className="text-xs text-green-600 dark:text-green-300">
-                          {Math.ceil(audioDuration / 30)} × 30s chunks
+                        <p className={`text-xs ${
+                          audioDuration > 300
+                            ? "text-red-600 dark:text-red-300"
+                            : "text-green-600 dark:text-green-300"
+                        }`}>
+                          {Math.ceil(Math.min(audioDuration, 300) / 30)} × 30s chunks
+                          {audioDuration > 300 && " (max 10 chunks)"}
                         </p>
                       </div>
                     </div>
+                    {audioDuration > 300 && (
+                      <div className="mt-2 p-2 bg-red-100 dark:bg-red-900/40 rounded text-xs text-red-700 dark:text-red-300">
+                        ⚠️ Audio exceeds 5-minute limit. Please upload a shorter file or trim your audio.
+                      </div>
+                    )}
                   </div>
                 )}
               </>

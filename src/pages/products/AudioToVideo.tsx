@@ -75,7 +75,7 @@ const AudioToVideo = () => {
   const specifications = [
     {
       category: "Audio Support",
-      details: ["MP3, WAV, AAC, M4A", "Up to 60 minutes length", "Mono & Stereo", "Variable bitrates"]
+      details: ["MP3, WAV, AAC, M4A", "Up to 5 minutes length", "Mono & Stereo", "Variable bitrates"]
     },
     {
       category: "Video Output",
