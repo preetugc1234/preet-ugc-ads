@@ -5,10 +5,12 @@ import logging
 import asyncio
 import json
 from ..ai_models.fal_adapter import FalAdapter
+from ..ai_models.openrouter_adapter import OpenRouterAdapter
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 fal_adapter = FalAdapter()
+openrouter_adapter = OpenRouterAdapter()
 
 class GenerateRequest(BaseModel):
     prompt: Optional[str] = None
@@ -59,6 +61,35 @@ class Audio2VideoResponse(BaseModel):
     avatar_id: Optional[str] = None
     estimated_processing_time: Optional[str] = None
 
+class ChatRequest(BaseModel):
+    prompt: str
+    conversation_history: Optional[list] = []
+    max_tokens: Optional[int] = 1000
+    temperature: Optional[float] = 0.7
+
+class ChatResponse(BaseModel):
+    success: bool
+    content: Optional[str] = None
+    model: str
+    tokens_used: Optional[int] = 0
+    error: Optional[str] = None
+
+class ImageGenerationRequest(BaseModel):
+    prompt: str  # Required text prompt
+    image_input: Optional[str] = None  # Optional base64 image or URL
+    style: Optional[str] = "photorealistic"
+    aspect_ratio: Optional[str] = "1:1"
+    quality: Optional[str] = "high"
+
+class ImageGenerationResponse(BaseModel):
+    success: bool
+    image_url: Optional[str] = None
+    text_prompt: Optional[str] = None
+    has_image_input: Optional[bool] = False
+    model: str
+    processing_time: Optional[str] = None
+    error: Optional[str] = None
+
 class TTSTurboRequest(BaseModel):
     text: str
     voice: Optional[str] = "Rachel"
@@ -80,21 +111,64 @@ class TTSResponse(BaseModel):
     error: Optional[str] = None
     estimated_processing_time: Optional[str] = None
 
-@router.post("/chat", response_model=GenerateResponse)
-async def generate_chat(request: GenerateRequest):
-    """Chat generation endpoint (Free)"""
-    return GenerateResponse(
-        message="Chat generation endpoint - Coming soon",
-        status="placeholder"
-    )
+@router.post("/chat", response_model=ChatResponse)
+async def generate_chat(request: ChatRequest):
+    """Chat generation using GPT-4o mini via OpenRouter (Free)"""
+    try:
+        result = await openrouter_adapter.generate_chat_final({
+            "prompt": request.prompt,
+            "conversation_history": request.conversation_history,
+            "max_tokens": request.max_tokens,
+            "temperature": request.temperature
+        })
 
-@router.post("/image", response_model=GenerateResponse)
-async def generate_image(request: GenerateRequest):
-    """Image generation endpoint (Free)"""
-    return GenerateResponse(
-        message="Image generation endpoint - Coming soon",
-        status="placeholder"
-    )
+        return ChatResponse(
+            success=result["success"],
+            content=result.get("content"),
+            model="gpt-4o-mini",
+            tokens_used=result.get("tokens_used", 0),
+            error=result.get("error")
+        )
+    except Exception as e:
+        logger.error(f"Chat generation failed: {e}")
+        return ChatResponse(
+            success=False,
+            content=None,
+            model="gpt-4o-mini",
+            error=str(e)
+        )
+
+@router.post("/image", response_model=ImageGenerationResponse)
+async def generate_image(request: ImageGenerationRequest):
+    """Image generation using Gemini 2.5 Flash via OpenRouter (Free)"""
+    try:
+        result = await openrouter_adapter.generate_image_final({
+            "prompt": request.prompt,
+            "image_input": request.image_input,
+            "style": request.style,
+            "aspect_ratio": request.aspect_ratio,
+            "quality": request.quality
+        })
+
+        return ImageGenerationResponse(
+            success=result["success"],
+            image_url=result.get("image_url"),
+            text_prompt=result.get("text_prompt"),
+            has_image_input=result.get("has_image_input", False),
+            model="gemini-2.5-flash",
+            processing_time=result.get("processing_time", "2m 30s"),
+            error=result.get("error")
+        )
+    except Exception as e:
+        logger.error(f"Image generation failed: {e}")
+        return ImageGenerationResponse(
+            success=False,
+            image_url=None,
+            text_prompt=request.prompt,
+            has_image_input=bool(request.image_input),
+            model="gemini-2.5-flash",
+            error=str(e)
+        )
 
 @router.post("/image-to-video", response_model=GenerateResponse)
 async def generate_image_to_video(request: GenerateRequest):

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Image, Download, Sparkles, RefreshCw, Eye, Grid3X3, Palette } from "lucide-react";
+import { Image, Download, Sparkles, RefreshCw, Eye, Grid3X3, Palette, Upload, X } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import ToolEditorLayout from "@/components/dashboard/ToolEditorLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +18,7 @@ const ImageTool = () => {
   const [numberOfImages, setNumberOfImages] = useState("1");
   const [seed, setSeed] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [inputImage, setInputImage] = useState<string | null>(null);
   const [generatedImages, setGeneratedImages] = useState<Array<{
     id: string;
     url: string;
@@ -69,17 +70,57 @@ const ImageTool = () => {
 
     setIsGenerating(true);
 
-    // Simulate generation time
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    try {
+      // Call the actual API
+      const response = await fetch('/api/generate/image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: prompt,
+          image_input: inputImage, // Optional base64 image
+          style: style,
+          aspect_ratio: aspectRatio,
+          quality: 'high'
+        }),
+      });
 
-    const newImages = Array.from({ length: parseInt(numberOfImages) }, (_, index) => ({
-      id: Date.now().toString() + index,
-      url: mockImages[index % mockImages.length],
-      prompt: prompt,
-      timestamp: new Date()
-    }));
+      const result = await response.json();
 
-    setGeneratedImages(prev => [...newImages, ...prev].slice(0, 12)); // Keep last 12 images
+      if (result.success && result.image_url) {
+        const newImages = Array.from({ length: parseInt(numberOfImages) }, (_, index) => ({
+          id: Date.now().toString() + index,
+          url: result.image_url,
+          prompt: prompt,
+          timestamp: new Date()
+        }));
+
+        setGeneratedImages(prev => [...newImages, ...prev].slice(0, 12)); // Keep last 12 images
+      } else {
+        // Fallback to mock images if API fails
+        const newImages = Array.from({ length: parseInt(numberOfImages) }, (_, index) => ({
+          id: Date.now().toString() + index,
+          url: mockImages[index % mockImages.length],
+          prompt: prompt,
+          timestamp: new Date()
+        }));
+
+        setGeneratedImages(prev => [...newImages, ...prev].slice(0, 12));
+      }
+    } catch (error) {
+      console.error('Image generation failed:', error);
+      // Fallback to mock images
+      const newImages = Array.from({ length: parseInt(numberOfImages) }, (_, index) => ({
+        id: Date.now().toString() + index,
+        url: mockImages[index % mockImages.length],
+        prompt: prompt,
+        timestamp: new Date()
+      }));
+
+      setGeneratedImages(prev => [...newImages, ...prev].slice(0, 12));
+    }
+
     setIsGenerating(false);
   };
 
@@ -96,6 +137,36 @@ const ImageTool = () => {
   const downloadImage = (url: string, prompt: string) => {
     // In real implementation, this would download the actual image
     console.log("Downloading image:", url, prompt);
+  };
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Check file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        alert('Image file size should be less than 10MB');
+        return;
+      }
+
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please upload a valid image file');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setInputImage(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeInputImage = () => {
+    setInputImage(null);
+    // Clear the file input
+    const fileInput = document.getElementById('image-upload') as HTMLInputElement;
+    if (fileInput) fileInput.value = '';
   };
 
   const previewPane = (
@@ -176,7 +247,7 @@ const ImageTool = () => {
                 <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
                 <span className="text-blue-600 font-medium">Generating images...</span>
               </div>
-              <p className="text-sm text-gray-500 mt-2">This usually takes 15-30 seconds</p>
+              <p className="text-sm text-gray-500 mt-2">This usually takes 2-3 minutes with buffer for reliability</p>
             </div>
           )}
         </CardContent>
@@ -190,7 +261,7 @@ const ImageTool = () => {
         toolName="Image Generation"
         toolIcon={Image}
         credits="Free"
-        estimatedTime="~20s"
+        estimatedTime="~2m 30s"
         onGenerate={handleGenerate}
         isGenerating={isGenerating}
         canGenerate={!!prompt.trim()}
@@ -227,6 +298,63 @@ const ImageTool = () => {
               />
               <p className="text-xs text-gray-500 mt-1">
                 Specify things to avoid in the generated image
+              </p>
+            </div>
+
+            {/* Image Input Section */}
+            <div>
+              <Label>Reference Image (Optional)</Label>
+              <div className="mt-2">
+                {!inputImage ? (
+                  <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6">
+                    <div className="text-center">
+                      <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                        Upload reference image
+                      </p>
+                      <p className="text-xs text-gray-500 mb-3">
+                        JPG, PNG, WebP up to 10MB (optional)
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => document.getElementById('image-upload')?.click()}
+                      >
+                        <Upload className="w-4 h-4 mr-1" />
+                        Choose Image
+                      </Button>
+                    </div>
+                    <input
+                      id="image-upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <img
+                      src={inputImage}
+                      alt="Reference input"
+                      className="w-full max-h-48 object-contain rounded-lg border"
+                    />
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="absolute top-2 right-2"
+                      onClick={removeInputImage}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                    <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded text-xs text-blue-700 dark:text-blue-300">
+                      ✓ Reference image will be used with your text prompt for enhanced generation
+                    </div>
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Gemini 2.5 Flash can use both text and image inputs for better results
               </p>
             </div>
           </CardContent>

@@ -63,26 +63,78 @@ const ChatTool = () => {
     setMessages(prev => [...prev, userMessage]);
     setIsGenerating(true);
     setStreamingResponse("");
+    const currentPrompt = prompt;
     setPrompt("");
 
-    // Simulate streaming response
-    const responseText = `I understand you want me to help with: "${prompt}"\n\nHere's a comprehensive response that demonstrates the streaming capabilities of our AI chat system. This text is being generated token by token to show how real-time responses work.\n\nKey points:\n• Real-time streaming provides immediate feedback\n• Users can see progress as content generates\n• Provides better user experience than waiting\n• Shows the AI is actively working on the request\n\nThis is a mock response for demonstration purposes. In production, this would connect to actual AI models like GPT-4o-mini, Claude, or other language models through secure API endpoints.`;
+    try {
+      // Call the actual OpenRouter API
+      const response = await fetch('/api/generate/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: currentPrompt,
+          conversation_history: messages.slice(-10).map(msg => ({
+            role: msg.type === 'user' ? 'user' : 'assistant',
+            content: msg.content
+          })),
+          max_tokens: maxTokens[0],
+          temperature: temperature[0]
+        }),
+      });
 
-    // Stream the response character by character
-    for (let i = 0; i < responseText.length; i++) {
-      await new Promise(resolve => setTimeout(resolve, 20));
-      setStreamingResponse(responseText.slice(0, i + 1));
+      const result = await response.json();
+
+      if (result.success && result.content) {
+        // Simulate streaming for better UX
+        const responseText = result.content;
+
+        for (let i = 0; i < responseText.length; i++) {
+          await new Promise(resolve => setTimeout(resolve, 10));
+          setStreamingResponse(responseText.slice(0, i + 1));
+        }
+
+        // Add final message
+        const assistantMessage = {
+          id: (Date.now() + 1).toString(),
+          type: 'assistant' as const,
+          content: responseText,
+          timestamp: new Date()
+        };
+
+        setMessages(prev => [...prev, assistantMessage]);
+      } else {
+        // Fallback response
+        const fallbackText = `I apologize, but I'm having trouble processing your request right now. This might be due to API limitations or connectivity issues. Please try again in a moment.`;
+
+        setStreamingResponse(fallbackText);
+
+        const assistantMessage = {
+          id: (Date.now() + 1).toString(),
+          type: 'assistant' as const,
+          content: fallbackText,
+          timestamp: new Date()
+        };
+
+        setMessages(prev => [...prev, assistantMessage]);
+      }
+    } catch (error) {
+      console.error('Chat generation failed:', error);
+
+      const errorText = `I'm sorry, but I encountered an error while processing your request. Please check your connection and try again.`;
+      setStreamingResponse(errorText);
+
+      const assistantMessage = {
+        id: (Date.now() + 1).toString(),
+        type: 'assistant' as const,
+        content: errorText,
+        timestamp: new Date()
+      };
+
+      setMessages(prev => [...prev, assistantMessage]);
     }
 
-    // Add final message and clear streaming
-    const assistantMessage = {
-      id: (Date.now() + 1).toString(),
-      type: 'assistant' as const,
-      content: responseText,
-      timestamp: new Date()
-    };
-
-    setMessages(prev => [...prev, assistantMessage]);
     setStreamingResponse("");
     setIsGenerating(false);
   };
