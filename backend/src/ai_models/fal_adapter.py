@@ -13,7 +13,6 @@ import json
 from datetime import datetime
 import time
 import fal_client
-from fal_client import Client
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +24,7 @@ class FalAdapter:
         self.base_url = "https://fal.run"
 
         # Initialize new fal client
-        self.fal = Client(key=self.api_key) if self.api_key else None
+        self.fal = fal_client.SyncClient(key=self.api_key) if self.api_key else None
 
         # Fal AI model endpoints
         self.models = {
@@ -33,7 +32,7 @@ class FalAdapter:
             "tts_turbo": "fal-ai/elevenlabs/tts/turbo-v2.5",  # ElevenLabs TTS Turbo v2.5
             "img2vid_noaudio": "fal-ai/kling-video/v2.1/pro/image-to-video",  # Kling v2.1 Pro (no audio)
             "img2vid_audio": "fal-ai/kling-video/v1/pro/ai-avatar",  # Kling v1 Pro AI Avatar (with audio)
-            "audio2vid": "fal-ai/veed/audio-to-video"  # Custom UGC endpoint
+            "audio2vid": "veed/avatars/audio-to-video"  # Veed Avatars Audio-to-Video via Fal AI
         }
 
         # Configure environment variable for backward compatibility
@@ -163,21 +162,21 @@ class FalAdapter:
             if params.get("language_code"):
                 input_data["language_code"] = params["language_code"]
 
-            # Submit with logs and queue handling for long-running request
-            result = await asyncio.to_thread(
-                self.fal.subscribe,
+            # Submit for async processing using queue
+            handle = await asyncio.to_thread(
+                self.fal.submit,
                 self.models["tts_turbo"],
-                {
-                    "input": input_data,
-                    "logs": True,
-                    "onQueueUpdate": self._queue_update_handler if not webhook_url else None
-                }
+                input_data,
+                webhook_url=webhook_url
             )
 
-            if hasattr(result, 'requestId'):
+            # Return handle for async processing
+            result = handle
+
+            if hasattr(result, 'request_id'):
                 return {
                     "success": True,
-                    "request_id": result.requestId,
+                    "request_id": result.request_id,
                     "status": "submitted",
                     "model": "elevenlabs-tts-turbo-v2.5",
                     "estimated_processing_time": "8 minutes",
@@ -202,9 +201,10 @@ class FalAdapter:
                 raise Exception("Fal client not initialized - check API key")
 
             status = await asyncio.to_thread(
-                self.fal.queue.status,
+                self.fal.status,
                 self.models["tts_turbo"],
-                {"requestId": request_id, "logs": True}
+                request_id,
+                with_logs=True
             )
 
             return {
@@ -231,9 +231,9 @@ class FalAdapter:
                 raise Exception("Fal client not initialized - check API key")
 
             result = await asyncio.to_thread(
-                self.fal.queue.result,
+                self.fal.result,
                 self.models["tts_turbo"],
-                {"requestId": request_id}
+                request_id
             )
 
             return self._format_tts_result(result, request_id=request_id)
@@ -794,59 +794,45 @@ class FalAdapter:
                 "request_id": request_id
             }
 
-    # Audio-to-Video (UGC) Methods
+    # Audio-to-Video using Veed Avatars via Fal AI
     async def generate_audio2vid_preview(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate Audio-to-Video UGC preview."""
+        """Generate Audio-to-Video preview using veed/avatars/audio-to-video."""
         try:
             audio_url = params.get("audio_url")
-            template = params.get("template", "podcast_visualizer")
-            duration_seconds = min(params.get("duration_seconds", 30), 30)  # Max 30s for preview
+            avatar_id = params.get("avatar_id", "emily_vertical_primary")  # Default avatar
 
             if not audio_url:
                 raise Exception("Audio URL is required")
 
-            payload = {
-                "audio_url": audio_url,
-                "template": template,
-                "duration": duration_seconds,
-                "aspect_ratio": params.get("aspect_ratio", "16:9"),
-                "style": params.get("style", "modern"),
-                "quality": "medium",  # Lower quality for preview
-                "watermark": True     # Watermark for preview
+            # Use fal_client for veed/avatars/audio-to-video
+            arguments = {
+                "avatar_id": avatar_id,
+                "audio_url": audio_url
             }
 
-            # Template-specific settings
-            if template == "podcast_visualizer":
-                payload["show_waveform"] = True
-                payload["background_color"] = params.get("background_color", "#1a1a1a")
-                payload["waveform_color"] = params.get("waveform_color", "#00ff88")
-            elif template == "music_video":
-                payload["beat_sync"] = True
-                payload["visual_effects"] = "subtle"
-            elif template == "social_story":
-                payload["aspect_ratio"] = "9:16"  # Force vertical for stories
-                payload["add_captions"] = True
-
-            result = await self._make_request(self.models["audio2vid"], payload)
+            # Submit request asynchronously
+            result = await asyncio.to_thread(
+                fal_client.subscribe,
+                self.models["audio2vid"],
+                arguments=arguments,
+                with_logs=True
+            )
 
             if result and "video" in result:
                 video_data = result["video"]
                 return {
                     "success": True,
                     "video_url": video_data.get("url"),
-                    "thumbnail_url": video_data.get("thumbnail_url"),
-                    "duration": duration_seconds,
-                    "template": template,
-                    "aspect_ratio": payload["aspect_ratio"],
-                    "model": "veed-ugc",
-                    "has_watermark": True,
-                    "preview": True
+                    "avatar_id": avatar_id,
+                    "model": "veed-avatars-audio2video",
+                    "preview": True,
+                    "processing_time": "~3-4 seconds per audio second"
                 }
             else:
-                raise Exception("No video generated")
+                raise Exception("No video generated from veed/avatars/audio-to-video")
 
         except Exception as e:
-            logger.error(f"Audio-to-video UGC preview failed: {e}")
+            logger.error(f"Audio-to-video preview failed: {e}")
             return {
                 "success": False,
                 "error": str(e),
@@ -854,68 +840,235 @@ class FalAdapter:
             }
 
     async def generate_audio2vid_final(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate final Audio-to-Video UGC."""
+        """Generate final Audio-to-Video using veed/avatars/audio-to-video."""
         try:
             audio_url = params.get("audio_url")
-            template = params.get("template", "podcast_visualizer")
-            duration_seconds = params.get("duration_seconds", 300)  # Up to 5 minutes for final
+            avatar_id = params.get("avatar_id", "emily_vertical_primary")  # Default avatar
 
             if not audio_url:
                 raise Exception("Audio URL is required")
 
-            payload = {
-                "audio_url": audio_url,
-                "template": template,
-                "duration": duration_seconds,
-                "aspect_ratio": params.get("aspect_ratio", "16:9"),
-                "style": params.get("style", "modern"),
-                "quality": "high",   # High quality for final
-                "watermark": False,  # No watermark for final
-                "export_format": "mp4"
+            # Use fal_client for veed/avatars/audio-to-video
+            arguments = {
+                "avatar_id": avatar_id,
+                "audio_url": audio_url
             }
 
-            # Template-specific settings
-            if template == "podcast_visualizer":
-                payload["show_waveform"] = True
-                payload["background_color"] = params.get("background_color", "#1a1a1a")
-                payload["waveform_color"] = params.get("waveform_color", "#00ff88")
-                payload["show_progress"] = True
-                payload["brand_logo"] = params.get("brand_logo")
-            elif template == "music_video":
-                payload["beat_sync"] = True
-                payload["visual_effects"] = "dynamic"
-                payload["color_scheme"] = params.get("color_scheme", "vibrant")
-            elif template == "social_story":
-                payload["aspect_ratio"] = "9:16"
-                payload["add_captions"] = True
-                payload["caption_style"] = params.get("caption_style", "modern")
-
-            result = await self._make_request(self.models["audio2vid"], payload)
+            # Submit request asynchronously
+            result = await asyncio.to_thread(
+                fal_client.subscribe,
+                self.models["audio2vid"],
+                arguments=arguments,
+                with_logs=True
+            )
 
             if result and "video" in result:
                 video_data = result["video"]
                 return {
                     "success": True,
                     "video_url": video_data.get("url"),
-                    "thumbnail_url": video_data.get("thumbnail_url"),
-                    "duration": duration_seconds,
-                    "template": template,
-                    "aspect_ratio": payload["aspect_ratio"],
+                    "avatar_id": avatar_id,
                     "quality": "high",
-                    "file_size": video_data.get("file_size", 0),
-                    "model": "veed-ugc",
-                    "has_watermark": False,
-                    "preview": False
+                    "model": "veed-avatars-audio2video",
+                    "preview": False,
+                    "processing_time": "~3-4 seconds per audio second"
                 }
             else:
-                raise Exception("No video generated")
+                raise Exception("No video generated from veed/avatars/audio-to-video")
 
         except Exception as e:
-            logger.error(f"Audio-to-video UGC final failed: {e}")
+            logger.error(f"Audio-to-video final failed: {e}")
             return {
                 "success": False,
                 "error": str(e),
                 "video_url": None
+            }
+
+    # New Audio-to-Video methods using modern fal client with queue support
+    async def submit_audio2vid_async(self, params: Dict[str, Any], webhook_url: str = None) -> Dict[str, Any]:
+        """Submit Audio-to-Video request asynchronously using veed/avatars/audio-to-video."""
+        try:
+            if not self.fal:
+                raise Exception("Fal client not initialized - check API key")
+
+            audio_url = params.get("audio_url")
+            avatar_id = params.get("avatar_id", "emily_vertical_primary")
+
+            if not audio_url:
+                raise Exception("Audio URL is required")
+
+            # Validate avatar_id
+            valid_avatars = self.get_available_avatars()
+            if avatar_id not in [avatar["id"] for avatar in valid_avatars]:
+                raise Exception(f"Invalid avatar_id: {avatar_id}")
+
+            input_data = {
+                "avatar_id": avatar_id,
+                "audio_url": audio_url
+            }
+
+            # Submit with logs and queue handling for long-running request
+            result = await asyncio.to_thread(
+                self.fal.subscribe,
+                self.models["audio2vid"],
+                {
+                    "input": input_data,
+                    "logs": True,
+                    "onQueueUpdate": self._queue_update_handler if not webhook_url else None
+                }
+            )
+
+            if hasattr(result, 'requestId'):
+                # Calculate estimated processing time based on audio duration
+                estimated_time = self._calculate_audio2vid_processing_time(params)
+
+                return {
+                    "success": True,
+                    "request_id": result.requestId,
+                    "status": "submitted",
+                    "model": "veed-avatars-audio2video",
+                    "avatar_id": avatar_id,
+                    "estimated_processing_time": estimated_time["display"],
+                    "timeout_buffer": "2 minutes",
+                    "total_timeout": estimated_time["total_timeout"]
+                }
+            else:
+                # Immediate result case
+                return self._format_audio2vid_result(result, is_async=False)
+
+        except Exception as e:
+            logger.error(f"Audio-to-Video async submission failed: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
+    async def check_audio2vid_status(self, request_id: str) -> Dict[str, Any]:
+        """Check status of Audio-to-Video request."""
+        try:
+            if not self.fal:
+                raise Exception("Fal client not initialized - check API key")
+
+            status = await asyncio.to_thread(
+                self.fal.queue.status,
+                self.models["audio2vid"],
+                {"requestId": request_id, "logs": True}
+            )
+
+            return {
+                "success": True,
+                "request_id": request_id,
+                "status": status.get("status", "unknown"),
+                "logs": status.get("logs", []),
+                "queue_position": status.get("queue_position"),
+                "estimated_time": status.get("estimated_time")
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to check Audio-to-Video status: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "request_id": request_id
+            }
+
+    async def get_audio2vid_result(self, request_id: str) -> Dict[str, Any]:
+        """Get result from completed Audio-to-Video request."""
+        try:
+            if not self.fal:
+                raise Exception("Fal client not initialized - check API key")
+
+            result = await asyncio.to_thread(
+                self.fal.queue.result,
+                self.models["audio2vid"],
+                {"requestId": request_id}
+            )
+
+            return self._format_audio2vid_result(result, request_id=request_id)
+
+        except Exception as e:
+            logger.error(f"Failed to get Audio-to-Video result: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "request_id": request_id
+            }
+
+    def _calculate_audio2vid_processing_time(self, params: Dict[str, Any]) -> Dict[str, str]:
+        """Calculate processing time for audio-to-video: 100 seconds for 30 seconds of audio."""
+        try:
+            # Get audio duration in seconds (default 30s if not provided)
+            audio_duration = params.get("audio_duration_seconds", 30)
+
+            # Processing formula: 100 seconds for 30 seconds of audio
+            # This equals approximately 3.33 seconds per second of audio
+            processing_seconds = int((audio_duration / 30) * 100)
+
+            # Add 2-minute buffer for queue and initialization
+            buffer_seconds = 120
+            total_seconds = processing_seconds + buffer_seconds
+
+            # Format display time
+            if processing_seconds < 60:
+                display_time = f"{processing_seconds} seconds"
+            else:
+                minutes = processing_seconds // 60
+                seconds = processing_seconds % 60
+                display_time = f"{minutes}m {seconds}s" if seconds > 0 else f"{minutes}m"
+
+            # Format total timeout
+            total_minutes = total_seconds // 60
+            total_timeout = f"{total_minutes} minutes"
+
+            return {
+                "display": display_time,
+                "total_timeout": total_timeout,
+                "processing_seconds": processing_seconds,
+                "total_seconds": total_seconds
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to calculate processing time: {e}")
+            return {
+                "display": "3-5 minutes",
+                "total_timeout": "10 minutes",
+                "processing_seconds": 180,
+                "total_seconds": 600
+            }
+
+    def _format_audio2vid_result(self, result, request_id=None, is_async=True):
+        """Format Audio-to-Video result response."""
+        try:
+            if result and hasattr(result, 'data') and "video" in result.data:
+                video_data = result.data["video"]
+
+                response = {
+                    "success": True,
+                    "video_url": video_data.get("url"),
+                    "content_type": video_data.get("content_type", "video/mp4"),
+                    "model": "veed-avatars-audio2video",
+                    "processing_completed": True
+                }
+
+                if request_id:
+                    response["request_id"] = request_id
+                if hasattr(result, 'requestId'):
+                    response["request_id"] = result.requestId
+
+                return response
+            else:
+                return {
+                    "success": False,
+                    "error": "No video generated",
+                    "request_id": request_id
+                }
+
+        except Exception as e:
+            logger.error(f"Failed to format audio2vid result: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "request_id": request_id
             }
 
     async def _make_request(self, model: str, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -976,12 +1129,12 @@ class FalAdapter:
                 "supports_audio": True
             },
             {
-                "id": "fal-ai/veed/audio-to-video",
-                "name": "VEED UGC Generator",
-                "description": "Audio-to-video UGC content creation",
-                "type": "ugc",
-                "max_duration": 300,
-                "templates": ["podcast_visualizer", "music_video", "social_story"]
+                "id": "veed/avatars/audio-to-video",
+                "name": "Veed Avatars Audio-to-Video",
+                "description": "AI avatars that speak your audio content",
+                "type": "avatar_video",
+                "processing_time": "100 seconds for 30 seconds of audio",
+                "avatars_available": 26
             }
         ]
 
@@ -1010,42 +1163,234 @@ class FalAdapter:
                 "message": "Fal AI connection failed"
             }
 
-    def get_ugc_templates(self) -> List[Dict[str, Any]]:
-        """Get available UGC templates for audio-to-video."""
+    def get_available_avatars(self) -> List[Dict[str, Any]]:
+        """Get available avatars for veed/avatars/audio-to-video."""
         return [
+            # Vertical Primary Avatars
             {
-                "id": "podcast_visualizer",
-                "name": "Podcast Visualizer",
-                "description": "Professional waveform with branding",
-                "aspect_ratios": ["16:9", "1:1"],
-                "customizable": ["background_color", "waveform_color", "brand_logo"]
+                "id": "emily_vertical_primary",
+                "name": "Emily (Vertical Primary)",
+                "description": "Professional female avatar in vertical format",
+                "orientation": "vertical",
+                "style": "primary",
+                "gender": "female"
             },
             {
-                "id": "music_video",
-                "name": "Music Video",
-                "description": "Animated graphics synced to beat",
-                "aspect_ratios": ["16:9", "9:16"],
-                "customizable": ["color_scheme", "visual_effects"]
+                "id": "emily_vertical_secondary",
+                "name": "Emily (Vertical Secondary)",
+                "description": "Alternative Emily style in vertical format",
+                "orientation": "vertical",
+                "style": "secondary",
+                "gender": "female"
             },
             {
-                "id": "social_story",
-                "name": "Social Media Story",
-                "description": "Vertical format with captions",
-                "aspect_ratios": ["9:16"],
-                "customizable": ["caption_style", "background_theme"]
+                "id": "marcus_vertical_primary",
+                "name": "Marcus (Vertical Primary)",
+                "description": "Professional male avatar in vertical format",
+                "orientation": "vertical",
+                "style": "primary",
+                "gender": "male"
             },
             {
-                "id": "audiobook_cover",
-                "name": "Audiobook Cover",
-                "description": "Static design with progress indicator",
-                "aspect_ratios": ["16:9", "1:1"],
-                "customizable": ["cover_image", "progress_style"]
+                "id": "marcus_vertical_secondary",
+                "name": "Marcus (Vertical Secondary)",
+                "description": "Alternative Marcus style in vertical format",
+                "orientation": "vertical",
+                "style": "secondary",
+                "gender": "male"
             },
             {
-                "id": "corporate_training",
-                "name": "Corporate Training",
-                "description": "Clean layout with transcription",
-                "aspect_ratios": ["16:9"],
-                "customizable": ["brand_colors", "transcription_style"]
+                "id": "mira_vertical_primary",
+                "name": "Mira (Vertical Primary)",
+                "description": "Elegant female avatar in vertical format",
+                "orientation": "vertical",
+                "style": "primary",
+                "gender": "female"
+            },
+            {
+                "id": "mira_vertical_secondary",
+                "name": "Mira (Vertical Secondary)",
+                "description": "Alternative Mira style in vertical format",
+                "orientation": "vertical",
+                "style": "secondary",
+                "gender": "female"
+            },
+            {
+                "id": "jasmine_vertical_primary",
+                "name": "Jasmine (Vertical Primary)",
+                "description": "Modern female avatar in vertical format",
+                "orientation": "vertical",
+                "style": "primary",
+                "gender": "female"
+            },
+            {
+                "id": "jasmine_vertical_secondary",
+                "name": "Jasmine (Vertical Secondary)",
+                "description": "Alternative Jasmine style in vertical format",
+                "orientation": "vertical",
+                "style": "secondary",
+                "gender": "female"
+            },
+            {
+                "id": "jasmine_vertical_walking",
+                "name": "Jasmine (Vertical Walking)",
+                "description": "Dynamic walking Jasmine in vertical format",
+                "orientation": "vertical",
+                "style": "walking",
+                "gender": "female"
+            },
+            {
+                "id": "aisha_vertical_walking",
+                "name": "Aisha (Vertical Walking)",
+                "description": "Dynamic walking Aisha in vertical format",
+                "orientation": "vertical",
+                "style": "walking",
+                "gender": "female"
+            },
+            {
+                "id": "elena_vertical_primary",
+                "name": "Elena (Vertical Primary)",
+                "description": "Sophisticated female avatar in vertical format",
+                "orientation": "vertical",
+                "style": "primary",
+                "gender": "female"
+            },
+            {
+                "id": "elena_vertical_secondary",
+                "name": "Elena (Vertical Secondary)",
+                "description": "Alternative Elena style in vertical format",
+                "orientation": "vertical",
+                "style": "secondary",
+                "gender": "female"
+            },
+            # Generic Avatars
+            {
+                "id": "any_male_vertical_primary",
+                "name": "Generic Male (Vertical Primary)",
+                "description": "Generic male avatar in vertical format",
+                "orientation": "vertical",
+                "style": "primary",
+                "gender": "male"
+            },
+            {
+                "id": "any_female_vertical_primary",
+                "name": "Generic Female (Vertical Primary)",
+                "description": "Generic female avatar in vertical format",
+                "orientation": "vertical",
+                "style": "primary",
+                "gender": "female"
+            },
+            {
+                "id": "any_male_vertical_secondary",
+                "name": "Generic Male (Vertical Secondary)",
+                "description": "Alternative generic male in vertical format",
+                "orientation": "vertical",
+                "style": "secondary",
+                "gender": "male"
+            },
+            {
+                "id": "any_female_vertical_secondary",
+                "name": "Generic Female (Vertical Secondary)",
+                "description": "Alternative generic female in vertical format",
+                "orientation": "vertical",
+                "style": "secondary",
+                "gender": "female"
+            },
+            {
+                "id": "any_female_vertical_walking",
+                "name": "Generic Female (Vertical Walking)",
+                "description": "Dynamic walking generic female in vertical format",
+                "orientation": "vertical",
+                "style": "walking",
+                "gender": "female"
+            },
+            # Horizontal Avatars
+            {
+                "id": "emily_primary",
+                "name": "Emily (Horizontal Primary)",
+                "description": "Professional Emily in horizontal format",
+                "orientation": "horizontal",
+                "style": "primary",
+                "gender": "female"
+            },
+            {
+                "id": "emily_side",
+                "name": "Emily (Horizontal Side)",
+                "description": "Side-view Emily in horizontal format",
+                "orientation": "horizontal",
+                "style": "side",
+                "gender": "female"
+            },
+            {
+                "id": "marcus_primary",
+                "name": "Marcus (Horizontal Primary)",
+                "description": "Professional Marcus in horizontal format",
+                "orientation": "horizontal",
+                "style": "primary",
+                "gender": "male"
+            },
+            {
+                "id": "marcus_side",
+                "name": "Marcus (Horizontal Side)",
+                "description": "Side-view Marcus in horizontal format",
+                "orientation": "horizontal",
+                "style": "side",
+                "gender": "male"
+            },
+            {
+                "id": "aisha_walking",
+                "name": "Aisha (Horizontal Walking)",
+                "description": "Dynamic walking Aisha in horizontal format",
+                "orientation": "horizontal",
+                "style": "walking",
+                "gender": "female"
+            },
+            {
+                "id": "elena_primary",
+                "name": "Elena (Horizontal Primary)",
+                "description": "Professional Elena in horizontal format",
+                "orientation": "horizontal",
+                "style": "primary",
+                "gender": "female"
+            },
+            {
+                "id": "elena_side",
+                "name": "Elena (Horizontal Side)",
+                "description": "Side-view Elena in horizontal format",
+                "orientation": "horizontal",
+                "style": "side",
+                "gender": "female"
+            },
+            {
+                "id": "any_male_primary",
+                "name": "Generic Male (Horizontal Primary)",
+                "description": "Generic male in horizontal format",
+                "orientation": "horizontal",
+                "style": "primary",
+                "gender": "male"
+            },
+            {
+                "id": "any_female_primary",
+                "name": "Generic Female (Horizontal Primary)",
+                "description": "Generic female in horizontal format",
+                "orientation": "horizontal",
+                "style": "primary",
+                "gender": "female"
+            },
+            {
+                "id": "any_male_side",
+                "name": "Generic Male (Horizontal Side)",
+                "description": "Side-view generic male in horizontal format",
+                "orientation": "horizontal",
+                "style": "side",
+                "gender": "male"
+            },
+            {
+                "id": "any_female_side",
+                "name": "Generic Female (Horizontal Side)",
+                "description": "Side-view generic female in horizontal format",
+                "orientation": "horizontal",
+                "style": "side",
+                "gender": "female"
             }
         ]

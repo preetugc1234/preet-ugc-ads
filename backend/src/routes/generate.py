@@ -41,6 +41,20 @@ class StatusResponse(BaseModel):
     logs: Optional[list] = None
     error: Optional[str] = None
 
+class Audio2VideoRequest(BaseModel):
+    audio_url: str
+    avatar_id: Optional[str] = "emily_vertical_primary"
+    audio_duration_seconds: Optional[int] = 30
+
+class Audio2VideoResponse(BaseModel):
+    success: bool
+    request_id: Optional[str] = None
+    video_url: Optional[str] = None
+    status: str
+    error: Optional[str] = None
+    avatar_id: Optional[str] = None
+    estimated_processing_time: Optional[str] = None
+
 class TTSTurboRequest(BaseModel):
     text: str
     voice: Optional[str] = "Rachel"
@@ -96,10 +110,10 @@ async def generate_text_to_speech(request: GenerateRequest):
 
 @router.post("/audio-to-video", response_model=GenerateResponse)
 async def generate_audio_to_video(request: GenerateRequest):
-    """Audio to video endpoint (100 credits/min)"""
+    """Audio to video endpoint (100 credits/min) - Legacy endpoint"""
     return GenerateResponse(
-        message="Audio to video endpoint - Coming soon",
-        status="placeholder"
+        message="Audio to video endpoint - Use /audio2video for veed/avatars/audio-to-video",
+        status="deprecated"
     )
 
 @router.post("/ugc-video", response_model=GenerateResponse)
@@ -201,7 +215,7 @@ async def upload_file_to_fal(file: UploadFile = File(...)):
         logger.error(f"File upload failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# ElevenLabs TTS Turbo v2.5 endpoints
+# ElevenLabs TTS Turbo v2.5 endpoints (Updated)
 @router.post("/tts-turbo/submit", response_model=TTSResponse)
 async def submit_tts_turbo(request: TTSTurboRequest):
     """Submit ElevenLabs TTS Turbo v2.5 request asynchronously (12-minute processing)"""
@@ -330,4 +344,90 @@ async def stream_tts_turbo(request: TTSTurboRequest):
         raise
     except Exception as e:
         logger.error(f"TTS Turbo streaming failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Audio-to-Video endpoints using veed/avatars/audio-to-video
+@router.post("/audio2video/submit", response_model=Audio2VideoResponse)
+async def submit_audio2video(request: Audio2VideoRequest):
+    """Submit Audio-to-Video request using veed/avatars/audio-to-video"""
+    try:
+        result = await fal_adapter.submit_audio2vid_async({
+            "audio_url": request.audio_url,
+            "avatar_id": request.avatar_id,
+            "audio_duration_seconds": request.audio_duration_seconds
+        })
+
+        return Audio2VideoResponse(
+            success=result["success"],
+            request_id=result.get("request_id"),
+            video_url=result.get("video_url"),
+            status=result.get("status", "error"),
+            error=result.get("error"),
+            avatar_id=result.get("avatar_id"),
+            estimated_processing_time=result.get("estimated_processing_time")
+        )
+    except Exception as e:
+        logger.error(f"Audio2Video submission failed: {e}")
+        return Audio2VideoResponse(
+            success=False,
+            status="error",
+            error=str(e)
+        )
+
+@router.post("/audio2video/status", response_model=StatusResponse)
+async def check_audio2video_status(request: StatusRequest):
+    """Check status of Audio-to-Video request"""
+    try:
+        result = await fal_adapter.check_audio2vid_status(request.request_id)
+
+        return StatusResponse(
+            success=result["success"],
+            request_id=request.request_id,
+            status=result.get("status", "unknown"),
+            logs=result.get("logs"),
+            error=result.get("error")
+        )
+    except Exception as e:
+        logger.error(f"Audio2Video status check failed: {e}")
+        return StatusResponse(
+            success=False,
+            request_id=request.request_id,
+            status="error",
+            error=str(e)
+        )
+
+@router.post("/audio2video/result", response_model=Audio2VideoResponse)
+async def get_audio2video_result(request: StatusRequest):
+    """Get result from completed Audio-to-Video request"""
+    try:
+        result = await fal_adapter.get_audio2vid_result(request.request_id)
+
+        return Audio2VideoResponse(
+            success=result["success"],
+            request_id=request.request_id,
+            video_url=result.get("video_url"),
+            status="completed" if result["success"] else "failed",
+            error=result.get("error")
+        )
+    except Exception as e:
+        logger.error(f"Audio2Video result retrieval failed: {e}")
+        return Audio2VideoResponse(
+            success=False,
+            request_id=request.request_id,
+            status="error",
+            error=str(e)
+        )
+
+@router.get("/audio2video/avatars")
+async def get_available_avatars():
+    """Get list of available avatars for audio-to-video generation"""
+    try:
+        avatars = fal_adapter.get_available_avatars()
+        return {
+            "success": True,
+            "avatars": avatars,
+            "total_count": len(avatars)
+        }
+    except Exception as e:
+        logger.error(f"Failed to get avatars: {e}")
         raise HTTPException(status_code=500, detail=str(e))

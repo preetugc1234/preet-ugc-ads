@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Film, Upload, Play, Download, Music, Image, Sparkles } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Film, Upload, Play, Download, Music, Image, Sparkles, User, Clock } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import ToolEditorLayout from "@/components/dashboard/ToolEditorLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,8 +17,11 @@ const UGCVideoTool = () => {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [duration, setDuration] = useState("5");
   const [template, setTemplate] = useState("default");
+  const [avatarId, setAvatarId] = useState("emily_vertical_primary");
+  const [audioDuration, setAudioDuration] = useState(30); // in seconds
   const [motionPrompt, setMotionPrompt] = useState("");
   const [intensity, setIntensity] = useState([0.7]);
+  const [availableAvatars, setAvailableAvatars] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedVideo, setGeneratedVideo] = useState<{
     id: string;
@@ -28,6 +31,28 @@ const UGCVideoTool = () => {
     timestamp: Date;
     status: 'preview' | 'final';
   } | null>(null);
+
+  // Fetch available avatars on component mount
+  useEffect(() => {
+    const fetchAvatars = async () => {
+      try {
+        const response = await fetch('/api/generate/audio2video/avatars');
+        const data = await response.json();
+        if (data.success) {
+          setAvailableAvatars(data.avatars);
+        }
+      } catch (error) {
+        console.error('Failed to fetch avatars:', error);
+        // Fallback avatars if API fails
+        setAvailableAvatars([
+          { id: "emily_vertical_primary", name: "Emily (Vertical Primary)", gender: "female", orientation: "vertical" },
+          { id: "marcus_vertical_primary", name: "Marcus (Vertical Primary)", gender: "male", orientation: "vertical" },
+          { id: "any_female_vertical_primary", name: "Generic Female (Vertical)", gender: "female", orientation: "vertical" }
+        ]);
+      }
+    };
+    fetchAvatars();
+  }, []);
 
   const audioTemplates = [
     { value: "podcast", label: "Podcast Style", description: "Audio waveforms with podcast branding" },
@@ -55,6 +80,13 @@ const UGCVideoTool = () => {
     if (file) {
       const url = URL.createObjectURL(file);
       setUploadedAudio(url);
+
+      // Create audio element to detect duration
+      const audio = new Audio(url);
+      audio.addEventListener('loadedmetadata', () => {
+        const duration = Math.round(audio.duration);
+        setAudioDuration(duration);
+      });
     }
   };
 
@@ -100,7 +132,9 @@ const UGCVideoTool = () => {
 
   const calculateCost = () => {
     if (mode === "audio-to-video") {
-      return 100; // 100 credits per 30 seconds, minimum 100
+      // 100 credits per 30 seconds of audio (rounded up)
+      const thirtySecondChunks = Math.ceil(audioDuration / 30);
+      return thirtySecondChunks * 100;
     } else {
       // Image to Video with Audio
       const baseCost = durations.find(d => d.value === duration)?.credits || 200;
@@ -108,8 +142,29 @@ const UGCVideoTool = () => {
     }
   };
 
+  const calculateProcessingTime = () => {
+    if (mode === "audio-to-video") {
+      // 100 seconds for 30 seconds of audio (approximately 3.33 seconds per audio second)
+      const processingSeconds = Math.round((audioDuration / 30) * 100);
+      const minutes = Math.floor(processingSeconds / 60);
+      const seconds = processingSeconds % 60;
+
+      if (minutes > 0) {
+        return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
+      }
+      return `${seconds}s`;
+    } else {
+      // Image to Video with Audio (existing logic)
+      return duration === "5" ? "7-8m" : "7-8m";
+    }
+  };
+
+  const handleAudioDurationDetected = (detectedDuration: number) => {
+    setAudioDuration(Math.round(detectedDuration));
+  };
+
   const costBreakdown = {
-    baseCost: mode === "audio-to-video" ? 100 : (duration === "5" ? 200 : 400),
+    baseCost: mode === "audio-to-video" ? calculateCost() : (duration === "5" ? 200 : 400),
     additionalCosts: mode === "image-to-video-audio" ? [] : undefined,
     total: calculateCost()
   };
@@ -183,8 +238,8 @@ const UGCVideoTool = () => {
             <div className="flex items-center justify-between">
               <div className="text-sm text-gray-600 dark:text-gray-400">
                 <p><strong>Mode:</strong> {generatedVideo.mode.replace("-", " → ").replace("to", " → ")}</p>
-                <p><strong>Template:</strong> {mode === "audio-to-video" ?
-                  audioTemplates.find(t => t.value === template)?.label :
+                <p><strong>Avatar:</strong> {mode === "audio-to-video" ?
+                  availableAvatars.find((a: any) => a.id === avatarId)?.name || avatarId :
                   "Image + Audio Sync"
                 }</p>
                 <p><strong>Generated:</strong> {generatedVideo.timestamp.toLocaleString()}</p>
@@ -222,8 +277,8 @@ const UGCVideoTool = () => {
       <ToolEditorLayout
         toolName="UGC Video Generator"
         toolIcon={Film}
-        credits="100-400/video"
-        estimatedTime="~60s"
+        credits={mode === "audio-to-video" ? `${calculateCost()}/video` : "200-400/video"}
+        estimatedTime={calculateProcessingTime()}
         onGenerate={handleGenerate}
         isGenerating={isGenerating}
         canGenerate={canGenerate}
@@ -254,8 +309,12 @@ const UGCVideoTool = () => {
               <TabsContent value="audio-to-video" className="space-y-4 mt-4">
                 <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
                   <p className="text-sm text-blue-800 dark:text-blue-200">
-                    <strong>Audio→Video:</strong> Create engaging videos from your audio using AI-powered templates and visualizations.
+                    <strong>Audio→Video:</strong> Create engaging videos with AI avatars that speak your audio content using veed/avatars/audio-to-video.
                   </p>
+                  <div className="flex items-center mt-2 text-xs text-blue-700 dark:text-blue-300">
+                    <Clock className="w-3 h-3 mr-1" />
+                    Processing: ~100 seconds for 30 seconds of audio
+                  </div>
                 </div>
               </TabsContent>
 
@@ -306,7 +365,7 @@ const UGCVideoTool = () => {
                       Upload audio file
                     </p>
                     <p className="text-xs text-gray-500 mb-3">
-                      MP3, WAV, M4A up to 50MB
+                      MP3, WAV, M4A up to 50MB • 100 credits per 30s
                     </p>
                     <Button size="sm" onClick={() => document.getElementById('audio-upload')?.click()}>
                       <Upload className="w-4 h-4 mr-1" />
@@ -383,24 +442,57 @@ const UGCVideoTool = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             {mode === "audio-to-video" ? (
-              <div>
-                <Label>Visual Template</Label>
-                <Select value={template} onValueChange={setTemplate}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {audioTemplates.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>
-                        <div>
-                          <div className="font-medium">{t.label}</div>
-                          <div className="text-xs text-gray-500">{t.description}</div>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <>
+                <div>
+                  <Label className="flex items-center mb-2">
+                    <User className="w-4 h-4 mr-1" />
+                    Avatar Selection
+                  </Label>
+                  <Select value={avatarId} onValueChange={setAvatarId}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableAvatars.map((avatar: any) => (
+                        <SelectItem key={avatar.id} value={avatar.id}>
+                          <div>
+                            <div className="font-medium">{avatar.name}</div>
+                            <div className="text-xs text-gray-500">
+                              {avatar.gender} • {avatar.orientation} • {avatar.style}
+                            </div>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Choose an AI avatar that will speak your audio content
+                  </p>
+                </div>
+
+                {uploadedAudio && (
+                  <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-green-800 dark:text-green-200">
+                          Audio Duration: {audioDuration} seconds
+                        </p>
+                        <p className="text-xs text-green-600 dark:text-green-300">
+                          Processing Time: ~{calculateProcessingTime()}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-green-800 dark:text-green-200">
+                          Cost: {calculateCost()} credits
+                        </p>
+                        <p className="text-xs text-green-600 dark:text-green-300">
+                          {Math.ceil(audioDuration / 30)} × 30s chunks
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
             ) : (
               <>
                 <div>

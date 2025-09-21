@@ -3,39 +3,39 @@ import Footer from "@/components/landing/Footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Play, Headphones, Video, Upload, Radio, ArrowRight, CheckCircle, Clock, FileAudio, Palette } from "lucide-react";
+import { Play, Headphones, Video, Upload, Radio, ArrowRight, CheckCircle, Clock, FileAudio, User } from "lucide-react";
 
 const AudioToVideo = () => {
   const features = [
     {
-      icon: <Video className="h-8 w-8 text-primary" />,
-      title: "VEED Integration",
-      description: "Powered by VEED's professional video creation platform"
+      icon: <User className="h-8 w-8 text-primary" />,
+      title: "AI Avatars",
+      description: "Choose from 26 diverse AI avatars that speak your audio content"
     },
     {
-      icon: <Palette className="h-8 w-8 text-primary" />,
-      title: "Template Library",
-      description: "Choose from hundreds of professionally designed video templates"
+      icon: <Video className="h-8 w-8 text-primary" />,
+      title: "Veed Integration",
+      description: "Powered by veed/avatars/audio-to-video via Fal AI platform"
     },
     {
       icon: <Radio className="h-8 w-8 text-primary" />,
-      title: "Audio Visualization",
-      description: "Dynamic waveforms, spectrograms, and audio reactive animations"
+      title: "Realistic Speech",
+      description: "AI avatars with natural lip-sync and human-like expressions"
     },
     {
       icon: <Clock className="h-8 w-8 text-primary" />,
-      title: "Batch Processing",
-      description: "Handle long audio files with intelligent chunking strategies"
+      title: "Fast Processing",
+      description: "~100 seconds processing time for 30 seconds of audio"
     }
   ];
 
-  const templates = [
-    { name: "Podcast Visualizer", style: "Professional waveform with branding" },
-    { name: "Music Video", style: "Animated graphics synced to beat" },
-    { name: "Audiobook Cover", style: "Static design with progress indicator" },
-    { name: "Social Media Story", style: "Vertical format with captions" },
-    { name: "YouTube Intro", style: "Animated logo with audio" },
-    { name: "Corporate Training", style: "Clean layout with transcription" },
+  const avatars = [
+    { name: "Emily (Vertical)", style: "Professional female avatar in vertical format" },
+    { name: "Marcus (Vertical)", style: "Professional male avatar in vertical format" },
+    { name: "Mira (Vertical)", style: "Elegant female avatar in vertical format" },
+    { name: "Jasmine (Walking)", style: "Dynamic walking female avatar" },
+    { name: "Elena (Horizontal)", style: "Sophisticated female avatar in horizontal format" },
+    { name: "Generic Avatars", style: "Various gender and style options available" },
   ];
 
   const steps = [
@@ -46,13 +46,13 @@ const AudioToVideo = () => {
     },
     {
       number: "02",
-      title: "Choose Template",
-      description: "Select from our library of professional video templates"
+      title: "Select Avatar",
+      description: "Choose from 26 diverse AI avatars with different styles and orientations"
     },
     {
       number: "03",
-      title: "Customize Design",
-      description: "Add your branding, adjust colors, and customize animations"
+      title: "Process Video",
+      description: "AI generates realistic lip-sync and natural avatar movements"
     },
     {
       number: "04",
@@ -101,11 +101,11 @@ const AudioToVideo = () => {
                 Audio to Video UGC
               </Badge>
               <h1 className="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
-                Transform Audio into Engaging Videos
+                Transform Audio into AI Avatar Videos
               </h1>
               <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 leading-relaxed">
-                Convert your podcasts, music, voiceovers, and audio content into stunning videos with
-                professional templates, animated waveforms, and dynamic visualizations.
+                Convert your podcasts, voiceovers, and audio content into engaging videos with
+                realistic AI avatars that speak your content with natural lip-sync and expressions.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button size="lg" className="bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700">
@@ -113,7 +113,7 @@ const AudioToVideo = () => {
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
                 <Button variant="outline" size="lg">
-                  Browse Templates
+                  Browse Avatars
                 </Button>
               </div>
             </div>
@@ -172,9 +172,9 @@ const AudioToVideo = () => {
       <section className="py-16 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Audio to Video in 4 Steps</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Audio to Avatar Video in 4 Steps</h2>
             <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-              Our intelligent system analyzes your audio and creates stunning visuals that match the content and mood.
+              Our AI system creates realistic avatar videos that speak your audio content with natural lip-sync and expressions.
             </p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -197,9 +197,9 @@ const AudioToVideo = () => {
       <section className="py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Professional Audio-to-Video Features</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Professional AI Avatar Features</h2>
             <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-              Transform any audio content into captivating video experiences with our advanced tools.
+              Transform any audio content into captivating avatar videos with our advanced AI technology.
             </p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -220,20 +220,20 @@ const AudioToVideo = () => {
       <section className="py-16 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Professional Video Templates</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Diverse AI Avatar Collection</h2>
             <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-              Choose from our curated collection of templates designed for different types of audio content.
+              Choose from 26 unique AI avatars with different genders, styles, and orientations for your content.
             </p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {templates.map((template, index) => (
+            {avatars.map((avatar, index) => (
               <Card key={index} className="p-6 hover:shadow-lg transition-shadow border-0 bg-white dark:bg-slate-800">
                 <CardContent className="p-0">
                   <div className="aspect-video bg-gradient-to-br from-violet-100 to-fuchsia-100 dark:from-violet-900 dark:to-fuchsia-900 rounded-lg mb-4 flex items-center justify-center">
-                    <Palette className="h-8 w-8 text-violet-600 dark:text-violet-300" />
+                    <User className="h-8 w-8 text-violet-600 dark:text-violet-300" />
                   </div>
-                  <h3 className="text-lg font-semibold mb-2">{template.name}</h3>
-                  <p className="text-gray-600 dark:text-gray-300 text-sm">{template.style}</p>
+                  <h3 className="text-lg font-semibold mb-2">{avatar.name}</h3>
+                  <p className="text-gray-600 dark:text-gray-300 text-sm">{avatar.style}</p>
                 </CardContent>
               </Card>
             ))}
@@ -311,7 +311,7 @@ const AudioToVideo = () => {
               <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
                 <p className="text-sm text-blue-700 dark:text-blue-300">
                   <Clock className="h-4 w-4 inline mr-1" />
-                  For long audio files, we use intelligent chunking and background processing for optimal results.
+                  Processing time: ~100 seconds for 30 seconds of audio with realistic AI avatars.
                 </p>
               </div>
             </CardContent>
@@ -323,10 +323,10 @@ const AudioToVideo = () => {
       <section className="py-16 bg-gradient-to-r from-violet-600 to-fuchsia-600">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
-            Turn Your Audio into Video Content
+            Turn Your Audio into AI Avatar Videos
           </h2>
           <p className="text-xl text-violet-100 mb-8 max-w-2xl mx-auto">
-            Join thousands of content creators who are maximizing their reach by transforming audio into engaging video content.
+            Join thousands of content creators who are maximizing their reach by transforming audio into engaging AI avatar videos.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" variant="secondary" className="bg-white text-violet-600 hover:bg-violet-50">
@@ -334,7 +334,7 @@ const AudioToVideo = () => {
               <Upload className="ml-2 h-5 w-5" />
             </Button>
             <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10">
-              Explore Templates
+              Explore Avatars
             </Button>
           </div>
         </div>
