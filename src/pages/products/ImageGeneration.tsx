@@ -37,8 +37,8 @@ const ImageGeneration = () => {
 
   const benefits = [
     {
-      title: "Free Daily Images",
-      description: "2 free image generations per day - no credits required",
+      title: "Free Monthly Images",
+      description: "3 free images per month (Free plan) + 50 per month (Pro plan)",
       highlight: true
     },
     {
@@ -211,7 +211,7 @@ const ImageGeneration = () => {
                   <div key={index} className={`p-4 rounded-lg ${benefit.highlight ? 'bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800' : 'bg-white/60 dark:bg-slate-700/60'}`}>
                     <h4 className="font-semibold mb-2 flex items-center">
                       {benefit.title}
-                      {benefit.highlight && <Badge className="ml-2 bg-green-500">2 FREE/DAY</Badge>}
+                      {benefit.highlight && <Badge className="ml-2 bg-green-500">3 FREE/MONTH</Badge>}
                     </h4>
                     <p className="text-sm text-gray-600 dark:text-gray-300">{benefit.description}</p>
                   </div>

@@ -140,8 +140,16 @@ async def generate_chat(request: ChatRequest):
 
 @router.post("/image", response_model=ImageGenerationResponse)
 async def generate_image(request: ImageGenerationRequest):
-    """Image generation using Gemini 2.5 Flash via OpenRouter (Free)"""
+    """Image generation using Gemini 2.5 Flash via OpenRouter - Credit System"""
     try:
+        # TODO: Add user authentication and subscription validation here
+        # For now, we'll simulate the credit system validation
+
+        # Credit System:
+        # Free users: 3 images per month
+        # Pro users: 50 images per month, then 30 credits per image
+        # This validation should be implemented with actual user data
+
         result = await openrouter_adapter.generate_image_final({
             "prompt": request.prompt,
             "image_input": request.image_input,
@@ -156,7 +164,7 @@ async def generate_image(request: ImageGenerationRequest):
             text_prompt=result.get("text_prompt"),
             has_image_input=result.get("has_image_input", False),
             model="gemini-2.5-flash",
-            processing_time=result.get("processing_time", "2m 30s"),
+            processing_time=result.get("processing_time", "2m"),
             error=result.get("error")
         )
     except Exception as e:

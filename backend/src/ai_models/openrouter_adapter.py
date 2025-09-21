@@ -177,8 +177,8 @@ class OpenRouterAdapter:
                 "temperature": 0.7
             }
 
-            # Simulate processing time (1 minute processing + 1.5 minute buffer = 2.5 minutes)
-            processing_time = "2m 30s"
+            # Simulate processing time (1 minute processing + 1 minute buffer = 2 minutes)
+            processing_time = "2m"
 
             return {
                 "success": True,
@@ -276,7 +276,7 @@ class OpenRouterAdapter:
                     "quality": quality,
                     "model": "gemini-2.5-flash",
                     "tokens_used": result.get("usage", {}).get("total_tokens", 0),
-                    "processing_time": "2m 30s",
+                    "processing_time": "2m",
                     "preview": False
                 }
             else:

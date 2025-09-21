@@ -247,7 +247,7 @@ const ImageTool = () => {
                 <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
                 <span className="text-blue-600 font-medium">Generating images...</span>
               </div>
-              <p className="text-sm text-gray-500 mt-2">This usually takes 2-3 minutes with buffer for reliability</p>
+              <p className="text-sm text-gray-500 mt-2">This usually takes ~2 minutes with buffer for reliability</p>
             </div>
           )}
         </CardContent>
@@ -260,8 +260,8 @@ const ImageTool = () => {
       <ToolEditorLayout
         toolName="Image Generation"
         toolIcon={Image}
-        credits="Free"
-        estimatedTime="~2m 30s"
+        credits="30 credits (after free limit)"
+        estimatedTime="~2m"
         onGenerate={handleGenerate}
         isGenerating={isGenerating}
         canGenerate={!!prompt.trim()}
@@ -356,6 +356,21 @@ const ImageTool = () => {
               <p className="text-xs text-gray-500 mt-1">
                 Gemini 2.5 Flash can use both text and image inputs for better results
               </p>
+            </div>
+
+            {/* Pricing Information */}
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+              <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+                💳 Image Generation Pricing
+              </h4>
+              <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
+                <p><strong>Free Plan:</strong> 3 images per month</p>
+                <p><strong>Pro Plan:</strong> 50 images per month</p>
+                <p><strong>After limits:</strong> 30 credits per image</p>
+                <p className="mt-2 text-blue-600 dark:text-blue-400">
+                  Processing: ~2 minutes (1m generation + 1m buffer)
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
