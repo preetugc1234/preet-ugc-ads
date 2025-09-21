@@ -65,25 +65,25 @@ Always format your responses with clear headings and structured content for maxi
         models = {
             "gpt-4o-mini": {
                 "model_id": "openai/gpt-4o-mini",
-                "delay_seconds": 0,  # Fastest
+                "delay_seconds": 2,  # 2 seconds
                 "display_name": "GPT-4o Mini",
                 "description": "Fast and efficient for quick responses"
             },
             "gpt-4": {
                 "model_id": "openai/gpt-4o-mini",  # Using same API key/model
-                "delay_seconds": 3,  # +3 seconds
+                "delay_seconds": 5,  # 2+3 = 5 seconds
                 "display_name": "GPT-4",
                 "description": "Most capable model for complex tasks"
             },
             "claude-3-haiku": {
                 "model_id": "openai/gpt-4o-mini",  # Using same API key/model
-                "delay_seconds": 6,  # +6 seconds
+                "delay_seconds": 8,  # 2+6 = 8 seconds
                 "display_name": "Claude 3 Haiku",
                 "description": "Fast responses with creative flair"
             },
             "claude-3-sonnet": {
                 "model_id": "openai/gpt-4o-mini",  # Using same API key/model
-                "delay_seconds": 8,  # +8 seconds
+                "delay_seconds": 10,  # 2+8 = 10 seconds
                 "display_name": "Claude 3 Sonnet",
                 "description": "Balanced performance for detailed content"
             }
@@ -129,7 +129,7 @@ Always format your responses with clear headings and structured content for maxi
                     "display_name": model_config["display_name"],
                     "tokens_used": result.get("usage", {}).get("total_tokens", 0),
                     "preview": True,
-                    "processing_time": f"{model_config['delay_seconds']}s" if model_config["delay_seconds"] > 0 else "instant"
+                    "processing_time": f"{model_config['delay_seconds']}s"
                 }
             else:
                 raise Exception("No response from OpenRouter")
@@ -191,7 +191,7 @@ Always format your responses with clear headings and structured content for maxi
                     "display_name": model_config["display_name"],
                     "tokens_used": result.get("usage", {}).get("total_tokens", 0),
                     "finish_reason": result["choices"][0].get("finish_reason"),
-                    "processing_time": f"{model_config['delay_seconds']}s" if model_config["delay_seconds"] > 0 else "instant",
+                    "processing_time": f"{model_config['delay_seconds']}s",
                     "preview": False
                 }
             else:
@@ -367,7 +367,7 @@ Always format your responses with clear headings and structured content for maxi
                 "name": "GPT-4o Mini",
                 "description": "Fast marketing content generation",
                 "type": "chat",
-                "processing_time": "Instant",
+                "processing_time": "~2s",
                 "best_for": "Quick social media posts, captions, hashtags"
             },
             {
@@ -375,7 +375,7 @@ Always format your responses with clear headings and structured content for maxi
                 "name": "GPT-4",
                 "description": "Advanced marketing strategies",
                 "type": "chat",
-                "processing_time": "~3s",
+                "processing_time": "~5s",
                 "best_for": "Detailed campaigns, SEO content, scripts"
             },
             {
@@ -383,7 +383,7 @@ Always format your responses with clear headings and structured content for maxi
                 "name": "Claude 3 Haiku",
                 "description": "Creative content generation",
                 "type": "chat",
-                "processing_time": "~6s",
+                "processing_time": "~8s",
                 "best_for": "Creative copy, storytelling, brand voice"
             },
             {
@@ -391,7 +391,7 @@ Always format your responses with clear headings and structured content for maxi
                 "name": "Claude 3 Sonnet",
                 "description": "Comprehensive content strategy",
                 "type": "chat",
-                "processing_time": "~8s",
+                "processing_time": "~10s",
                 "best_for": "Long-form content, strategy docs, analysis"
             }
         ]

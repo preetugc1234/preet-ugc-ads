@@ -31,28 +31,28 @@ const ChatTool = () => {
       value: "gpt-4o-mini",
       label: "GPT-4o Mini",
       description: "Fast marketing content generation",
-      time: "Instant",
+      time: "~2s",
       bestFor: "Quick social media posts, captions, hashtags"
     },
     {
       value: "gpt-4",
       label: "GPT-4",
       description: "Advanced marketing strategies",
-      time: "~3s",
+      time: "~5s",
       bestFor: "Detailed campaigns, SEO content, scripts"
     },
     {
       value: "claude-3-haiku",
       label: "Claude 3 Haiku",
       description: "Creative content generation",
-      time: "~6s",
+      time: "~8s",
       bestFor: "Creative copy, storytelling, brand voice"
     },
     {
       value: "claude-3-sonnet",
       label: "Claude 3 Sonnet",
       description: "Comprehensive content strategy",
-      time: "~8s",
+      time: "~10s",
       bestFor: "Long-form content, strategy docs, analysis"
     }
   ];
