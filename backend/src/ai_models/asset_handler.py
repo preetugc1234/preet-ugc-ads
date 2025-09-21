@@ -280,27 +280,28 @@ class AssetHandler:
             # Create upload URL
             upload_url = f"https://api.cloudinary.com/v1_1/{self.cloudinary_cloud_name}/{resource_type}/upload"
 
-            # Prepare form data
+            # Prepare form data for authenticated upload (no preset needed)
+            import time
+            timestamp = int(time.time())
+
             form_data = {
                 "file": file_data,
                 "public_id": public_id,
-                "upload_preset": self.cloudinary_upload_preset,
-                "resource_type": resource_type
+                "resource_type": resource_type,
+                "timestamp": str(timestamp),
+                "api_key": self.cloudinary_api_key
             }
 
             if format:
                 form_data["format"] = format
 
-            # Add timestamp and signature for authenticated upload
-            import time
-            timestamp = int(time.time())
-            form_data["timestamp"] = str(timestamp)
-
-            # Create signature
-            signature_string = f"public_id={public_id}&timestamp={timestamp}&upload_preset={self.cloudinary_upload_preset}{self.cloudinary_api_secret}"
+            # Create signature for authenticated upload
+            # Sort parameters alphabetically for signature
+            params_to_sign = {k: v for k, v in form_data.items() if k not in ["file", "api_key", "resource_type"]}
+            sorted_params = sorted(params_to_sign.items())
+            signature_string = "&".join([f"{k}={v}" for k, v in sorted_params]) + self.cloudinary_api_secret
             signature = hashlib.sha1(signature_string.encode()).hexdigest()
             form_data["signature"] = signature
-            form_data["api_key"] = self.cloudinary_api_key
 
             # Upload file
             async with httpx.AsyncClient(timeout=120.0) as client:
