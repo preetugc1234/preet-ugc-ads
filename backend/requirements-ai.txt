@@ -1,5 +1,11 @@
-# AI and Cloud Services (installed separately to avoid conflicts)
-cloudinary==1.26.0
-supabase==1.0.4
+# AI and Cloud Services (conservative versions)
+cloudinary==1.25.0
+supabase==0.7.1
 razorpay==1.2.0
-fal-client==0.2.2
+fal-client==0.2.1
+
+# Authentication (added here to avoid main conflicts)
+python-jose==3.1.0
+passlib==1.7.4
+httpx==0.20.0
+aiofiles==0.6.0

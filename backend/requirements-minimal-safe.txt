@@ -1,0 +1,9 @@
+# Absolute minimal requirements - no compilation needed
+fastapi==0.63.0
+uvicorn==0.11.8
+pydantic==1.7.4
+starlette==0.13.6
+python-multipart==0.0.5
+python-dotenv==0.15.0
+requests==2.25.1
+jinja2==2.11.3

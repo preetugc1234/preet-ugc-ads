@@ -1,26 +1,17 @@
-# Core FastAPI dependencies (proven working together)
-fastapi==0.70.0
-uvicorn[standard]==0.15.0
-pydantic==1.8.2
+# Minimal core dependencies - no compilation
+fastapi==0.63.0
+uvicorn==0.11.8
+pydantic==1.7.4
 
-# HTTP and networking
-httpx==0.22.0
-requests==2.26.0
+# HTTP client
+requests==2.25.1
 
 # Database
-pymongo==3.12.1
-
-# Authentication and security
-python-jose[cryptography]==3.2.0
-passlib[bcrypt]==1.7.4
+pymongo==3.11.4
 
 # Utilities
-python-dotenv==0.19.2
-aiofiles==0.6.0
+python-dotenv==0.15.0
 python-multipart==0.0.5
 
 # Templates
-jinja2==3.0.2
-
-# Basic dependencies only - AI packages added separately
-typing-extensions==3.10.0
+jinja2==2.11.3
