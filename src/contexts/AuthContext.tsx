@@ -172,33 +172,42 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.error('❌ Error loading user profile from backend:', error)
 
       // If user doesn't exist in backend but we have a Supabase session,
-      // create a fallback user and let the backend handle user creation on next API call
+      // retry a few times to allow backend to create the user
       if (session?.user) {
-        console.log('📝 Creating fallback user object from Supabase session')
+        console.log('📝 User not found in backend, retrying in case backend is creating user...')
 
-        const fallbackUser: User = {
-          id: session.user.id,
-          email: session.user.email || '',
-          name: session.user.user_metadata?.full_name ||
-                session.user.user_metadata?.name ||
-                `${session.user.user_metadata?.first_name || ''} ${session.user.user_metadata?.last_name || ''}`.trim() ||
-                session.user.email?.split('@')[0] ||
-                'User',
-          plan: 'free',
-          credits: 250, // Default credits for free plan users (250/month)
-          is_admin: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+        // Wait a moment for backend to process the authentication
+        await new Promise(resolve => setTimeout(resolve, 2000))
+
+        try {
+          console.log('🔄 Retrying backend user load...')
+          const userProfile = await api.getCurrentUser()
+          setUser(userProfile)
+          console.log('✅ User profile loaded from backend on retry:', userProfile)
+          return
+        } catch (retryError) {
+          console.error('❌ Retry failed, backend user creation might have failed:', retryError)
+
+          // Final attempt after another delay
+          await new Promise(resolve => setTimeout(resolve, 3000))
+
+          try {
+            console.log('🔄 Final retry for backend user load...')
+            const userProfile = await api.getCurrentUser()
+            setUser(userProfile)
+            console.log('✅ User profile loaded from backend on final retry:', userProfile)
+            return
+          } catch (finalError) {
+            console.error('❌ All retries failed, this indicates a backend issue:', finalError)
+            setUser(null)
+
+            toast({
+              title: "Connection Issue",
+              description: "Unable to load your profile. Please refresh the page.",
+              variant: "destructive"
+            })
+          }
         }
-        setUser(fallbackUser)
-
-        console.log('⚠️ Using fallback user - backend will sync on next API call:', fallbackUser)
-
-        // Show a toast to let user know the profile is being set up
-        toast({
-          title: "Setting up your profile",
-          description: "Your account is being created in our system.",
-        })
       } else {
         setUser(null)
       }
