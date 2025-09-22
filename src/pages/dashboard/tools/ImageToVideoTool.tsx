@@ -50,7 +50,7 @@ const ImageToVideoTool = () => {
     "Cinematic dolly movement forward"
   ];
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       // Check file size (max 10MB)
@@ -65,11 +65,16 @@ const ImageToVideoTool = () => {
         return;
       }
 
+      console.log(`📸 Uploading image: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+
       const reader = new FileReader();
       reader.onload = (e) => {
         const base64Result = e.target?.result as string;
         setUploadedImage(base64Result);
-        setUploadedImageUrl(base64Result); // For now, use base64. In production, upload to cloud storage first
+        setUploadedImageUrl(base64Result);
+
+        // Log only the image metadata to avoid base64 console spam
+        console.log(`✅ Image loaded successfully: ${file.type}, ${(file.size / 1024).toFixed(1)}KB`);
       };
       reader.readAsDataURL(file);
     }
@@ -97,7 +102,17 @@ const ImageToVideoTool = () => {
         }
       };
 
-      console.log('🎬 Creating image-to-video job:', jobData);
+      // Log job details without base64 data to avoid console spam
+      console.log('🎬 Creating image-to-video job:', {
+        client_job_id: clientJobId,
+        module: jobData.module,
+        params: {
+          ...jobData.params,
+          image_url: uploadedImageUrl.startsWith('data:')
+            ? `[Base64 Image: ${uploadedImageUrl.split(',')[0]}]`
+            : uploadedImageUrl
+        }
+      });
 
       const result = await createJobMutation.mutateAsync(jobData);
 
@@ -135,13 +150,74 @@ const ImageToVideoTool = () => {
 
   const downloadVideo = async (url: string) => {
     try {
-      const filename = `video_${Date.now()}.mp4`;
-      const response = await fetch(url);
-      const blob = await response.blob();
-      const downloadUrl = URL.createObjectURL(blob);
+      // Generate descriptive filename
+      const timestamp = new Date().toISOString().split('T')[0];
+      const promptSlug = motionPrompt
+        ? motionPrompt.slice(0, 30).replace(/[^a-zA-Z0-9]/g, '_')
+        : 'motion_video';
+      const filename = `${promptSlug}_${duration}s_${timestamp}.mp4`;
+
+      // Check if it's a Cloudinary URL for high-quality download
+      let downloadUrl = url;
+      if (url.includes('cloudinary.com') && url.includes('/video/upload/')) {
+        // Transform Cloudinary URL for highest quality download
+        downloadUrl = url.replace(
+          '/video/upload/',
+          '/video/upload/q_100,f_mp4,br_5000k/' // 100% quality, MP4 format, 5Mbps bitrate
+        );
+        console.log('🎬 Downloading high-quality video from Cloudinary');
+      }
+
+      console.log(`⬇️ Starting download: ${filename}`);
+
+      // Fetch the video with progress tracking
+      const response = await fetch(downloadUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch video: ${response.statusText}`);
+      }
+
+      // Get file size for progress
+      const contentLength = response.headers.get('content-length');
+      const totalSize = contentLength ? parseInt(contentLength, 10) : 0;
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('Failed to read video stream');
+      }
+
+      // Read the stream
+      const chunks: Uint8Array[] = [];
+      let receivedLength = 0;
+
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) break;
+
+        chunks.push(value);
+        receivedLength += value.length;
+
+        // Log progress for large files
+        if (totalSize > 0 && totalSize > 5 * 1024 * 1024) { // > 5MB
+          const progress = ((receivedLength / totalSize) * 100).toFixed(1);
+          console.log(`📥 Download progress: ${progress}%`);
+        }
+      }
+
+      // Combine chunks
+      const allChunks = new Uint8Array(receivedLength);
+      let position = 0;
+      for (const chunk of chunks) {
+        allChunks.set(chunk, position);
+        position += chunk.length;
+      }
+
+      // Create blob and download
+      const blob = new Blob([allChunks], { type: 'video/mp4' });
+      const objectUrl = URL.createObjectURL(blob);
 
       const link = document.createElement('a');
-      link.href = downloadUrl;
+      link.href = objectUrl;
       link.download = filename;
       link.style.display = 'none';
 
@@ -149,11 +225,14 @@ const ImageToVideoTool = () => {
       link.click();
       document.body.removeChild(link);
 
-      URL.revokeObjectURL(downloadUrl);
-      console.log(`✅ Video downloaded: ${filename}`);
+      URL.revokeObjectURL(objectUrl);
+
+      const fileSizeMB = (blob.size / 1024 / 1024).toFixed(2);
+      console.log(`✅ Video downloaded successfully: ${filename} (${fileSizeMB}MB)`);
+
     } catch (error) {
-      console.error('❌ Download failed:', error);
-      alert('Failed to download video. Please try again.');
+      console.error('❌ Video download failed:', error);
+      alert(`Failed to download video: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -236,17 +315,30 @@ const ImageToVideoTool = () => {
                 {jobStatus?.created_at && (
                   <p><strong>Generated:</strong> {new Date(jobStatus.created_at).toLocaleString()}</p>
                 )}
+                {isJobCompleted && (
+                  <p className="text-green-600"><strong>✅ High-quality MP4 ready</strong></p>
+                )}
               </div>
               <div className="flex space-x-2">
+                {jobStatus?.preview_url && !isJobCompleted && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => downloadVideo(jobStatus.preview_url!)}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Preview
+                  </Button>
+                )}
                 {isJobCompleted && jobStatus?.final_urls?.[0] ? (
                   <Button onClick={() => downloadVideo(jobStatus.final_urls![0])}>
                     <Download className="w-4 h-4 mr-2" />
-                    Download
+                    Download MP4
                   </Button>
-                ) : jobStatus?.preview_url ? (
-                  <Button variant="outline" disabled={isJobRunning}>
+                ) : isJobRunning ? (
+                  <Button variant="outline" disabled>
                     <Clock className="w-4 h-4 mr-2" />
-                    {isJobRunning ? 'Finalizing...' : 'Processing...'}
+                    {jobStatus?.preview_url ? 'Finalizing...' : 'Processing...'}
                   </Button>
                 ) : null}
               </div>
