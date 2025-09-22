@@ -66,14 +66,17 @@ export interface JobCreateRequest {
 }
 
 export interface JobResponse {
-  id: string
-  client_job_id: string
-  status: 'queued' | 'processing' | 'completed' | 'failed'
-  estimated_cost: number
+  success: boolean
+  message: string
+  job_id?: string
+  id?: string  // For backward compatibility
+  client_job_id?: string
+  status?: 'queued' | 'processing' | 'completed' | 'failed'
+  estimated_cost?: number
+  estimated_time_seconds?: number
   preview_url?: string
   final_urls?: string[]
-  created_at: string
-  estimated_time?: number
+  created_at?: string
 }
 
 export interface JobStatus {

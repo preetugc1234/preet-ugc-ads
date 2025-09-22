@@ -116,15 +116,40 @@ const ImageToVideoTool = () => {
 
       const result = await createJobMutation.mutateAsync(jobData);
 
-      if (result.id) {
-        setCurrentJobId(result.id);
-        console.log('✅ Job created successfully:', result.id);
+      // Handle both possible response formats (job_id or id)
+      const jobId = result.job_id || result.id;
+
+      if (jobId) {
+        setCurrentJobId(jobId);
+        console.log('✅ Job created successfully:', {
+          job_id: jobId,
+          client_job_id: result.client_job_id,
+          status: result.status,
+          estimated_cost: result.estimated_cost
+        });
       } else {
-        throw new Error('Failed to create job');
+        console.error('❌ Job creation response missing job ID:', result);
+        throw new Error(`Job creation failed: ${result.message || 'No job ID returned'}`);
       }
     } catch (error) {
       console.error('❌ Image-to-video generation failed:', error);
-      alert(`Failed to start video generation: ${error instanceof Error ? error.message : 'Unknown error'}`);
+
+      // Extract meaningful error message
+      let errorMessage = 'Unknown error occurred';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
+      // Check for specific error patterns
+      if (errorMessage.includes('insufficient credits')) {
+        errorMessage = 'Insufficient credits. Please check your account balance.';
+      } else if (errorMessage.includes('already exists')) {
+        errorMessage = 'Job already exists. Please try again.';
+      } else if (errorMessage.includes('authentication')) {
+        errorMessage = 'Please sign in again to continue.';
+      }
+
+      alert(`Failed to start video generation: ${errorMessage}`);
     }
   };
 
