@@ -344,7 +344,7 @@ class ApiClient {
     processing_time?: string
     error?: string
   }> {
-    return this.request('/api/image', {
+    return this.request('/api/generate/image', {
       method: 'POST',
       body: JSON.stringify(data)
     })
