@@ -1,5 +1,5 @@
-# RENDER DEPLOYMENT - ULTRA MINIMAL ZERO COMPILATION
-# Only essential packages that are guaranteed to work
+# RENDER DEPLOYMENT - COMPLETE DEPENDENCIES
+# All required packages for full functionality
 
 # Core FastAPI - tested stable version
 fastapi==0.68.0
@@ -8,12 +8,21 @@ uvicorn==0.15.0
 # Server fallbacks
 gunicorn==20.1.0
 
-# Essential dependencies only
+# Essential dependencies
 python-multipart==0.0.5
 python-dotenv==0.19.0
 requests==2.26.0
+
+# Database - with srv support for MongoDB Atlas
 pymongo==3.12.0
+dnspython==2.1.0
+
+# HTTP client - required by AI models (Python 3.13 compatible)
+httpx==0.24.1
 
 # Auth dependencies
 pyjwt==2.1.0
 python-jose==3.3.0
+
+# Template engine - required by FastAPI
+jinja2==3.0.3
