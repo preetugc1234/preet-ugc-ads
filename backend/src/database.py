@@ -40,7 +40,7 @@ class DatabaseManager:
             # Test the connection
             self.client.admin.command('ping')
             self.database = self.client[DATABASE_NAME]
-            logger.info("Successfully connected to MongoDB Atlas")
+            logger.info("Successfully connected to MongoDB Atlas with environment variables")
 
             # Create collections and indexes
             self.setup_collections()
