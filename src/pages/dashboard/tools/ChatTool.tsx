@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, apiHelpers } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { API_BASE_URL } from "@/lib/supabase";
 
 const ChatTool = () => {
   const { user, refreshUser } = useAuth();
@@ -96,7 +97,7 @@ const ChatTool = () => {
 
     try {
       // Call the actual OpenRouter API with marketing focus
-      const response = await fetch('/api/generate/chat', {
+      const response = await fetch(`${API_BASE_URL}/api/generate/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

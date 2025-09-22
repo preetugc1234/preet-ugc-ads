@@ -28,7 +28,9 @@
       "Bash(pip show:*)",
       "Read(//c/Users/mt/Desktop/**)",
       "Bash(timeout 10 python render-startup.py)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "WebFetch(domain:preet-ugc-ads.onrender.com)",
+      "WebFetch(domain:preet-ugc-ads.lovable.app)"
     ],
     "deny": [],
     "ask": []

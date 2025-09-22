@@ -16,9 +16,9 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# MongoDB connection string
-MONGODB_URI = "mongodb+srv://Preet1234:Preet1246@ugc.qqqbt5d.mongodb.net/?retryWrites=true&w=majority&appName=UGC"
-DATABASE_NAME = "ugc_ai_saas"
+# MongoDB connection string - use environment variable or fallback
+MONGODB_URI = os.getenv("MONGODB_URI", "mongodb+srv://Preet1234:Preet1246@ugc.qqqbt5d.mongodb.net/?retryWrites=true&w=majority&appName=UGC")
+DATABASE_NAME = os.getenv("DATABASE_NAME", "ugc_ai_saas")
 
 class DatabaseManager:
     """Centralized database manager for MongoDB operations."""

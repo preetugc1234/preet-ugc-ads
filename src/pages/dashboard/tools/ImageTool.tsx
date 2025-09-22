@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { API_BASE_URL } from "@/lib/supabase";
 
 const ImageTool = () => {
   const [prompt, setPrompt] = useState("");
@@ -72,7 +73,7 @@ const ImageTool = () => {
 
     try {
       // Call the actual API
-      const response = await fetch('/api/generate/image', {
+      const response = await fetch(`${API_BASE_URL}/api/generate/image`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

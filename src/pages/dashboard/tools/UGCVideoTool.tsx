@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
+import { API_BASE_URL } from "@/lib/supabase";
 
 const UGCVideoTool = () => {
   const [mode, setMode] = useState("audio-to-video");
@@ -36,7 +37,7 @@ const UGCVideoTool = () => {
   useEffect(() => {
     const fetchAvatars = async () => {
       try {
-        const response = await fetch('/api/generate/audio2video/avatars');
+        const response = await fetch(`${API_BASE_URL}/api/generate/audio2video/avatars`);
         const data = await response.json();
         if (data.success) {
           setAvailableAvatars(data.avatars);
