@@ -1,17 +1,16 @@
-# Minimal core dependencies - no compilation
+# ZERO COMPILATION - Pure Python only
 fastapi==0.63.0
-uvicorn==0.11.8
+starlette==0.13.6
 pydantic==1.7.4
 
-# HTTP client
+# Server (NO uvicorn to avoid httptools completely)
+gunicorn==20.1.0
+
+# Pure Python dependencies
 requests==2.25.1
-
-# Database
 pymongo==3.11.4
-
-# Utilities
 python-dotenv==0.15.0
 python-multipart==0.0.5
-
-# Templates
 jinja2==2.11.3
+
+# NO uvicorn, NO httptools, NO websockets, NO compilation!

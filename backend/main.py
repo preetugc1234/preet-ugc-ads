@@ -1,7 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-import uvicorn
 import os
 from datetime import datetime
 from dotenv import load_dotenv
@@ -110,9 +109,32 @@ async def health_check():
 # Note: Error handlers are now imported and registered above
 
 if __name__ == "__main__":
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=int(os.getenv("PORT", 8000)),
-        reload=os.getenv("ENVIRONMENT") == "development"
-    )
+    # Use simple server instead of uvicorn to avoid httptools compilation
+    import sys
+    port = int(os.getenv("PORT", 8000))
+
+    try:
+        # Try to use uvicorn if available (local development)
+        import uvicorn
+        uvicorn.run(
+            "main:app",
+            host="0.0.0.0",
+            port=port,
+            reload=os.getenv("ENVIRONMENT") == "development"
+        )
+    except ImportError:
+        # Fallback to basic ASGI server (production)
+        print("🔄 uvicorn not available, using basic server")
+        print(f"🚀 Starting on port {port}")
+
+        # Simple HTTP server fallback
+        from wsgiref.simple_server import make_server
+        import asyncio
+        from fastapi.middleware.wsgi import WSGIMiddleware
+
+        # Note: This is a basic fallback - gunicorn is preferred in production
+        print("⚠️ Using basic HTTP server - performance may be limited")
+        print(f"✅ Server available at http://0.0.0.0:{port}")
+
+        with make_server('0.0.0.0', port, app) as httpd:
+            httpd.serve_forever()

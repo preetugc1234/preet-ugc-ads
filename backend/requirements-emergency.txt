@@ -1,0 +1,12 @@
+# EMERGENCY: Absolute minimal FastAPI that works
+fastapi==0.63.0
+starlette==0.13.6
+pydantic==1.7.4
+python-multipart==0.0.5
+
+# Basic server (NO uvicorn to avoid httptools)
+gunicorn==20.1.0
+
+# Essential utilities
+python-dotenv==0.15.0
+requests==2.25.1
