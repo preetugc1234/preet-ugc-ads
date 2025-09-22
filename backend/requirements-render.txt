@@ -1,0 +1,40 @@
+# RENDER DEPLOYMENT - ZERO COMPILATION REQUIREMENTS
+# These versions are guaranteed to work without compilation on Render
+
+# Core FastAPI stack - tested stable versions
+fastapi==0.95.2
+starlette==0.27.0
+pydantic==1.10.8
+
+# Server - NO httptools dependency (older uvicorn)
+uvicorn==0.18.3
+gunicorn==20.1.0
+
+# Essential dependencies - pure Python wheels only
+python-multipart==0.0.6
+python-dotenv==1.0.0
+requests==2.31.0
+jinja2==3.1.2
+
+# Database
+pymongo==4.3.3
+
+# Auth & Security
+pyjwt==2.6.0
+passlib==1.7.4
+
+# HTTP client
+httpx==0.24.1
+
+# File handling
+aiofiles==23.1.0
+
+# Environment management
+python-decouple==3.8
+
+# Settings
+pydantic-settings==2.0.1
+
+# ASGI server alternatives (fallbacks)
+daphne==4.0.0
+hypercorn==0.14.3

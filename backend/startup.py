@@ -16,19 +16,19 @@ def install_package(package_name, pip_name=None):
 
     try:
         importlib.import_module(package_name)
-        print(f"✅ {package_name} already installed")
+        print(f"[OK] {package_name} already installed")
         return True
     except ImportError:
         try:
-            print(f"📦 Installing {pip_name}...")
+            print(f"[INSTALL] Installing {pip_name}...")
             subprocess.check_call([
                 sys.executable, "-m", "pip", "install", pip_name,
                 "--no-deps", "--quiet"
             ])
-            print(f"✅ {package_name} installed successfully")
+            print(f"[OK] {package_name} installed successfully")
             return True
         except subprocess.CalledProcessError:
-            print(f"⚠️ Failed to install {package_name}, using fallback")
+            print(f"[WARN] Failed to install {package_name}, using fallback")
             return False
 
 def setup_ai_packages():
@@ -95,7 +95,7 @@ Client = object
                 f.write(content)
 
 if __name__ == "__main__":
-    print("🚀 Setting up AI packages...")
+    print("[START] Setting up AI packages...")
     setup_ai_packages()
     create_mock_modules()
-    print("✅ Startup complete!")
+    print("[OK] Startup complete!")

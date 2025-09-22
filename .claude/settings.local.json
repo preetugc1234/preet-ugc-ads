@@ -26,7 +26,8 @@
       "Bash(dir \"C:\\Users\\mt\\Desktop\\preet-ugc-ads\\backend\")",
       "Bash(dir:*)",
       "Bash(pip show:*)",
-      "Read(//c/Users/mt/Desktop/**)"
+      "Read(//c/Users/mt/Desktop/**)",
+      "Bash(timeout 10 python render-startup.py)"
     ],
     "deny": [],
     "ask": []

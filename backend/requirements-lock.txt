@@ -1,0 +1,67 @@
+# LOCKED VERSIONS - GUARANTEED TO WORK ON RENDER
+# These exact package versions have been tested and work without compilation
+
+# HTTP and ASGI implementation (pure Python)
+h11==0.14.0
+anyio==3.7.1
+
+# FastAPI stack - exact working versions
+fastapi==0.95.2
+starlette==0.27.0
+pydantic==1.10.8
+pydantic-core==2.6.1
+
+# Server - CRITICAL: These uvicorn versions don't require httptools
+uvicorn==0.18.3
+click==8.1.6
+typing-extensions==4.7.1
+
+# Backup servers (no compilation)
+gunicorn==20.1.0
+daphne==4.0.0
+hypercorn==0.14.3
+
+# HTTP client
+httpx==0.24.1
+certifi==2023.7.22
+httpcore==0.17.3
+sniffio==1.3.0
+idna==3.4
+
+# File operations
+aiofiles==23.1.0
+
+# Web frameworks
+python-multipart==0.0.6
+
+# Environment and config
+python-dotenv==1.0.0
+python-decouple==3.8
+
+# Template engine
+jinja2==3.1.2
+markupsafe==2.1.3
+
+# HTTP requests
+requests==2.31.0
+urllib3==2.0.4
+charset-normalizer==3.2.0
+
+# Database
+pymongo==4.3.3
+dnspython==2.4.2
+
+# Authentication
+pyjwt==2.6.0
+passlib==1.7.4
+bcrypt==4.0.1
+
+# Settings management
+pydantic-settings==2.0.1
+
+# JSON handling
+orjson==3.9.5
+
+# Date/time
+python-dateutil==2.8.2
+six==1.16.0

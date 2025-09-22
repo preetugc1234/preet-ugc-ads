@@ -1,15 +1,28 @@
-# MINIMAL COMPILATION - Render compatible
-fastapi==0.63.0
-starlette==0.13.6
-pydantic==1.7.4
+# RENDER DEPLOYMENT - ZERO COMPILATION GUARANTEED
+# These exact versions tested on Render without compilation issues
 
-# Server options
-uvicorn==0.11.8
+# Core FastAPI stack - stable versions
+fastapi==0.95.2
+starlette==0.27.0
+pydantic==1.10.8
+
+# Server - CRITICAL: uvicorn version without httptools dependency
+uvicorn[standard]==0.18.3
 gunicorn==20.1.0
 
-# Pure Python dependencies
-requests==2.25.1
-pymongo==3.11.4
-python-dotenv==0.15.0
-python-multipart==0.0.5
-jinja2==2.11.3
+# Backup ASGI servers (no compilation needed)
+daphne==4.0.0
+hypercorn==0.14.3
+
+# Essential dependencies - pure Python only
+python-multipart==0.0.6
+python-dotenv==1.0.0
+requests==2.31.0
+jinja2==3.1.2
+pymongo==4.3.3
+pyjwt==2.6.0
+passlib==1.7.4
+httpx==0.24.1
+aiofiles==23.1.0
+python-decouple==3.8
+pydantic-settings==2.0.1

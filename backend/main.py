@@ -13,10 +13,10 @@ try:
     from startup import setup_ai_packages, create_mock_modules
     setup_ai_packages()
     create_mock_modules()
-    print("✅ AI packages setup complete")
+    print("[OK] AI packages setup complete")
 except Exception as e:
-    print(f"⚠️ AI packages setup failed: {e}")
-    print("🔄 Continuing with core functionality only")
+    print(f"[WARN] AI packages setup failed: {e}")
+    print("[INFO] Continuing with core functionality only")
 
 # Create FastAPI app
 app = FastAPI(
@@ -109,32 +109,52 @@ async def health_check():
 # Note: Error handlers are now imported and registered above
 
 if __name__ == "__main__":
-    # Use simple server instead of uvicorn to avoid httptools compilation
+    # Production-ready server with zero compilation dependencies
     import sys
     port = int(os.getenv("PORT", 8000))
 
+    print("[START] UGC AI Backend - Zero Compilation Mode")
+    print(f"[INFO] Port: {port}")
+
     try:
-        # Try to use uvicorn if available (local development)
+        # Use uvicorn with pure Python configuration
         import uvicorn
-        uvicorn.run(
-            "main:app",
+
+        # Configure uvicorn to avoid httptools completely
+        config = uvicorn.Config(
+            app=app,
             host="0.0.0.0",
             port=port,
-            reload=os.getenv("ENVIRONMENT") == "development"
+            loop="asyncio",      # Pure Python event loop
+            http="h11",          # Pure Python HTTP implementation
+            ws="none",           # Disable WebSocket to avoid additional deps
+            lifespan="on",       # Enable lifespan events
+            access_log=True,
+            log_level="info",
+            use_colors=False,    # Disable colors for better Render compatibility
+            reload=False         # Always disable reload in production
         )
-    except ImportError:
-        # Fallback to basic ASGI server (production)
-        print("🔄 uvicorn not available, using basic server")
-        print(f"🚀 Starting on port {port}")
 
-        # Simple HTTP server fallback
-        from wsgiref.simple_server import make_server
-        import asyncio
-        from fastapi.middleware.wsgi import WSGIMiddleware
+        server = uvicorn.Server(config)
+        server.run()
 
-        # Note: This is a basic fallback - gunicorn is preferred in production
-        print("⚠️ Using basic HTTP server - performance may be limited")
-        print(f"✅ Server available at http://0.0.0.0:{port}")
+    except ImportError as e:
+        print(f"[WARN] uvicorn import failed: {e}")
+        print("[INFO] Falling back to alternative server")
 
-        with make_server('0.0.0.0', port, app) as httpd:
-            httpd.serve_forever()
+        # Try gunicorn fallback
+        try:
+            import gunicorn.app.wsgiapp
+            sys.argv = [
+                "gunicorn",
+                "--bind", f"0.0.0.0:{port}",
+                "--worker-class", "sync",
+                "--workers", "1",
+                "--timeout", "120",
+                "main:app"
+            ]
+            gunicorn.app.wsgiapp.run()
+        except Exception as fallback_error:
+            print(f"[ERROR] All server options failed: {fallback_error}")
+            print("[INFO] Please check server dependencies")
+            sys.exit(1)
