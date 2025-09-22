@@ -328,7 +328,7 @@ class ApiClient {
     })
   }
 
-  // Image generation endpoint (Gemini 2.5 Flash via OpenRouter)
+  // Image generation endpoint (Gemini 2.5 Flash via OpenRouter) - Updated endpoint URL
   async generateImage(data: {
     prompt: string
     image_input?: string
