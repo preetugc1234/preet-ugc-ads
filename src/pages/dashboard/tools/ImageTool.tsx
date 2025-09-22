@@ -92,7 +92,7 @@ const ImageTool = () => {
         setGeneratedImages(prev => [...newImages, ...prev].slice(0, 12)); // Keep last 12 images
 
         // Show success message
-        console.log('✅ Image generated successfully with Gemini 2.5 Flash - v2025-01-22');
+        console.log('✅ Image generated successfully with DALL-E 3 via OpenRouter - v2025-01-22');
       } else {
         // Show error message instead of fallback to mock images
         const errorMessage = result.error || 'Image generation failed';
@@ -337,7 +337,7 @@ const ImageTool = () => {
                 )}
               </div>
               <p className="text-xs text-gray-500 mt-1">
-                Gemini 2.5 Flash can use both text and image inputs for better results
+                DALL-E 3 via OpenRouter - high-quality image generation for marketing content
               </p>
             </div>
 
@@ -351,7 +351,7 @@ const ImageTool = () => {
                 <p><strong>Pro Plan:</strong> 50 images per month</p>
                 <p><strong>After limits:</strong> 30 credits per image</p>
                 <p className="mt-2 text-blue-600 dark:text-blue-400">
-                  Processing: ~2 minutes (1m generation + 1m buffer)
+                  Processing: ~30 seconds with DALL-E 3 via OpenRouter
                 </p>
               </div>
             </div>
