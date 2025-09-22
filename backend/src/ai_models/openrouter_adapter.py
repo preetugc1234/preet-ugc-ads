@@ -412,12 +412,6 @@ Always format your responses with clear headings and structured content for maxi
                         "model": "gemini-2.5-flash-image-preview",
                         "debug_response": result
                     }
-                else:
-                    return {
-                        "success": False,
-                        "error": "No response from Gemini 2.5 Flash Image Preview",
-                        "model": "gemini-2.5-flash-image-preview"
-                    }
 
         except Exception as e:
             logger.error(f"Gemini image generation failed: {e}")
