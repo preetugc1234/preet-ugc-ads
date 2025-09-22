@@ -12,12 +12,7 @@ import base64
 import json
 from datetime import datetime
 import time
-# import fal_client
-try:
-    import fal_client
-except ImportError:
-    print("FAL client not available, using mock")
-    fal_client = None
+import fal_client
 
 logger = logging.getLogger(__name__)
 
