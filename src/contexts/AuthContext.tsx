@@ -45,15 +45,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     async function initializeAuth() {
       try {
-        // Get initial session with retry logic
+        // Get initial session with improved retry logic
         let initialSession = null
         let retryCount = 0
         const maxRetries = 3
 
         while (retryCount < maxRetries && !initialSession) {
           try {
-            const { session } = await auth.getSession()
-            initialSession = session
+            const { data, error } = await supabase.auth.getSession()
+            if (error) {
+              throw error
+            }
+            initialSession = data.session
             break
           } catch (sessionError) {
             console.warn(`Session fetch attempt ${retryCount + 1} failed:`, sessionError)
@@ -62,9 +65,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
             if (retryCount === maxRetries) {
               // Clear potentially corrupted data and try once more
               clearAuthData()
-              await new Promise(resolve => setTimeout(resolve, 100))
-              const { session } = await auth.getSession()
-              initialSession = session
+              await new Promise(resolve => setTimeout(resolve, 500))
+              const { data } = await supabase.auth.getSession()
+              initialSession = data.session
+            } else {
+              // Wait before retry
+              await new Promise(resolve => setTimeout(resolve, 1000))
             }
           }
         }
@@ -157,6 +163,41 @@ export function AuthProvider({ children }: AuthProviderProps) {
       subscription.unsubscribe()
     }
   }, [toast])
+
+  // Add tab focus persistence
+  useEffect(() => {
+    const handleFocus = async () => {
+      // When tab comes back into focus, check if session is still valid
+      if (session) {
+        try {
+          const { data: { session: currentSession }, error } = await supabase.auth.getSession()
+          if (error || !currentSession) {
+            console.log('⚠️ Session lost during tab switch, refreshing...')
+            setSession(null)
+            setUser(null)
+          } else if (currentSession.access_token !== session.access_token) {
+            console.log('🔄 Session updated during tab switch, refreshing user...')
+            setSession(currentSession)
+            await loadUserProfile()
+          }
+        } catch (error) {
+          console.error('❌ Error checking session on focus:', error)
+        }
+      }
+    }
+
+    window.addEventListener('focus', handleFocus)
+    window.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        handleFocus()
+      }
+    })
+
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+      window.removeEventListener('visibilitychange', handleFocus)
+    }
+  }, [session])
 
   // Load user profile from backend
   const loadUserProfile = async () => {

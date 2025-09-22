@@ -272,10 +272,10 @@ async def get_credit_balance(current_user: AuthUser = Depends(require_auth)):
 # User History Endpoints
 @router.get("/history", response_model=UserHistoryResponse)
 async def get_user_history(
-    limit: int = Query(30, ge=1, le=30),
+    limit: int = Query(30, ge=1, le=100),
     current_user: AuthUser = Depends(require_auth)
 ):
-    """Get user's generation history (max 30 items)."""
+    """Get user's generation history (max 100 items)."""
     try:
         generations_data = get_user_generations(current_user.id, limit)
 

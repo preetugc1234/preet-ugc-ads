@@ -6,6 +6,7 @@ import asyncio
 import json
 from ..ai_models.fal_adapter import FalAdapter
 from ..ai_models.openrouter_adapter import OpenRouterAdapter
+from ..auth import get_current_user
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -141,7 +142,7 @@ async def generate_chat(request: ChatRequest):
         )
 
 @router.post("/image", response_model=ImageGenerationResponse)
-async def generate_image(request: ImageGenerationRequest):
+async def generate_image(request: ImageGenerationRequest, current_user = Depends(get_current_user)):
     """Image generation using Gemini 2.5 Flash via OpenRouter - Credit System"""
     try:
         # TODO: Add user authentication and subscription validation here
@@ -159,6 +160,38 @@ async def generate_image(request: ImageGenerationRequest):
             "aspect_ratio": request.aspect_ratio,
             "quality": request.quality
         })
+
+        # Save to history if successful
+        if result["success"] and result.get("image_url"):
+            try:
+                from ..database import get_db
+                from datetime import datetime, timezone
+
+                db = get_db()
+
+                # Save generation to user's history
+                generation_record = {
+                    "userId": current_user.id if current_user else "anonymous",
+                    "type": "image",
+                    "prompt": request.prompt,
+                    "previewUrl": result.get("image_url"),
+                    "finalUrls": [result.get("image_url")] if result.get("image_url") else [],
+                    "sizeBytes": 0,  # TODO: Calculate actual size
+                    "model": "gemini-2.5-flash",
+                    "style": request.style,
+                    "aspectRatio": request.aspect_ratio,
+                    "hasImageInput": bool(request.image_input),
+                    "creditCost": 0,  # Free for now
+                    "createdAt": datetime.now(timezone.utc),
+                    "status": "completed"
+                }
+
+                db.generations.insert_one(generation_record)
+                logger.info(f"Image generation saved to history: {generation_record['_id']}")
+
+            except Exception as e:
+                logger.error(f"Failed to save generation to history: {e}")
+                # Don't fail the API call if history saving fails
 
         return ImageGenerationResponse(
             success=result["success"],
