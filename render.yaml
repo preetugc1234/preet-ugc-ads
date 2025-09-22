@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: ugc-ai-backend
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: cd backend && pip install -r requirements.txt && python startup.py
+    startCommand: cd backend && python render-start.py
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: PYTHON_VERSION
+        value: 3.11.6
