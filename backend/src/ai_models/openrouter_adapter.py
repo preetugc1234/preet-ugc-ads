@@ -260,10 +260,10 @@ Always format your responses with clear headings and structured content for maxi
             # Build the content for the API request
             content = []
 
-            # Add text prompt with image generation instruction
+            # Add text prompt with explicit image generation instruction
             content.append({
                 "type": "text",
-                "text": f"Generate an image based on this description: {enhanced_prompt}"
+                "text": f"Create and generate a visual image that shows: {enhanced_prompt}. Please provide the generated image, not a description."
             })
 
             # Add image input if provided for image-to-image generation
@@ -307,23 +307,44 @@ Always format your responses with clear headings and structured content for maxi
                     }
 
                 result = response.json()
+                logger.info(f"Gemini response: {result}")
 
                 if "choices" in result and result["choices"]:
                     response_content = result["choices"][0]["message"]["content"]
+                    logger.info(f"Gemini response content: {response_content}")
 
-                    # Gemini 2.5 Flash Image Preview returns the generated image as base64 or URL
-                    # Check if the response contains an image URL or base64 data
-                    if "![" in response_content and "](" in response_content:
+                    # IMPORTANT: Gemini 2.5 Flash Image Preview might not actually generate images
+                    # It might only analyze images. Let's check if it returns actual image data
+
+                    # Check for various image formats in the response
+                    if "data:image" in response_content:
+                        # Base64 image data
+                        image_url = response_content
+                    elif response_content.startswith("http") and (".png" in response_content or ".jpg" in response_content or ".jpeg" in response_content):
+                        # Direct image URL
+                        image_url = response_content.strip()
+                    elif "![" in response_content and "](" in response_content:
                         # Extract image URL from markdown format
                         import re
                         url_match = re.search(r'!\[.*?\]\((.*?)\)', response_content)
                         if url_match:
                             image_url = url_match.group(1)
                         else:
-                            image_url = response_content  # Fallback to full content
+                            # No actual image found, Gemini returned text description
+                            return {
+                                "success": False,
+                                "error": f"Gemini 2.5 Flash Image Preview returned text description instead of image: {response_content}",
+                                "model": "gemini-2.5-flash-image-preview",
+                                "debug_response": response_content
+                            }
                     else:
-                        # Assume the response is a direct URL or base64
-                        image_url = response_content.strip()
+                        # No image detected, likely just text response
+                        return {
+                            "success": False,
+                            "error": f"Gemini 2.5 Flash Image Preview does not support image generation, only image analysis. Response: {response_content}",
+                            "model": "gemini-2.5-flash-image-preview",
+                            "debug_response": response_content
+                        }
 
                     return {
                         "success": True,
