@@ -59,7 +59,7 @@ async def quick_health_check():
     try:
         # Quick database ping
         db = get_db()
-        db.admin.command('ping')
+        db.client.admin.command('ping')
         db_status = "healthy"
     except Exception:
         db_status = "unhealthy"
@@ -111,7 +111,7 @@ async def detailed_health_check():
         start_time = datetime.now()
 
         # Test database operations
-        ping_result = db.admin.command('ping')
+        ping_result = db.client.admin.command('ping')
         collections = db.list_collection_names()
 
         response_time = (datetime.now() - start_time).total_seconds() * 1000
@@ -177,7 +177,7 @@ async def database_health():
         start_time = datetime.now()
 
         # Test various database operations
-        ping_result = db.admin.command('ping')
+        ping_result = db.client.admin.command('ping')
         collections = db.list_collection_names()
 
         # Test a simple query
