@@ -13,6 +13,6 @@ typing-extensions==4.1.1
 cloudinary==1.26.0
 python-jose==3.3.0
 cryptography==3.4.8
-supabase==0.7.4
+supabase==1.0.4
 razorpay==1.2.0
 fal-client==0.2.2
