@@ -135,13 +135,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
             console.log('📧 User email:', session.user?.email)
             console.log('🔑 Session expires at:', session.expires_at)
 
-            // Load profile asynchronously without blocking the UI
-            loadUserProfile().catch(console.error)
+            // Only load profile if we don't already have user data
+            if (!user) {
+              loadUserProfile().catch(console.error)
 
-            toast({
-              title: "Welcome!",
-              description: "You've been successfully signed in.",
-            })
+              toast({
+                title: "Welcome!",
+                description: "You've been successfully signed in.",
+              })
+            }
           } else if (event === 'SIGNED_OUT') {
             console.log('🚪 User signed out')
             setUser(null)
@@ -164,19 +166,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [toast])
 
-  // Add tab focus persistence
+  // Add tab focus persistence (minimal checks only)
   useEffect(() => {
     const handleFocus = async () => {
-      // When tab comes back into focus, check if session is still valid
-      if (session) {
+      // Only check session validity if we don't have a user or session appears invalid
+      if (!user || !session) {
         try {
           const { data: { session: currentSession }, error } = await supabase.auth.getSession()
-          if (error || !currentSession) {
-            console.log('⚠️ Session lost during tab switch, refreshing...')
-            setSession(null)
-            setUser(null)
-          } else if (currentSession.access_token !== session.access_token) {
-            console.log('🔄 Session updated during tab switch, refreshing user...')
+          if (currentSession && !user) {
+            console.log('🔄 Restoring session after tab switch...')
             setSession(currentSession)
             await loadUserProfile()
           }
@@ -186,18 +184,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     }
 
-    window.addEventListener('focus', handleFocus)
+    // Only check on visibility change (not focus) to be less aggressive
     window.addEventListener('visibilitychange', () => {
-      if (!document.hidden) {
+      if (!document.hidden && (!user || !session)) {
         handleFocus()
       }
     })
 
     return () => {
-      window.removeEventListener('focus', handleFocus)
       window.removeEventListener('visibilitychange', handleFocus)
     }
-  }, [session])
+  }, [user, session])
 
   // Load user profile from backend
   const loadUserProfile = async () => {
