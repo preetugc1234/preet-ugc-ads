@@ -13,7 +13,12 @@ from typing import Optional, Dict, Any
 
 from fastapi import APIRouter, HTTPException, Request, Depends
 from pydantic import BaseModel
-import razorpay
+# import razorpay
+try:
+    import razorpay
+except ImportError:
+    print("Razorpay not available, using mock")
+    razorpay = None
 
 from ..auth import require_auth, AuthUser
 from ..database import get_db, update_user_credits, CreditLedgerModel

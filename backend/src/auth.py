@@ -12,7 +12,13 @@ from functools import wraps
 
 from fastapi import HTTPException, Depends, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from supabase import create_client, Client
+# from supabase import create_client, Client
+try:
+    from supabase import create_client, Client
+except ImportError:
+    print("Supabase not available, using mock")
+    create_client = None
+    Client = None
 import jwt
 from jwt import PyJWTError
 
