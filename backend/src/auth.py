@@ -13,7 +13,8 @@ from functools import wraps
 from fastapi import HTTPException, Depends, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from supabase import create_client, Client
-from jose import JWTError, jwt as jose_jwt
+import jwt
+from jwt import PyJWTError
 
 from .database import (
     get_db, UserModel, get_user_by_auth_id,
@@ -72,7 +73,7 @@ def verify_supabase_token(token: str) -> Optional[Dict[str, Any]]:
             return None
 
         # Decode and verify the JWT token
-        payload = jose_jwt.decode(
+        payload = jwt.decode(
             token,
             SUPABASE_JWT_SECRET,
             algorithms=["HS256"],
@@ -80,7 +81,7 @@ def verify_supabase_token(token: str) -> Optional[Dict[str, Any]]:
         )
 
         return payload
-    except JWTError as e:
+    except PyJWTError as e:
         logger.warning(f"JWT verification failed: {e}")
         return None
     except Exception as e:
