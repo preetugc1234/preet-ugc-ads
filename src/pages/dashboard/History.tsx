@@ -1,4 +1,7 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
+import { api } from "@/lib/api";
 import { History as HistoryIcon, Grid3X3, List, Play, Download, Eye, Trash2, MoreVertical, Search, Calendar, Zap, Filter } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,9 +32,9 @@ import { toast } from "sonner";
 
 interface Generation {
   id: string;
-  type: 'chat' | 'image' | 'video' | 'audio' | 'ugc';
+  type: 'chat' | 'image' | 'img2vid_noaudio' | 'tts' | 'img2vid_audio' | 'audio2vid';
   title: string;
-  prompt: string;
+  prompt?: string;
   thumbnail?: string;
   previewUrl?: string;
   finalUrl: string;
@@ -46,110 +50,89 @@ interface Generation {
 }
 
 const History = () => {
+  const { isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("newest");
   const [selectedGeneration, setSelectedGeneration] = useState<Generation | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [generations, setGenerations] = useState<Generation[]>([]);
 
-  // Mock data - 30 items as per spec
-  useEffect(() => {
-    const mockGenerations: Generation[] = [
-      {
-        id: "1",
-        type: "image",
-        title: "Sunset landscape with mountains",
-        prompt: "A serene landscape with mountains and a lake at sunset, photorealistic style",
-        thumbnail: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=300&h=300&fit=crop",
-        finalUrl: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&h=1080&fit=crop",
-        credits: 0,
-        timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 mins ago
-        status: "completed",
-        metadata: { dimensions: "1920×1080", fileSize: "2.4 MB" }
-      },
-      {
-        id: "2",
-        type: "video",
-        title: "Product showcase animation",
-        prompt: "Modern tech product with smooth camera movement",
-        thumbnail: "https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=300&h=300&fit=crop",
-        finalUrl: "#",
-        credits: 200,
-        timestamp: new Date(Date.now() - 1000 * 60 * 120), // 2 hours ago
-        status: "completed",
-        metadata: { duration: 10, dimensions: "1920×1080", fileSize: "15.6 MB" }
-      },
-      {
-        id: "3",
-        type: "audio",
-        title: "Welcome message narration",
-        prompt: "Welcome to our platform! We're excited to have you here.",
-        finalUrl: "#",
-        credits: 100,
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 4), // 4 hours ago
-        status: "completed",
-        metadata: { duration: 8, fileSize: "384 KB" }
-      },
-      {
-        id: "4",
-        type: "chat",
-        title: "Marketing copy for social media",
-        prompt: "Create engaging social media posts for a tech startup",
-        finalUrl: "#",
-        credits: 0,
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 6), // 6 hours ago
-        status: "completed",
-        metadata: { model: "GPT-4o-mini" }
-      },
-      {
-        id: "5",
-        type: "ugc",
-        title: "UGC video with custom audio",
-        prompt: "Audio to video with podcast template",
-        thumbnail: "https://images.unsplash.com/photo-1611095790444-1dfa35e28d28?w=300&h=300&fit=crop",
-        finalUrl: "#",
-        credits: 150,
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 8), // 8 hours ago
-        status: "completed",
-        metadata: { duration: 30, dimensions: "1920×1080", fileSize: "45.2 MB" }
-      },
-      // Add more mock data to reach 30 items
-      ...Array.from({ length: 25 }, (_, i) => ({
-        id: (i + 6).toString(),
-        type: ["image", "video", "audio", "chat", "ugc"][Math.floor(Math.random() * 5)] as Generation['type'],
-        title: `Generated content ${i + 6}`,
-        prompt: `Sample prompt for generation ${i + 6}`,
-        thumbnail: i % 3 === 0 ? `https://images.unsplash.com/photo-${1500000000000 + i}?w=300&h=300&fit=crop` : undefined,
-        finalUrl: "#",
-        credits: Math.floor(Math.random() * 200),
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * (i + 10)),
-        status: "completed" as const,
-        metadata: {
-          duration: Math.floor(Math.random() * 60) + 5,
-          dimensions: "1920×1080",
-          fileSize: `${(Math.random() * 50 + 1).toFixed(1)} MB`
-        }
-      }))
-    ];
+  // Fetch user history from API
+  const { data: userHistory, isLoading, error, refetch } = useQuery({
+    queryKey: ['userHistory', 100], // Fetch more items for history page
+    queryFn: () => api.getUserHistory(100),
+    enabled: isAuthenticated,
+    staleTime: 30000, // Cache for 30 seconds
+    refetchOnWindowFocus: false
+  });
 
-    setGenerations(mockGenerations);
-  }, []);
+  // Transform API data to match our Generation interface
+  const generations: Generation[] = userHistory?.generations?.map(gen => ({
+    id: gen.id,
+    type: mapApiTypeToDisplayType(gen.type),
+    title: generateDisplayTitle(gen.type, gen.preview_url),
+    prompt: undefined, // API doesn't store prompts currently
+    thumbnail: gen.preview_url,
+    previewUrl: gen.preview_url,
+    finalUrl: gen.final_urls?.[0] || gen.preview_url || "#",
+    credits: gen.credit_cost || 0,
+    timestamp: new Date(gen.created_at),
+    status: (gen.status as 'completed' | 'processing' | 'failed') || 'completed',
+    metadata: {
+      fileSize: `${(gen.size_bytes / (1024 * 1024)).toFixed(1)} MB`,
+      dimensions: gen.type.includes('video') ? "1920×1080" : undefined
+    }
+  })) || [];
+
+  // Map API module types to display types
+  function mapApiTypeToDisplayType(apiType: string): Generation['type'] {
+    switch (apiType) {
+      case 'chat': return 'chat';
+      case 'image': return 'image';
+      case 'img2vid_noaudio': return 'img2vid_noaudio';
+      case 'img2vid_audio': return 'img2vid_audio';
+      case 'audio2vid': return 'audio2vid';
+      case 'tts': return 'tts';
+      default: return 'image';
+    }
+  }
+
+  // Generate display titles based on type
+  function generateDisplayTitle(type: string, previewUrl?: string): string {
+    const typeNames = {
+      'chat': 'AI Chat Response',
+      'image': 'AI Generated Image',
+      'img2vid_noaudio': 'Image to Video',
+      'img2vid_audio': 'Image to Video with Audio',
+      'audio2vid': 'Audio to Video',
+      'tts': 'Text to Speech'
+    };
+    return typeNames[type as keyof typeof typeNames] || 'Generated Content';
+  }
 
   const filterGenerations = () => {
     let filtered = generations;
 
-    // Filter by type
+    // Filter by type (map old types to new API types)
     if (activeTab !== "all") {
-      filtered = filtered.filter(gen => gen.type === activeTab);
+      const typeMapping: Record<string, string[]> = {
+        'chat': ['chat'],
+        'image': ['image'],
+        'audio': ['tts', 'audio2vid'],
+        'video': ['img2vid_noaudio', 'img2vid_audio'],
+        'ugc': ['audio2vid'] // UGC is mainly audio-to-video
+      };
+
+      const allowedTypes = typeMapping[activeTab] || [activeTab];
+      filtered = filtered.filter(gen => allowedTypes.includes(gen.type));
     }
 
     // Filter by search term
     if (searchTerm) {
       filtered = filtered.filter(gen =>
         gen.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        gen.prompt.toLowerCase().includes(searchTerm.toLowerCase())
+        (gen.prompt && gen.prompt.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
 
@@ -179,10 +162,11 @@ const History = () => {
   const getTypeIcon = (type: string) => {
     switch (type) {
       case 'image': return "🖼️";
-      case 'video': return "🎬";
-      case 'audio': return "🎵";
+      case 'img2vid_noaudio':
+      case 'img2vid_audio': return "🎬";
+      case 'tts':
+      case 'audio2vid': return "🎵";
       case 'chat': return "💬";
-      case 'ugc': return "🎨";
       default: return "📄";
     }
   };
@@ -190,10 +174,11 @@ const History = () => {
   const getTypeName = (type: string) => {
     switch (type) {
       case 'image': return 'Image';
-      case 'video': return 'Video';
-      case 'audio': return 'Audio';
+      case 'img2vid_noaudio': return 'Image→Video';
+      case 'img2vid_audio': return 'Image→Video+Audio';
+      case 'tts': return 'Text-to-Speech';
+      case 'audio2vid': return 'Audio→Video';
       case 'chat': return 'Chat';
-      case 'ugc': return 'UGC Video';
       default: return 'Unknown';
     }
   };
@@ -222,18 +207,17 @@ const History = () => {
     setShowDeleteDialog(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (selectedGeneration) {
-      setGenerations(prev => prev.filter(gen => gen.id !== selectedGeneration.id));
-      toast.success(`Deleted: ${selectedGeneration.title}`);
+      try {
+        await api.deleteGeneration(selectedGeneration.id);
+        toast.success(`Deleted: ${selectedGeneration.title}`);
 
-      // Simulate eviction notification if we're at capacity
-      if (generations.length >= 30) {
-        setTimeout(() => {
-          toast.info("Saved — oldest entry removed to keep history to 30 items.", {
-            duration: 5000,
-          });
-        }, 1000);
+        // Refetch the history to update the UI
+        refetch();
+      } catch (error) {
+        console.error('Failed to delete generation:', error);
+        toast.error(`Failed to delete: ${selectedGeneration.title}`);
       }
     }
     setShowDeleteDialog(false);
@@ -242,7 +226,17 @@ const History = () => {
 
   const getTabCount = (type: string) => {
     if (type === "all") return generations.length;
-    return generations.filter(gen => gen.type === type).length;
+
+    const typeMapping: Record<string, string[]> = {
+      'chat': ['chat'],
+      'image': ['image'],
+      'audio': ['tts', 'audio2vid'],
+      'video': ['img2vid_noaudio', 'img2vid_audio'],
+      'ugc': ['audio2vid']
+    };
+
+    const allowedTypes = typeMapping[type] || [type];
+    return generations.filter(gen => allowedTypes.includes(gen.type)).length;
   };
 
   const formatTimeAgo = (date: Date) => {
@@ -434,7 +428,32 @@ const History = () => {
           </TabsList>
 
           <TabsContent value={activeTab} className="mt-6">
-            {filteredGenerations.length === 0 ? (
+            {isLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <Card key={i}>
+                    <CardContent className="p-4">
+                      <Skeleton className="w-full h-32 mb-3" />
+                      <Skeleton className="h-4 w-3/4 mb-2" />
+                      <Skeleton className="h-3 w-1/2" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : error ? (
+              <Card>
+                <CardContent className="p-12 text-center">
+                  <HistoryIcon className="w-16 h-16 text-red-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Failed to load history</h3>
+                  <p className="text-gray-500 mb-4">
+                    There was an error loading your generation history.
+                  </p>
+                  <Button onClick={() => refetch()} variant="outline">
+                    Try Again
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : filteredGenerations.length === 0 ? (
               <Card>
                 <CardContent className="p-12 text-center">
                   <HistoryIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />

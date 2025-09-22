@@ -270,8 +270,8 @@ class ApiClient {
     })
   }
 
-  // User job history and management
-  async getUserHistory(): Promise<{
+  // User job history and management (renamed to avoid conflict)
+  async getUserJobHistory(): Promise<{
     success: boolean
     generations: GenerationItem[]
     total_count: number
