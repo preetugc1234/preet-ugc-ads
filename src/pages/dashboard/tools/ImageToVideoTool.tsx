@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Video, Upload, Play, Download, Clock, FileImage } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import ToolEditorLayout from "@/components/dashboard/ToolEditorLayout";
@@ -9,22 +9,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
+import { useCreateJob, useJobStatus } from "@/hooks/useJobs";
+import { useAuth } from "@/contexts/AuthContext";
+import { apiHelpers } from "@/lib/api";
 
 const ImageToVideoTool = () => {
+  const { isAuthenticated } = useAuth();
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
   const [duration, setDuration] = useState("5");
   const [quality, setQuality] = useState("hd");
   const [motionPrompt, setMotionPrompt] = useState("");
   const [intensity, setIntensity] = useState([0.7]);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedVideo, setGeneratedVideo] = useState<{
-    id: string;
-    previewUrl: string;
-    finalUrl: string;
-    prompt: string;
-    timestamp: Date;
-    status: 'preview' | 'final';
-  } | null>(null);
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
+
+  // Job management hooks
+  const createJobMutation = useCreateJob();
+  const { data: jobStatus, refetch: refetchJobStatus } = useJobStatus(currentJobId || '', {
+    enabled: !!currentJobId,
+    refetchInterval: 3000, // Poll every 3 seconds
+  });
 
   const durations = [
     { value: "5", label: "5 seconds", credits: 100 },
@@ -49,40 +53,64 @@ const ImageToVideoTool = () => {
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // Check file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        alert('Image file size should be less than 10MB');
+        return;
+      }
+
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please upload a valid image file');
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = (e) => {
-        setUploadedImage(e.target?.result as string);
+        const base64Result = e.target?.result as string;
+        setUploadedImage(base64Result);
+        setUploadedImageUrl(base64Result); // For now, use base64. In production, upload to cloud storage first
       };
       reader.readAsDataURL(file);
     }
   };
 
   const handleGenerate = async () => {
-    if (!uploadedImage) return;
+    if (!uploadedImageUrl || !isAuthenticated) {
+      alert('Please sign in and upload an image');
+      return;
+    }
 
-    setIsGenerating(true);
+    try {
+      // Create job for image-to-video generation
+      const clientJobId = apiHelpers.generateClientJobId();
 
-    // Simulate preview generation (faster)
-    setTimeout(() => {
-      setGeneratedVideo({
-        id: Date.now().toString(),
-        previewUrl: "https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4", // Mock preview
-        finalUrl: "",
-        prompt: motionPrompt || "Default camera movement",
-        timestamp: new Date(),
-        status: 'preview'
-      });
-    }, 3000);
+      const jobData = {
+        client_job_id: clientJobId,
+        module: 'img2vid_noaudio' as const,
+        params: {
+          image_url: uploadedImageUrl,
+          prompt: motionPrompt || "Create smooth cinematic motion with natural camera movement",
+          duration_seconds: parseInt(duration),
+          quality: quality,
+          motion_intensity: intensity[0]
+        }
+      };
 
-    // Simulate final generation (slower)
-    setTimeout(() => {
-      setGeneratedVideo(prev => prev ? {
-        ...prev,
-        finalUrl: "https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_2mb.mp4", // Mock final
-        status: 'final'
-      } : null);
-      setIsGenerating(false);
-    }, 8000);
+      console.log('🎬 Creating image-to-video job:', jobData);
+
+      const result = await createJobMutation.mutateAsync(jobData);
+
+      if (result.id) {
+        setCurrentJobId(result.id);
+        console.log('✅ Job created successfully:', result.id);
+      } else {
+        throw new Error('Failed to create job');
+      }
+    } catch (error) {
+      console.error('❌ Image-to-video generation failed:', error);
+      alert(`Failed to start video generation: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   };
 
   const calculateCost = () => {
@@ -100,21 +128,50 @@ const ImageToVideoTool = () => {
     total: calculateCost()
   };
 
+  // Helper functions for job status
+  const isJobRunning = jobStatus?.status === 'queued' || jobStatus?.status === 'processing';
+  const isJobCompleted = jobStatus?.status === 'completed';
+  const isJobFailed = jobStatus?.status === 'failed';
+
+  const downloadVideo = async (url: string) => {
+    try {
+      const filename = `video_${Date.now()}.mp4`;
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const downloadUrl = URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = filename;
+      link.style.display = 'none';
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      URL.revokeObjectURL(downloadUrl);
+      console.log(`✅ Video downloaded: ${filename}`);
+    } catch (error) {
+      console.error('❌ Download failed:', error);
+      alert('Failed to download video. Please try again.');
+    }
+  };
+
   const previewPane = (
     <Card>
       <CardHeader>
         <CardTitle className="text-lg font-medium flex items-center">
           <Video className="w-5 h-5 mr-2" />
           Generated Video
-          {generatedVideo && (
-            <Badge variant={generatedVideo.status === 'final' ? 'default' : 'secondary'} className="ml-2">
-              {generatedVideo.status === 'final' ? 'Final' : 'Preview'}
+          {jobStatus && (
+            <Badge variant={isJobCompleted ? 'default' : isJobRunning ? 'secondary' : 'destructive'} className="ml-2">
+              {jobStatus.status.charAt(0).toUpperCase() + jobStatus.status.slice(1)}
             </Badge>
           )}
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {!generatedVideo && !isGenerating && (
+        {!currentJobId && (
           <div className="text-center py-12">
             <Video className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-500 dark:text-gray-400 mb-2">
@@ -126,31 +183,36 @@ const ImageToVideoTool = () => {
           </div>
         )}
 
-        {isGenerating && (
+        {isJobRunning && (
           <div className="text-center py-12">
             <div className="space-y-4">
               <div className="inline-flex items-center space-x-2">
                 <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                <span className="text-blue-600 font-medium">Generating video...</span>
+                <span className="text-blue-600 font-medium">
+                  {jobStatus?.status === 'queued' ? 'Queued for processing...' : 'Generating video...'}
+                </span>
               </div>
               <div className="space-y-2">
                 <div className="text-sm text-gray-500">
-                  {generatedVideo?.status === 'preview' ? 'Creating final version...' : 'Creating preview...'}
+                  {jobStatus?.preview_url ? 'Creating final version...' : 'Processing your image...'}
                 </div>
                 <div className="w-64 bg-gray-200 rounded-full h-2 mx-auto">
                   <div
                     className="bg-blue-600 h-2 rounded-full transition-all duration-1000"
                     style={{
-                      width: generatedVideo?.status === 'preview' ? '60%' : '30%'
+                      width: jobStatus?.progress ? `${jobStatus.progress}%` : jobStatus?.preview_url ? '60%' : '30%'
                     }}
                   ></div>
                 </div>
+                <p className="text-xs text-gray-500">
+                  This usually takes 2-6 minutes using FAL AI Kling v2.1 Pro
+                </p>
               </div>
             </div>
           </div>
         )}
 
-        {generatedVideo && (
+        {(jobStatus?.preview_url || isJobCompleted) && (
           <div className="space-y-4">
             <div className="aspect-video bg-black rounded-lg overflow-hidden">
               <video
@@ -159,7 +221,7 @@ const ImageToVideoTool = () => {
                 poster={uploadedImage || undefined}
               >
                 <source
-                  src={generatedVideo.status === 'final' ? generatedVideo.finalUrl : generatedVideo.previewUrl}
+                  src={isJobCompleted && jobStatus?.final_urls?.[0] ? jobStatus.final_urls[0] : jobStatus?.preview_url}
                   type="video/mp4"
                 />
                 Your browser does not support the video tag.
@@ -170,24 +232,27 @@ const ImageToVideoTool = () => {
               <div className="text-sm text-gray-600 dark:text-gray-400">
                 <p><strong>Duration:</strong> {duration} seconds</p>
                 <p><strong>Quality:</strong> {qualities.find(q => q.value === quality)?.label}</p>
-                <p><strong>Generated:</strong> {generatedVideo.timestamp.toLocaleString()}</p>
+                <p><strong>Model:</strong> FAL AI Kling v2.1 Pro</p>
+                {jobStatus?.created_at && (
+                  <p><strong>Generated:</strong> {new Date(jobStatus.created_at).toLocaleString()}</p>
+                )}
               </div>
               <div className="flex space-x-2">
-                {generatedVideo.status === 'final' ? (
-                  <Button onClick={() => console.log('Download final video')}>
+                {isJobCompleted && jobStatus?.final_urls?.[0] ? (
+                  <Button onClick={() => downloadVideo(jobStatus.final_urls![0])}>
                     <Download className="w-4 h-4 mr-2" />
                     Download
                   </Button>
-                ) : (
-                  <Button variant="outline" disabled>
+                ) : jobStatus?.preview_url ? (
+                  <Button variant="outline" disabled={isJobRunning}>
                     <Clock className="w-4 h-4 mr-2" />
-                    Finalizing...
+                    {isJobRunning ? 'Finalizing...' : 'Processing...'}
                   </Button>
-                )}
+                ) : null}
               </div>
             </div>
 
-            {generatedVideo.status !== 'final' && (
+            {jobStatus?.preview_url && !isJobCompleted && (
               <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
                 <p className="text-sm text-blue-800 dark:text-blue-200">
                   <strong>Preview Ready!</strong> Your final high-quality video is still processing.
@@ -195,6 +260,19 @@ const ImageToVideoTool = () => {
                 </p>
               </div>
             )}
+          </div>
+        )}
+
+        {isJobFailed && (
+          <div className="text-center py-12">
+            <div className="text-red-500 mb-4">
+              <Video className="w-16 h-16 mx-auto mb-4" />
+              <p className="font-medium">Video generation failed</p>
+              <p className="text-sm mt-2">{jobStatus?.error_message || 'Unknown error occurred'}</p>
+            </div>
+            <Button variant="outline" onClick={() => setCurrentJobId(null)}>
+              Try Again
+            </Button>
           </div>
         )}
       </CardContent>
@@ -209,8 +287,8 @@ const ImageToVideoTool = () => {
         credits="100-200/video"
         estimatedTime="~45s"
         onGenerate={handleGenerate}
-        isGenerating={isGenerating}
-        canGenerate={!!uploadedImage}
+        isGenerating={createJobMutation.isPending || isJobRunning}
+        canGenerate={!!uploadedImage && !isJobRunning}
         costBreakdown={costBreakdown}
         previewPane={previewPane}
       >
