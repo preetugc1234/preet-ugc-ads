@@ -1,0 +1,5 @@
+# AI and Cloud Services (installed separately to avoid conflicts)
+cloudinary==1.26.0
+supabase==1.0.4
+razorpay==1.2.0
+fal-client==0.2.2

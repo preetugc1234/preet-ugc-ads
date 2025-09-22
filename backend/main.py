@@ -9,6 +9,16 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+# Setup AI packages with fallbacks
+try:
+    from startup import setup_ai_packages, create_mock_modules
+    setup_ai_packages()
+    create_mock_modules()
+    print("✅ AI packages setup complete")
+except Exception as e:
+    print(f"⚠️ AI packages setup failed: {e}")
+    print("🔄 Continuing with core functionality only")
+
 # Create FastAPI app
 app = FastAPI(
     title="UGC AI Backend API",
