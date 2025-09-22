@@ -9,9 +9,11 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { API_BASE_URL } from "@/lib/supabase";
+import { api } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 const ImageTool = () => {
+  const { isAuthenticated } = useAuth();
   const [prompt, setPrompt] = useState("");
   const [negativePrompt, setNegativePrompt] = useState("");
   const [aspectRatio, setAspectRatio] = useState("1:1");
@@ -58,36 +60,26 @@ const ImageTool = () => {
     "Minimalist interior design with natural lighting"
   ];
 
-  // Mock generated images for demo
-  const mockImages = [
-    "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=512&h=512&fit=crop&crop=center",
-    "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=512&h=512&fit=crop&crop=center",
-    "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=512&h=512&fit=crop&crop=center",
-    "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=512&h=512&fit=crop&crop=center"
-  ];
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
 
+    if (!isAuthenticated) {
+      alert('Please sign in to generate images');
+      return;
+    }
+
     setIsGenerating(true);
 
     try {
-      // Call the actual API
-      const response = await fetch(`${API_BASE_URL}/api/generate/image`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          prompt: prompt,
-          image_input: inputImage, // Optional base64 image
-          style: style,
-          aspect_ratio: aspectRatio,
-          quality: 'high'
-        }),
+      // Call the API using the authenticated client
+      const result = await api.generateImage({
+        prompt: prompt,
+        image_input: inputImage, // Optional base64 image
+        style: style,
+        aspect_ratio: aspectRatio,
+        quality: 'high'
       });
-
-      const result = await response.json();
 
       if (result.success && result.image_url) {
         const newImages = Array.from({ length: parseInt(numberOfImages) }, (_, index) => ({
@@ -98,28 +90,18 @@ const ImageTool = () => {
         }));
 
         setGeneratedImages(prev => [...newImages, ...prev].slice(0, 12)); // Keep last 12 images
-      } else {
-        // Fallback to mock images if API fails
-        const newImages = Array.from({ length: parseInt(numberOfImages) }, (_, index) => ({
-          id: Date.now().toString() + index,
-          url: mockImages[index % mockImages.length],
-          prompt: prompt,
-          timestamp: new Date()
-        }));
 
-        setGeneratedImages(prev => [...newImages, ...prev].slice(0, 12));
+        // Show success message
+        console.log('✅ Image generated successfully with Gemini 2.5 Flash');
+      } else {
+        // Show error message instead of fallback to mock images
+        const errorMessage = result.error || 'Image generation failed';
+        console.error('❌ Image generation failed:', errorMessage);
+        alert(`Image generation failed: ${errorMessage}`);
       }
     } catch (error) {
-      console.error('Image generation failed:', error);
-      // Fallback to mock images
-      const newImages = Array.from({ length: parseInt(numberOfImages) }, (_, index) => ({
-        id: Date.now().toString() + index,
-        url: mockImages[index % mockImages.length],
-        prompt: prompt,
-        timestamp: new Date()
-      }));
-
-      setGeneratedImages(prev => [...newImages, ...prev].slice(0, 12));
+      console.error('❌ Image generation error:', error);
+      alert(`Network error: ${error instanceof Error ? error.message : 'Unable to connect to image generation service'}`);
     }
 
     setIsGenerating(false);

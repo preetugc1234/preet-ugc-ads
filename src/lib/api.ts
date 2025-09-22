@@ -328,6 +328,28 @@ class ApiClient {
     })
   }
 
+  // Image generation endpoint (Gemini 2.5 Flash via OpenRouter)
+  async generateImage(data: {
+    prompt: string
+    image_input?: string
+    style?: string
+    aspect_ratio?: string
+    quality?: string
+  }): Promise<{
+    success: boolean
+    image_url?: string
+    text_prompt?: string
+    has_image_input?: boolean
+    model: string
+    processing_time?: string
+    error?: string
+  }> {
+    return this.request('/api/image', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
   // Billing endpoints (Razorpay integration as per prompt.md)
   async createRazorpayOrder(data: {
     credits: number
