@@ -132,21 +132,28 @@ const ImageTool = () => {
       const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
       const filename = `ai_image_${sanitizedPrompt}_${timestamp}.jpg`;
 
-      // Check if it's a Cloudinary URL to get high resolution version
-      let downloadUrl = url;
-      if (url.includes('cloudinary.com')) {
-        // Transform to high quality for download (4K resolution, 100% quality, optimized for download)
-        downloadUrl = url.replace('/upload/', '/upload/q_100,f_jpg,w_3840,h_3840,c_limit,dpr_2.0/');
-      }
+      let blob: Blob;
 
-      // Fetch the image
-      const response = await fetch(downloadUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch image: ${response.statusText}`);
+      if (url.startsWith('data:image/')) {
+        // Handle base64 images directly
+        const response = await fetch(url);
+        blob = await response.blob();
+      } else if (url.includes('cloudinary.com')) {
+        // Transform Cloudinary URL to high quality for download
+        const downloadUrl = url.replace('/upload/', '/upload/q_100,f_jpg,w_3840,h_3840,c_limit,dpr_2.0/');
+        const response = await fetch(downloadUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch image: ${response.statusText}`);
+        }
+        blob = await response.blob();
+      } else {
+        // Regular URL download
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch image: ${response.statusText}`);
+        }
+        blob = await response.blob();
       }
-
-      // Get the image as blob
-      const blob = await response.blob();
 
       // Create download link
       const downloadLink = document.createElement('a');

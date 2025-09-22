@@ -270,12 +270,28 @@ Always format your responses with clear headings and structured content for maxi
 
             # Add image input if provided for image-to-image generation
             if image_input:
-                content.append({
-                    "type": "image_url",
-                    "image_url": {
-                        "url": image_input if image_input.startswith('http') else f"data:image/jpeg;base64,{image_input}"
-                    }
-                })
+                if image_input.startswith('http'):
+                    # External URL
+                    content.append({
+                        "type": "image_url",
+                        "image_url": {
+                            "url": image_input
+                        }
+                    })
+                else:
+                    # Base64 image - extract clean base64 data
+                    if image_input.startswith('data:'):
+                        # Remove data:image/[type];base64, prefix
+                        base64_data = image_input.split(',')[1] if ',' in image_input else image_input
+                    else:
+                        base64_data = image_input
+
+                    content.append({
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{base64_data}"
+                        }
+                    })
 
             async with httpx.AsyncClient(timeout=120.0) as client:
                 # Try the images/generations endpoint first (standard for image generation)
@@ -408,7 +424,7 @@ Always format your responses with clear headings and structured content for maxi
                                 image_url = urls[0]
                                 logger.info(f"Found URL in text: {image_url}")
 
-                # If we have a base64 image, upload it to Cloudinary for proper serving
+                # If we have a base64 image, try to upload to Cloudinary for better serving
                 if image_url and image_url.startswith("data:image/"):
                     logger.info("Converting base64 image to Cloudinary URL")
                     cloudinary_url = await self._upload_to_cloudinary(image_url)
@@ -416,7 +432,8 @@ Always format your responses with clear headings and structured content for maxi
                         image_url = cloudinary_url
                         logger.info(f"Successfully uploaded to Cloudinary: {cloudinary_url}")
                     else:
-                        logger.warning("Failed to upload to Cloudinary, using base64 directly")
+                        logger.warning("Cloudinary upload failed, keeping base64 image for direct download")
+                        # Keep the base64 image URL for direct download
 
                 if image_url:
                     return {
