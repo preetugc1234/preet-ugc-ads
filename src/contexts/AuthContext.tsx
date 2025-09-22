@@ -136,7 +136,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         // Only log important events to reduce noise
-        if (event === 'SIGNED_OUT' || (event === 'SIGNED_IN' && !user)) {
+        const hasExistingUser = user || localStorage.getItem('ugc_user_data')
+        if (event === 'SIGNED_OUT' || (event === 'SIGNED_IN' && !hasExistingUser)) {
           console.log('🔔 Auth state changed:', event, {
             hasSession: !!session,
             userId: session?.user?.id,
@@ -148,17 +149,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // Always update session (Supabase handles the diffing internally)
           setSession(session)
 
-          if (event === 'SIGNED_IN' && session && !user) {
-            console.log('✅ User signed in via:', session.user?.app_metadata?.provider || 'unknown')
-            console.log('📧 User email:', session.user?.email)
+          if (event === 'SIGNED_IN' && session) {
+            // Check if we already have user data (either in state or cache)
+            const hasExistingUser = user || localStorage.getItem('ugc_user_data')
 
-            // Only load profile on actual first-time signin
-            loadUserProfile().catch(console.error)
+            if (!hasExistingUser) {
+              console.log('✅ User signed in via:', session.user?.app_metadata?.provider || 'unknown')
+              console.log('📧 User email:', session.user?.email)
 
-            toast({
-              title: "Welcome!",
-              description: "You've been successfully signed in.",
-            })
+              // Only load profile on actual first-time signin
+              loadUserProfile().catch(console.error)
+
+              toast({
+                title: "Welcome!",
+                description: "You've been successfully signed in.",
+              })
+            } else {
+              console.log('🔄 Session refreshed, keeping existing user data')
+            }
           } else if (event === 'SIGNED_OUT') {
             console.log('🚪 User signed out')
             setUser(null)
