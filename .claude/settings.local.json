@@ -27,7 +27,8 @@
       "Bash(dir:*)",
       "Bash(pip show:*)",
       "Read(//c/Users/mt/Desktop/**)",
-      "Bash(timeout 10 python render-startup.py)"
+      "Bash(timeout 10 python render-startup.py)",
+      "Bash(timeout:*)"
     ],
     "deny": [],
     "ask": []

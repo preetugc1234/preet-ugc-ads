@@ -5,11 +5,15 @@
 fastapi==0.68.0
 uvicorn==0.15.0
 
+# Server fallbacks
+gunicorn==20.1.0
+
 # Essential dependencies only
 python-multipart==0.0.5
 python-dotenv==0.19.0
 requests==2.26.0
 pymongo==3.12.0
 
-# Auth (optional - will work with mocks if missing)
+# Auth dependencies
 pyjwt==2.1.0
+python-jose==3.3.0
