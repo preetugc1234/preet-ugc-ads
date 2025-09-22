@@ -11,6 +11,8 @@ import httpx
 import base64
 import json
 from datetime import datetime
+import tempfile
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -364,34 +366,57 @@ Always format your responses with clear headings and structured content for maxi
                     logger.info(f"Found image in data array: {image_url}")
 
                 elif "choices" in result and result["choices"]:
-                    # Chat completions format - extract image from content
-                    response_content = result["choices"][0]["message"]["content"]
-                    logger.info(f"Gemini response content: {response_content}")
+                    # Chat completions format - check for images array first
+                    choice = result["choices"][0]
+                    message = choice.get("message", {})
 
-                    # Check for various image formats in the response
-                    if "data:image" in response_content:
-                        # Base64 image data
-                        image_url = response_content
-                        logger.info("Found base64 image data")
-                    elif response_content.startswith("http") and (".png" in response_content or ".jpg" in response_content or ".jpeg" in response_content):
-                        # Direct image URL
-                        image_url = response_content.strip()
-                        logger.info(f"Found direct image URL: {image_url}")
-                    elif "![" in response_content and "](" in response_content:
-                        # Extract image URL from markdown format
-                        import re
-                        url_match = re.search(r'!\[.*?\]\((.*?)\)', response_content)
-                        if url_match:
-                            image_url = url_match.group(1)
-                            logger.info(f"Found markdown image URL: {image_url}")
+                    # Check for images array in message (Gemini 2.5 Flash format)
+                    if "images" in message and message["images"]:
+                        for image in message["images"]:
+                            if image.get("type") == "image_url" and image.get("image_url", {}).get("url"):
+                                image_url = image["image_url"]["url"]
+                                logger.info(f"Found image in images array: {image_url[:100]}...")
+                                break
+
+                    # Fallback: check content field
+                    if not image_url:
+                        response_content = message.get("content", "")
+                        logger.info(f"Gemini response content: {response_content}")
+
+                        # Check for various image formats in the response
+                        if "data:image" in response_content:
+                            # Base64 image data
+                            image_url = response_content
+                            logger.info("Found base64 image data in content")
+                        elif response_content.startswith("http") and (".png" in response_content or ".jpg" in response_content or ".jpeg" in response_content):
+                            # Direct image URL
+                            image_url = response_content.strip()
+                            logger.info(f"Found direct image URL: {image_url}")
+                        elif "![" in response_content and "](" in response_content:
+                            # Extract image URL from markdown format
+                            import re
+                            url_match = re.search(r'!\[.*?\]\((.*?)\)', response_content)
+                            if url_match:
+                                image_url = url_match.group(1)
+                                logger.info(f"Found markdown image URL: {image_url}")
+                        else:
+                            # Check if response contains any URLs at all
+                            import re
+                            url_pattern = r'https?://[^\s]+'
+                            urls = re.findall(url_pattern, response_content)
+                            if urls:
+                                image_url = urls[0]
+                                logger.info(f"Found URL in text: {image_url}")
+
+                # If we have a base64 image, upload it to Cloudinary for proper serving
+                if image_url and image_url.startswith("data:image/"):
+                    logger.info("Converting base64 image to Cloudinary URL")
+                    cloudinary_url = await self._upload_to_cloudinary(image_url)
+                    if cloudinary_url:
+                        image_url = cloudinary_url
+                        logger.info(f"Successfully uploaded to Cloudinary: {cloudinary_url}")
                     else:
-                        # Check if response contains any URLs at all
-                        import re
-                        url_pattern = r'https?://[^\s]+'
-                        urls = re.findall(url_pattern, response_content)
-                        if urls:
-                            image_url = urls[0]
-                            logger.info(f"Found URL in text: {image_url}")
+                        logger.warning("Failed to upload to Cloudinary, using base64 directly")
 
                 if image_url:
                     return {
@@ -564,3 +589,66 @@ Always format your responses with clear headings and structured content for maxi
                 "error": str(e),
                 "message": "OpenRouter connection failed"
             }
+
+    async def _upload_to_cloudinary(self, base64_image: str) -> Optional[str]:
+        """Upload base64 image to Cloudinary and return public URL."""
+        try:
+            # Check if Cloudinary is configured
+            cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME")
+            api_key = os.getenv("CLOUDINARY_API_KEY")
+            api_secret = os.getenv("CLOUDINARY_API_SECRET")
+
+            if not all([cloud_name, api_key, api_secret]):
+                logger.warning("Cloudinary not configured, skipping upload")
+                return None
+
+            # Import cloudinary (lazy import to avoid dependency issues)
+            try:
+                import cloudinary
+                import cloudinary.uploader
+                import cloudinary.api
+            except ImportError:
+                logger.warning("Cloudinary library not installed, skipping upload")
+                return None
+
+            # Configure Cloudinary
+            cloudinary.config(
+                cloud_name=cloud_name,
+                api_key=api_key,
+                api_secret=api_secret,
+                secure=True
+            )
+
+            # Extract the base64 data (remove data:image/png;base64, prefix)
+            if ',' in base64_image:
+                image_data = base64_image.split(',')[1]
+            else:
+                image_data = base64_image
+
+            # Generate unique filename
+            filename = f"ai_generated_{uuid.uuid4().hex[:8]}"
+
+            # Upload to Cloudinary
+            upload_result = cloudinary.uploader.upload(
+                f"data:image/png;base64,{image_data}",
+                public_id=filename,
+                folder="ai_images",
+                format="jpg",  # Convert to JPG for better compression
+                quality="auto:good",
+                fetch_format="auto"
+            )
+
+            # Return the secure URL
+            return upload_result.get("secure_url")
+
+        except Exception as e:
+            logger.error(f"Cloudinary upload failed: {e}")
+            return None
+
+    def _extract_base64_data(self, data_url: str) -> bytes:
+        """Extract raw bytes from base64 data URL."""
+        if ',' in data_url:
+            header, data = data_url.split(',', 1)
+            return base64.b64decode(data)
+        else:
+            return base64.b64decode(data_url)
