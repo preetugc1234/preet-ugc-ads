@@ -241,78 +241,113 @@ Always format your responses with clear headings and structured content for maxi
             }
 
     async def generate_image_final(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate image using OpenRouter's DALL-E 3 model (not Gemini - Gemini only does image analysis)."""
+        """Generate image using OpenRouter's Gemini 2.5 Flash Image Preview."""
         try:
-            if not self.gpt_api_key:
+            if not self.gemini_api_key:
                 return {
                     "success": False,
-                    "error": "OpenRouter API key not configured",
-                    "model": "dall-e-3"
+                    "error": "OpenRouter Gemini API key not configured",
+                    "model": "gemini-2.5-flash-image-preview"
                 }
 
             prompt = params.get("prompt", "")
             style = params.get("style", "photorealistic")
-            quality = params.get("quality", "standard")
+            image_input = params.get("image_input")  # base64 image
 
             # Enhance prompt for marketing/social media content
             enhanced_prompt = self._enhance_image_prompt(prompt, style)
 
+            # Build the content for the API request
+            content = []
+
+            # Add text prompt with image generation instruction
+            content.append({
+                "type": "text",
+                "text": f"Generate an image based on this description: {enhanced_prompt}"
+            })
+
+            # Add image input if provided for image-to-image generation
+            if image_input:
+                content.append({
+                    "type": "image_url",
+                    "image_url": {
+                        "url": image_input if image_input.startswith('http') else f"data:image/jpeg;base64,{image_input}"
+                    }
+                })
+
             async with httpx.AsyncClient(timeout=120.0) as client:
                 response = await client.post(
-                    f"{self.base_url}/images/generations",
+                    f"{self.base_url}/chat/completions",
                     headers={
-                        "Authorization": f"Bearer {self.gpt_api_key}",
+                        "Authorization": f"Bearer {self.gemini_api_key}",
                         "HTTP-Referer": self.app_url,
                         "X-Title": self.app_name,
                         "Content-Type": "application/json"
                     },
                     json={
-                        "model": "openai/dall-e-3",
-                        "prompt": enhanced_prompt,
-                        "n": 1,
-                        "quality": quality,
-                        "size": "1024x1024"
+                        "model": "google/gemini-2.5-flash-image-preview",
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": content
+                            }
+                        ],
+                        "temperature": 0.7,
+                        "max_tokens": 4096
                     }
                 )
 
                 if response.status_code != 200:
                     error_text = response.text
-                    logger.error(f"OpenRouter image generation error: {response.status_code} - {error_text}")
+                    logger.error(f"OpenRouter Gemini image generation error: {response.status_code} - {error_text}")
                     return {
                         "success": False,
                         "error": f"OpenRouter API error: {response.status_code} - {error_text}",
-                        "model": "dall-e-3"
+                        "model": "gemini-2.5-flash-image-preview"
                     }
 
                 result = response.json()
 
-                if "data" in result and result["data"]:
-                    image_url = result["data"][0]["url"]
+                if "choices" in result and result["choices"]:
+                    response_content = result["choices"][0]["message"]["content"]
+
+                    # Gemini 2.5 Flash Image Preview returns the generated image as base64 or URL
+                    # Check if the response contains an image URL or base64 data
+                    if "![" in response_content and "](" in response_content:
+                        # Extract image URL from markdown format
+                        import re
+                        url_match = re.search(r'!\[.*?\]\((.*?)\)', response_content)
+                        if url_match:
+                            image_url = url_match.group(1)
+                        else:
+                            image_url = response_content  # Fallback to full content
+                    else:
+                        # Assume the response is a direct URL or base64
+                        image_url = response_content.strip()
 
                     return {
                         "success": True,
                         "image_url": image_url,
                         "text_prompt": prompt,
                         "enhanced_prompt": enhanced_prompt,
-                        "has_image_input": bool(params.get("image_input")),
+                        "has_image_input": bool(image_input),
                         "style": style,
-                        "quality": quality,
-                        "model": "dall-e-3",
-                        "processing_time": "~30s"
+                        "model": "gemini-2.5-flash-image-preview",
+                        "processing_time": "~2m"
                     }
                 else:
                     return {
                         "success": False,
-                        "error": "No image generated by OpenRouter API",
-                        "model": "dall-e-3"
+                        "error": "No response from Gemini 2.5 Flash Image Preview",
+                        "model": "gemini-2.5-flash-image-preview"
                     }
 
         except Exception as e:
-            logger.error(f"OpenRouter image generation failed: {e}")
+            logger.error(f"Gemini image generation failed: {e}")
             return {
                 "success": False,
                 "error": str(e),
-                "model": "dall-e-3"
+                "model": "gemini-2.5-flash-image-preview"
             }
 
     def _enhance_image_prompt(self, prompt: str, style: str) -> str:
