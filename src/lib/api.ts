@@ -139,8 +139,13 @@ class ApiClient {
     options: RequestInit = {}
   ): Promise<T> {
     const headers = await this.getAuthHeaders()
+    const fullUrl = `${API_BASE_URL}${endpoint}`;
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    console.log('🌐 API Request - Endpoint:', endpoint);
+    console.log('🌐 API Request - Full URL:', fullUrl);
+    console.log('🌐 API Request - Method:', options.method || 'GET');
+
+    const response = await fetch(fullUrl, {
       ...options,
       headers: {
         ...headers,
@@ -344,7 +349,11 @@ class ApiClient {
     processing_time?: string
     error?: string
   }> {
-    return this.request('/api/generate/image', {
+    const endpoint = '/api/generate/image?v=2025-01-22';
+    console.log('🔍 Image generation API call - Endpoint:', endpoint);
+    console.log('🔍 Image generation API call - Full URL will be:', `${window.location.origin}${endpoint}`);
+    console.log('🔍 DEBUG: This should NOT be /api/image - if it is, browser cache issue!');
+    return this.request(endpoint, {
       method: 'POST',
       body: JSON.stringify(data)
     })

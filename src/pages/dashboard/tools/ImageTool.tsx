@@ -92,7 +92,7 @@ const ImageTool = () => {
         setGeneratedImages(prev => [...newImages, ...prev].slice(0, 12)); // Keep last 12 images
 
         // Show success message
-        console.log('✅ Image generated successfully with Gemini 2.5 Flash');
+        console.log('✅ Image generated successfully with Gemini 2.5 Flash - v2025-01-22');
       } else {
         // Show error message instead of fallback to mock images
         const errorMessage = result.error || 'Image generation failed';
