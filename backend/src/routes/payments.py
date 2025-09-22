@@ -410,10 +410,10 @@ async def get_available_plans():
         "plans": {
             "free": {
                 "name": "Free",
-                "credits_per_month": 250,
+                "credits_per_month": 150,
                 "price_monthly": 0,
                 "price_yearly": 0,
-                "features": ["250 credits/month", "Basic support", "Community access"]
+                "features": ["150 credits/month", "Basic support", "Community access"]
             },
             "pro_1000": {
                 "name": "Pro 1K",
