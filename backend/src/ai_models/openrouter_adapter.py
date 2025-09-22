@@ -276,26 +276,71 @@ Always format your responses with clear headings and structured content for maxi
                 })
 
             async with httpx.AsyncClient(timeout=120.0) as client:
-                response = await client.post(
-                    f"{self.base_url}/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {self.gemini_api_key}",
-                        "HTTP-Referer": self.app_url,
-                        "X-Title": self.app_name,
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "model": "google/gemini-2.5-flash-image-preview",
-                        "messages": [
-                            {
-                                "role": "user",
-                                "content": content
+                # Try the images/generations endpoint first (standard for image generation)
+                try:
+                    response = await client.post(
+                        f"{self.base_url}/images/generations",
+                        headers={
+                            "Authorization": f"Bearer {self.gemini_api_key}",
+                            "HTTP-Referer": self.app_url,
+                            "X-Title": self.app_name,
+                            "Content-Type": "application/json"
+                        },
+                        json={
+                            "model": "google/gemini-2.5-flash-image-preview",
+                            "prompt": enhanced_prompt,
+                            "n": 1,
+                            "size": "1024x1024"
+                        }
+                    )
+
+                    if response.status_code == 200:
+                        logger.info("Using /images/generations endpoint successfully")
+                    else:
+                        # Fallback to chat/completions if images endpoint doesn't work
+                        logger.info(f"Images endpoint failed ({response.status_code}), trying chat endpoint")
+                        response = await client.post(
+                            f"{self.base_url}/chat/completions",
+                            headers={
+                                "Authorization": f"Bearer {self.gemini_api_key}",
+                                "HTTP-Referer": self.app_url,
+                                "X-Title": self.app_name,
+                                "Content-Type": "application/json"
+                            },
+                            json={
+                                "model": "google/gemini-2.5-flash-image-preview",
+                                "messages": [
+                                    {
+                                        "role": "user",
+                                        "content": content
+                                    }
+                                ],
+                                "temperature": 0.7,
+                                "max_tokens": 4096
                             }
-                        ],
-                        "temperature": 0.7,
-                        "max_tokens": 4096
-                    }
-                )
+                        )
+                except Exception as e:
+                    logger.error(f"Images endpoint failed: {e}, trying chat endpoint")
+                    response = await client.post(
+                        f"{self.base_url}/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {self.gemini_api_key}",
+                            "HTTP-Referer": self.app_url,
+                            "X-Title": self.app_name,
+                            "Content-Type": "application/json"
+                        },
+                        json={
+                            "model": "google/gemini-2.5-flash-image-preview",
+                            "messages": [
+                                {
+                                    "role": "user",
+                                    "content": content
+                                }
+                            ],
+                            "temperature": 0.7,
+                            "max_tokens": 4096
+                        }
+                    )
 
                 if response.status_code != 200:
                     error_text = response.text
@@ -309,43 +354,46 @@ Always format your responses with clear headings and structured content for maxi
                 result = response.json()
                 logger.info(f"Gemini response: {result}")
 
-                if "choices" in result and result["choices"]:
+                # Handle different response formats
+                image_url = None
+
+                # Check if using images/generations endpoint format
+                if "data" in result and result["data"]:
+                    # Standard OpenRouter images format
+                    image_url = result["data"][0]["url"]
+                    logger.info(f"Found image in data array: {image_url}")
+
+                elif "choices" in result and result["choices"]:
+                    # Chat completions format - extract image from content
                     response_content = result["choices"][0]["message"]["content"]
                     logger.info(f"Gemini response content: {response_content}")
-
-                    # IMPORTANT: Gemini 2.5 Flash Image Preview might not actually generate images
-                    # It might only analyze images. Let's check if it returns actual image data
 
                     # Check for various image formats in the response
                     if "data:image" in response_content:
                         # Base64 image data
                         image_url = response_content
+                        logger.info("Found base64 image data")
                     elif response_content.startswith("http") and (".png" in response_content or ".jpg" in response_content or ".jpeg" in response_content):
                         # Direct image URL
                         image_url = response_content.strip()
+                        logger.info(f"Found direct image URL: {image_url}")
                     elif "![" in response_content and "](" in response_content:
                         # Extract image URL from markdown format
                         import re
                         url_match = re.search(r'!\[.*?\]\((.*?)\)', response_content)
                         if url_match:
                             image_url = url_match.group(1)
-                        else:
-                            # No actual image found, Gemini returned text description
-                            return {
-                                "success": False,
-                                "error": f"Gemini 2.5 Flash Image Preview returned text description instead of image: {response_content}",
-                                "model": "gemini-2.5-flash-image-preview",
-                                "debug_response": response_content
-                            }
+                            logger.info(f"Found markdown image URL: {image_url}")
                     else:
-                        # No image detected, likely just text response
-                        return {
-                            "success": False,
-                            "error": f"Gemini 2.5 Flash Image Preview does not support image generation, only image analysis. Response: {response_content}",
-                            "model": "gemini-2.5-flash-image-preview",
-                            "debug_response": response_content
-                        }
+                        # Check if response contains any URLs at all
+                        import re
+                        url_pattern = r'https?://[^\s]+'
+                        urls = re.findall(url_pattern, response_content)
+                        if urls:
+                            image_url = urls[0]
+                            logger.info(f"Found URL in text: {image_url}")
 
+                if image_url:
                     return {
                         "success": True,
                         "image_url": image_url,
@@ -355,6 +403,14 @@ Always format your responses with clear headings and structured content for maxi
                         "style": style,
                         "model": "gemini-2.5-flash-image-preview",
                         "processing_time": "~2m"
+                    }
+                else:
+                    # No image found in response
+                    return {
+                        "success": False,
+                        "error": f"No image URL found in Gemini response. Full response: {result}",
+                        "model": "gemini-2.5-flash-image-preview",
+                        "debug_response": result
                     }
                 else:
                     return {
