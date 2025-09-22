@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Image, Download, Sparkles, RefreshCw, Eye, Grid3X3, Palette, Upload, X } from "lucide-react";
+import { Image, Download, Sparkles, RefreshCw, Eye, Grid3X3, Palette, Upload, X, CheckCircle } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import ToolEditorLayout from "@/components/dashboard/ToolEditorLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +28,7 @@ const ImageTool = () => {
     prompt: string;
     timestamp: Date;
     selected?: boolean;
+    downloading?: boolean;
   }>>([]);
 
   const aspectRatios = [
@@ -117,9 +118,90 @@ const ImageTool = () => {
     ));
   };
 
-  const downloadImage = (url: string, prompt: string) => {
-    // In real implementation, this would download the actual image
+  const downloadImage = async (imageId: string, url: string, prompt: string) => {
     console.log("Downloading image:", url, prompt);
+
+    // Set downloading state
+    setGeneratedImages(prev => prev.map(img =>
+      img.id === imageId ? { ...img, downloading: true } : img
+    ));
+
+    try {
+      // Create filename from prompt (sanitized)
+      const sanitizedPrompt = prompt.replace(/[^a-zA-Z0-9 ]/g, '').replace(/\s+/g, '_').substring(0, 50);
+      const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      const filename = `ai_image_${sanitizedPrompt}_${timestamp}.jpg`;
+
+      // Check if it's a Cloudinary URL to get high resolution version
+      let downloadUrl = url;
+      if (url.includes('cloudinary.com')) {
+        // Transform to high quality for download (4K resolution, 100% quality, optimized for download)
+        downloadUrl = url.replace('/upload/', '/upload/q_100,f_jpg,w_3840,h_3840,c_limit,dpr_2.0/');
+      }
+
+      // Fetch the image
+      const response = await fetch(downloadUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image: ${response.statusText}`);
+      }
+
+      // Get the image as blob
+      const blob = await response.blob();
+
+      // Create download link
+      const downloadLink = document.createElement('a');
+      const objectUrl = URL.createObjectURL(blob);
+
+      downloadLink.href = objectUrl;
+      downloadLink.download = filename;
+      downloadLink.style.display = 'none';
+
+      // Trigger download
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+
+      // Cleanup
+      document.body.removeChild(downloadLink);
+      URL.revokeObjectURL(objectUrl);
+
+      console.log(`✅ Image downloaded successfully: ${filename}`);
+
+      // Show success feedback briefly
+      setTimeout(() => {
+        setGeneratedImages(prev => prev.map(img =>
+          img.id === imageId ? { ...img, downloading: false } : img
+        ));
+      }, 1000);
+
+    } catch (error) {
+      console.error('❌ Download failed:', error);
+      alert('Failed to download image. Please try again.');
+
+      // Reset downloading state
+      setGeneratedImages(prev => prev.map(img =>
+        img.id === imageId ? { ...img, downloading: false } : img
+      ));
+    }
+  };
+
+  const downloadAllImages = async () => {
+    const imagesToDownload = generatedImages.filter(img => !img.downloading);
+
+    if (imagesToDownload.length === 0) {
+      alert('No images available for download');
+      return;
+    }
+
+    // Download each image with a small delay to avoid overwhelming the browser
+    for (let i = 0; i < imagesToDownload.length; i++) {
+      const image = imagesToDownload[i];
+      await downloadImage(image.id, image.url, `${image.prompt} (${i + 1})`);
+
+      // Add small delay between downloads
+      if (i < imagesToDownload.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
   };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -157,13 +239,26 @@ const ImageTool = () => {
       {/* Generated Images Grid */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg font-medium flex items-center">
-            <Image className="w-5 h-5 mr-2" />
-            Generated Images
-            {generatedImages.length > 0 && (
-              <Badge variant="secondary" className="ml-2">
-                {generatedImages.length}
-              </Badge>
+          <CardTitle className="text-lg font-medium flex items-center justify-between">
+            <div className="flex items-center">
+              <Image className="w-5 h-5 mr-2" />
+              Generated Images
+              {generatedImages.length > 0 && (
+                <Badge variant="secondary" className="ml-2">
+                  {generatedImages.length}
+                </Badge>
+              )}
+            </div>
+            {generatedImages.length > 1 && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={downloadAllImages}
+                className="flex items-center space-x-1"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download All</span>
+              </Button>
             )}
           </CardTitle>
         </CardHeader>
@@ -202,11 +297,20 @@ const ImageTool = () => {
                         }}>
                           <Eye className="w-4 h-4" />
                         </Button>
-                        <Button size="sm" variant="secondary" onClick={(e) => {
-                          e.stopPropagation();
-                          downloadImage(image.url, image.prompt);
-                        }}>
-                          <Download className="w-4 h-4" />
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={image.downloading}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            downloadImage(image.id, image.url, image.prompt);
+                          }}
+                        >
+                          {image.downloading ? (
+                            <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Download className="w-4 h-4" />
+                          )}
                         </Button>
                       </div>
                     </div>
