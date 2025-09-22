@@ -23,8 +23,18 @@ class FalAdapter:
         self.api_key = os.getenv("FAL_API_KEY")
         self.base_url = "https://fal.run"
 
-        # Initialize new fal client
-        self.fal = fal_client.SyncClient(key=self.api_key) if self.api_key else None
+        # Initialize fal client with fallback for different versions
+        try:
+            # Try new SyncClient API (newer versions)
+            if hasattr(fal_client, 'SyncClient'):
+                self.fal = fal_client.SyncClient(key=self.api_key) if self.api_key else None
+            else:
+                # Fallback for older versions - just use fal_client directly
+                self.fal = fal_client if self.api_key else None
+                logger.info("Using legacy fal_client API")
+        except Exception as e:
+            logger.warning(f"Could not initialize fal client: {e}")
+            self.fal = None
 
         # Fal AI model endpoints
         self.models = {
@@ -164,12 +174,22 @@ class FalAdapter:
                 input_data["language_code"] = params["language_code"]
 
             # Submit for async processing using queue
-            handle = await asyncio.to_thread(
-                self.fal.submit,
-                self.models["tts_turbo"],
-                input_data,
-                webhook_url=webhook_url
-            )
+            if hasattr(self.fal, 'submit'):
+                # New API
+                handle = await asyncio.to_thread(
+                    self.fal.submit,
+                    self.models["tts_turbo"],
+                    input_data,
+                    webhook_url=webhook_url
+                )
+            else:
+                # Legacy API
+                handle = await asyncio.to_thread(
+                    fal_client.submit,
+                    self.models["tts_turbo"],
+                    arguments=input_data,
+                    webhook_url=webhook_url
+                )
 
             # Return handle for async processing
             result = handle
@@ -201,12 +221,21 @@ class FalAdapter:
             if not self.fal:
                 raise Exception("Fal client not initialized - check API key")
 
-            status = await asyncio.to_thread(
-                self.fal.status,
-                self.models["tts_turbo"],
-                request_id,
-                with_logs=True
-            )
+            if hasattr(self.fal, 'status'):
+                # New API
+                status = await asyncio.to_thread(
+                    self.fal.status,
+                    self.models["tts_turbo"],
+                    request_id,
+                    with_logs=True
+                )
+            else:
+                # Legacy API
+                status = await asyncio.to_thread(
+                    fal_client.status,
+                    self.models["tts_turbo"],
+                    request_id
+                )
 
             return {
                 "success": True,
@@ -231,11 +260,20 @@ class FalAdapter:
             if not self.fal:
                 raise Exception("Fal client not initialized - check API key")
 
-            result = await asyncio.to_thread(
-                self.fal.result,
-                self.models["tts_turbo"],
-                request_id
-            )
+            if hasattr(self.fal, 'result'):
+                # New API
+                result = await asyncio.to_thread(
+                    self.fal.result,
+                    self.models["tts_turbo"],
+                    request_id
+                )
+            else:
+                # Legacy API
+                result = await asyncio.to_thread(
+                    fal_client.result,
+                    self.models["tts_turbo"],
+                    request_id
+                )
 
             return self._format_tts_result(result, request_id=request_id)
 
@@ -273,18 +311,28 @@ class FalAdapter:
 
             # Use streaming API
             async def stream_generator():
-                stream = await asyncio.to_thread(
-                    self.fal.stream,
-                    self.models["tts_turbo"],
-                    {"input": input_data}
-                )
+                if hasattr(self.fal, 'stream'):
+                    # New API
+                    stream = await asyncio.to_thread(
+                        self.fal.stream,
+                        self.models["tts_turbo"],
+                        {"input": input_data}
+                    )
 
-                async for event in stream:
-                    yield event
+                    async for event in stream:
+                        yield event
 
-                # Get final result
-                result = await stream.done()
-                yield {"type": "final", "data": result}
+                    # Get final result
+                    result = await stream.done()
+                    yield {"type": "final", "data": result}
+                else:
+                    # Legacy API - fallback to subscribe
+                    result = await asyncio.to_thread(
+                        fal_client.subscribe,
+                        self.models["tts_turbo"],
+                        arguments=input_data
+                    )
+                    yield {"type": "final", "data": result}
 
             return stream_generator()
 
