@@ -1,5 +1,5 @@
 # RENDER DEPLOYMENT - COMPLETE DEPENDENCIES
-# All required packages for full functionality
+# ALL required packages for full functionality
 
 # Core FastAPI - tested stable version
 fastapi==0.68.0
@@ -12,6 +12,9 @@ gunicorn==20.1.0
 python-multipart==0.0.5
 python-dotenv==0.19.0
 requests==2.26.0
+
+# File handling - required by AI models
+aiofiles==22.1.0
 
 # Database - with srv support for MongoDB Atlas
 pymongo==3.12.0
