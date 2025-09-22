@@ -79,6 +79,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
           setSession(initialSession)
 
           if (initialSession) {
+            // Check for cached user data first
+            try {
+              const cachedUser = localStorage.getItem('ugc_user_data')
+              if (cachedUser) {
+                console.log('✅ Using cached user data')
+                setUser(JSON.parse(cachedUser))
+                setLoading(false)
+                return
+              }
+            } catch (e) {
+              console.warn('⚠️ Failed to parse cached user data')
+              localStorage.removeItem('ugc_user_data')
+            }
+
             // Verify the session is valid by checking if we can get user
             try {
               const { data: { user }, error } = await supabase.auth.getUser()
@@ -118,43 +132,46 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     initializeAuth()
 
-    // Listen for auth changes
+    // Listen for auth changes (minimal handling)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('🔔 Auth state changed:', event, {
-          hasSession: !!session,
-          userId: session?.user?.id,
-          email: session?.user?.email
-        })
+        // Only log important events to reduce noise
+        if (event === 'SIGNED_OUT' || (event === 'SIGNED_IN' && !user)) {
+          console.log('🔔 Auth state changed:', event, {
+            hasSession: !!session,
+            userId: session?.user?.id,
+            email: session?.user?.email
+          })
+        }
 
         if (mounted) {
+          // Always update session (Supabase handles the diffing internally)
           setSession(session)
 
-          if (event === 'SIGNED_IN' && session) {
+          if (event === 'SIGNED_IN' && session && !user) {
             console.log('✅ User signed in via:', session.user?.app_metadata?.provider || 'unknown')
             console.log('📧 User email:', session.user?.email)
-            console.log('🔑 Session expires at:', session.expires_at)
 
-            // Only load profile if we don't already have user data
-            if (!user) {
-              loadUserProfile().catch(console.error)
+            // Only load profile on actual first-time signin
+            loadUserProfile().catch(console.error)
 
-              toast({
-                title: "Welcome!",
-                description: "You've been successfully signed in.",
-              })
-            }
+            toast({
+              title: "Welcome!",
+              description: "You've been successfully signed in.",
+            })
           } else if (event === 'SIGNED_OUT') {
             console.log('🚪 User signed out')
             setUser(null)
             setLoading(false)
+            // Clear cached user data
+            localStorage.removeItem('ugc_user_data')
             toast({
               title: "Signed out",
               description: "You've been successfully signed out.",
             })
           } else if (event === 'TOKEN_REFRESHED' && session) {
-            console.log('🔄 Token refreshed')
-            // Don't load profile again, just update session
+            // Silent token refresh - don't reload anything
+            setSession(session)
           }
         }
       }
@@ -166,35 +183,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [toast])
 
-  // Add tab focus persistence (minimal checks only)
-  useEffect(() => {
-    const handleFocus = async () => {
-      // Only check session validity if we don't have a user or session appears invalid
-      if (!user || !session) {
-        try {
-          const { data: { session: currentSession }, error } = await supabase.auth.getSession()
-          if (currentSession && !user) {
-            console.log('🔄 Restoring session after tab switch...')
-            setSession(currentSession)
-            await loadUserProfile()
-          }
-        } catch (error) {
-          console.error('❌ Error checking session on focus:', error)
-        }
-      }
-    }
-
-    // Only check on visibility change (not focus) to be less aggressive
-    window.addEventListener('visibilitychange', () => {
-      if (!document.hidden && (!user || !session)) {
-        handleFocus()
-      }
-    })
-
-    return () => {
-      window.removeEventListener('visibilitychange', handleFocus)
-    }
-  }, [user, session])
+  // Removed tab focus handler to prevent unnecessary reloads
+  // Session persistence is now handled entirely by Supabase's built-in mechanisms
 
   // Load user profile from backend
   const loadUserProfile = async () => {
@@ -204,6 +194,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       const userProfile = await api.getCurrentUser()
       setUser(userProfile)
+
+      // Cache user data to prevent unnecessary reloads
+      localStorage.setItem('ugc_user_data', JSON.stringify(userProfile))
       console.log('✅ User profile loaded from backend:', userProfile)
 
     } catch (error) {
