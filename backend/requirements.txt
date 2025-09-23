@@ -29,3 +29,6 @@ python-jose==3.3.0
 
 # Template engine - required by FastAPI
 jinja2==3.0.3
+
+# FAL AI client - required for video generation
+fal-client==0.14.2

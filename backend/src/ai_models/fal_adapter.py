@@ -12,9 +12,16 @@ import base64
 import json
 from datetime import datetime
 import time
-import fal_client
 
 logger = logging.getLogger(__name__)
+
+try:
+    import fal_client
+    logger.info("✅ FAL client imported successfully")
+except ImportError as e:
+    logger.error(f"❌ FAL client import failed: {e}")
+    logger.error("❌ Please install fal-client: pip install fal-client")
+    fal_client = None
 
 class FalAdapter:
     """Fal AI integration for TTS, Video, and UGC generation."""
@@ -26,7 +33,10 @@ class FalAdapter:
 
         # Initialize fal client - always use general FAL API key
         try:
-            if self.api_key:
+            if not fal_client:
+                logger.error("❌ FAL client library not available - video generation will fail")
+                self.fal = None
+            elif self.api_key:
                 # Set the environment variable for FAL client
                 os.environ["FAL_KEY"] = self.api_key
 
