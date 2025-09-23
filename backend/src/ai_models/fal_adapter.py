@@ -633,7 +633,7 @@ class FalAdapter:
             logger.info(f"🎬 Starting img2vid_noaudio generation with Wan Pro")
             logger.info(f"📷 Input: image_url length: {len(image_url)}, prompt: '{prompt}'")
 
-            # Wan Pro Image-to-Video parameters (simple schema)
+            # Wan Pro parameters
             arguments = {
                 "prompt": prompt if prompt else "A stylish scene with smooth cinematic motion",
                 "image_url": image_url,

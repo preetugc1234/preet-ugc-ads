@@ -194,9 +194,12 @@ class AssetHandler:
             uploaded_urls = []
 
             # Download and upload video
+            logger.info(f"📥 Downloading video from: {video_url}")
             video_data = await self._download_file(video_url)
             if video_data:
+                logger.info(f"✅ Video downloaded: {len(video_data)} bytes")
                 video_path = f"user_{user_id}/job_{job_id}/{'preview' if is_preview else 'final'}_video"
+                logger.info(f"☁️ Uploading video to Cloudinary: {video_path}")
                 video_upload = await self._upload_to_cloudinary(
                     video_data,
                     video_path,
@@ -204,7 +207,12 @@ class AssetHandler:
                     format="mp4"
                 )
                 if video_upload:
+                    logger.info(f"✅ Video uploaded successfully: {video_upload['secure_url']}")
                     uploaded_urls.append(video_upload["secure_url"])
+                else:
+                    logger.error(f"❌ Video upload to Cloudinary FAILED")
+            else:
+                logger.error(f"❌ Failed to download video from: {video_url}")
 
             # Download and upload thumbnail if available
             if thumbnail_url:
@@ -233,6 +241,17 @@ class AssetHandler:
                 "created_at": datetime.utcnow().isoformat(),
                 "file_urls": uploaded_urls
             }
+
+            # Ensure at least the video was uploaded
+            if not uploaded_urls:
+                logger.error(f"❌ No files uploaded to Cloudinary for job {job_id}")
+                return {
+                    "success": False,
+                    "error": "Failed to upload video to Cloudinary",
+                    "urls": []
+                }
+
+            logger.info(f"✅ Asset handling completed: {len(uploaded_urls)} files uploaded")
 
             return {
                 "success": True,
@@ -313,10 +332,13 @@ class AssetHandler:
 
                 if response.status_code == 200:
                     result = response.json()
-                    logger.info(f"Successfully uploaded to Cloudinary: {result.get('secure_url')}")
+                    logger.info(f"✅ Successfully uploaded to Cloudinary: {result.get('secure_url')}")
                     return result
                 else:
-                    logger.error(f"Cloudinary upload failed: {response.status_code} - {response.text}")
+                    logger.error(f"❌ Cloudinary upload failed: {response.status_code}")
+                    logger.error(f"❌ Response: {response.text}")
+                    logger.error(f"❌ Public ID: {public_id}")
+                    logger.error(f"❌ Resource type: {resource_type}")
                     return None
 
         except Exception as e:
