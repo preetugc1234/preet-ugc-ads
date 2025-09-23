@@ -30,13 +30,17 @@ const ImageToVideoTool = () => {
     refetchInterval: 5000, // Poll every 5 seconds for video generation (60-90s duration)
   });
 
-  // HOTFIX: Auto-stop polling if we have video URL but job is still "processing"
+  // AUTO-REFRESH for old jobs without video URLs
   useEffect(() => {
-    if (jobStatus?.status === 'processing' && jobStatus?.final_urls?.length > 0) {
-      console.log('🔧 HOTFIX: Video found but status still processing - stopping excessive polling');
-      // Optionally reduce polling frequency
+    if (jobStatus && jobAge > 30 && !finalVideoUrl && !workerVideoUrl && jobStatus?.status === 'processing') {
+      console.log('🔄 AUTO-REFRESH: Job is old and missing video URL, refreshing status...');
+      const timer = setTimeout(() => {
+        refetchJobStatus();
+      }, 3000); // Auto-refresh after 3 seconds
+
+      return () => clearTimeout(timer);
     }
-  }, [jobStatus]);
+  }, [jobAge, finalVideoUrl, workerVideoUrl, jobStatus?.status, refetchJobStatus]);
 
   // Fixed 5 seconds duration - no user selection needed
   const fixedDuration = { value: "5", label: "5 seconds", credits: 100 };
@@ -195,7 +199,14 @@ const ImageToVideoTool = () => {
   // EMERGENCY: For jobs older than 3 minutes, force show even without URL (backend probably completed)
   const emergencyShow = jobAge > 180 && jobStatus?.status === 'processing';
 
-  const shouldShowVideo = isVideoReady || forceShowVideo || emergencyShow;
+  // EMERGENCY URL: Try to construct cloudinary URL from job ID for emergency cases
+  const emergencyVideoUrl = emergencyShow && !finalVideoUrl ?
+    `https://res.cloudinary.com/drkudvqhy/video/upload/user_${jobStatus?.params?.user_id || 'unknown'}/job_${currentJobId}/final_video.mp4` : null;
+
+  // Final video URL with emergency fallback
+  const displayVideoUrl = finalVideoUrl || emergencyVideoUrl;
+
+  const shouldShowVideo = isVideoReady || forceShowVideo || (emergencyShow && displayVideoUrl);
 
   // COMPREHENSIVE DEBUG LOGGING
   if (jobStatus) {
@@ -214,6 +225,8 @@ const ImageToVideoTool = () => {
       videoUrl: videoUrl,
       workerVideoUrl: workerVideoUrl,
       finalVideoUrl: finalVideoUrl,
+      emergencyVideoUrl: emergencyVideoUrl,
+      displayVideoUrl: displayVideoUrl,
       isJobCompleted: isJobCompleted,
       isJobRunning: isJobRunning,
       isJobFailed: isJobFailed,
@@ -236,7 +249,9 @@ const ImageToVideoTool = () => {
     jobAge: jobAge,
     currentJobId: currentJobId,
     jobStatusExists: !!jobStatus,
-    finalVideoUrl: finalVideoUrl
+    finalVideoUrl: finalVideoUrl,
+    emergencyVideoUrl: emergencyVideoUrl,
+    displayVideoUrl: displayVideoUrl
   });
 
   const downloadVideo = async (url: string) => {
@@ -387,49 +402,18 @@ const ImageToVideoTool = () => {
           </div>
         )}
 
-        {/* DEBUG: Always show job status when available */}
-        {jobStatus && !shouldShowVideo && (
-          <div className="bg-yellow-100 p-4 text-sm text-yellow-800 rounded">
-            <h4 className="font-semibold">🔍 DEBUG: Job Status Available but No Video URLs</h4>
+        {/* SMOOTH DEBUG: Show processing status without manual buttons */}
+        {jobStatus && !shouldShowVideo && isJobRunning && (
+          <div className="bg-blue-50 p-4 text-sm text-blue-800 rounded">
+            <h4 className="font-semibold">🔄 Processing Status</h4>
             <p><strong>Status:</strong> {jobStatus.status}</p>
-            <p><strong>Preview URL:</strong> {jobStatus.preview_url || 'None'}</p>
-            <p><strong>Final URLs:</strong> {jobStatus.final_urls?.length || 0} items</p>
-            <p><strong>Worker Video URL:</strong> {workerVideoUrl || 'None'}</p>
-            <p><strong>Any Video URL:</strong> {finalVideoUrl || 'None'}</p>
-
-            {/* EMERGENCY BUTTON: Force show video if any URL exists OR job is old */}
-            {((workerVideoUrl || finalVideoUrl) || jobAge > 10) && (
-              <div className="mt-3 space-y-2">
-                <Button
-                  onClick={() => {
-                    console.log('🚨 EMERGENCY: Forcing video display with URL:', finalVideoUrl || workerVideoUrl);
-                    window.location.reload(); // Force refresh
-                  }}
-                  className="bg-red-500 hover:bg-red-600 text-white"
-                >
-                  🚨 FORCE SHOW VIDEO (Emergency)
-                </Button>
-
-                {jobAge > 10 && (
-                  <Button
-                    onClick={() => {
-                      console.log('🔄 REFRESH: Job is old, refreshing status...');
-                      refetchJobStatus(); // Refetch status
-                    }}
-                    className="bg-blue-500 hover:bg-blue-600 text-white"
-                  >
-                    🔄 REFRESH STATUS
-                  </Button>
-                )}
-              </div>
+            <p><strong>Age:</strong> {Math.round(jobAge)}s</p>
+            {jobAge > 30 && (
+              <p className="text-blue-600"><strong>🔄 Auto-refreshing to check for completed video...</strong></p>
             )}
-
-            <details className="mt-2">
-              <summary>Full Response</summary>
-              <pre className="text-xs mt-1 bg-white p-2 rounded overflow-auto">
-                {JSON.stringify(jobStatus, null, 2)}
-              </pre>
-            </details>
+            {emergencyShow && (
+              <p className="text-orange-600"><strong>🚨 Emergency mode: Video should appear soon...</strong></p>
+            )}
           </div>
         )}
 
@@ -437,8 +421,8 @@ const ImageToVideoTool = () => {
           <div className="space-y-4">
             <div className={`p-2 text-sm rounded ${emergencyShow ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
               {emergencyShow ?
-                '🚨 EMERGENCY MODE: Video processing completed but URL missing - checking database...' :
-                `🎬 DEBUG: Video section is rendering! URL: ${finalVideoUrl?.substring(0, 50)}...`
+                '🚨 EMERGENCY MODE: Video processing completed but URL missing - trying emergency URL...' :
+                `🎬 DEBUG: Video section is rendering! URL: ${displayVideoUrl?.substring(0, 50)}...`
               }
             </div>
             <div className="aspect-video bg-black rounded-lg overflow-hidden">
@@ -448,10 +432,16 @@ const ImageToVideoTool = () => {
                 poster={uploadedImage || undefined}
                 onLoadStart={() => console.log('🎬 Video loading started')}
                 onCanPlay={() => console.log('🎬 Video can play')}
-                onError={(e) => console.error('🎬 Video error:', e)}
+                onError={(e) => {
+                  console.error('🎬 Video error:', e);
+                  if (emergencyShow && !finalVideoUrl) {
+                    console.log('🔄 Emergency mode: Video error, trying to refresh job status...');
+                    setTimeout(() => refetchJobStatus(), 2000); // Auto-retry in 2 seconds
+                  }
+                }}
               >
                 <source
-                  src={finalVideoUrl}
+                  src={displayVideoUrl}
                   type="video/mp4"
                 />
                 Your browser does not support the video tag.
@@ -464,7 +454,7 @@ const ImageToVideoTool = () => {
                 <p><strong>Quality:</strong> {qualities.find(q => q.value === quality)?.label}</p>
                 <p><strong>Model:</strong> FAL AI Wan v2.2-5B</p>
                 <p><strong>Status:</strong> {jobStatus?.status}</p>
-                {finalVideoUrl && <p><strong>Video URL:</strong> ✅ Available</p>}
+                {displayVideoUrl && <p><strong>Video URL:</strong> ✅ Available</p>}
                 {jobStatus?.created_at && (
                   <p><strong>Generated:</strong> {new Date(jobStatus.created_at).toLocaleString()}</p>
                 )}
@@ -473,8 +463,8 @@ const ImageToVideoTool = () => {
                 )}
               </div>
               <div className="flex space-x-2">
-                {finalVideoUrl ? (
-                  <Button onClick={() => downloadVideo(finalVideoUrl)}>
+                {displayVideoUrl ? (
+                  <Button onClick={() => downloadVideo(displayVideoUrl)}>
                     <Download className="w-4 h-4 mr-2" />
                     {isJobCompleted ? 'Download MP4' : 'Preview'}
                   </Button>
