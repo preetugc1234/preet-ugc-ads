@@ -63,10 +63,11 @@ export const useCreateJob = () => {
   })
 }
 
-// Job status polling hook
-export const useJobStatus = (jobId: string | null, options?: { enabled?: boolean, refetchInterval?: number }) => {
-  const enabled = options?.enabled ?? true;
-  const customRefetchInterval = options?.refetchInterval;
+// Job status polling hook - backward compatible
+export const useJobStatus = (jobId: string | null, options: any = {}) => {
+  // Handle both old boolean format and new object format
+  const enabled = typeof options === 'boolean' ? options : (options?.enabled ?? true);
+  const customRefetchInterval = typeof options === 'object' ? options?.refetchInterval : undefined;
 
   return useQuery({
     queryKey: ['job', 'status', jobId],
@@ -89,8 +90,8 @@ export const useJobStatus = (jobId: string | null, options?: { enabled?: boolean
       return false
     },
     staleTime: 0, // Always consider stale to enable polling
-    retry: 10, // Retry up to 10 times on network errors
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
+    retry: 3, // Retry up to 3 times on network errors (reduced)
+    retryDelay: 1000, // Simple 1 second delay
     refetchOnWindowFocus: false, // Don't refetch when window regains focus
     refetchOnReconnect: true, // Refetch when connection is restored
   })
