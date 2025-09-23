@@ -387,6 +387,7 @@ class QueueManager:
                 raise Exception(f"Unsupported module: {module}")
 
             # Update job as completed
+            logger.info(f"🎯 Updating job {job_id} status to completed with finalUrls: {final_urls}")
             db.jobs.update_one(
                 {"_id": job_id},
                 {
@@ -394,10 +395,16 @@ class QueueManager:
                         "status": "completed",
                         "finalUrls": final_urls,
                         "completedAt": datetime.now(timezone.utc),
-                        "updatedAt": datetime.now(timezone.utc)
+                        "updatedAt": datetime.now(timezone.utc),
+                        "workerMeta": {
+                            "video_url": final_urls[0] if final_urls else None,
+                            "final_url": final_urls[0] if final_urls else None,
+                            "completion_time": datetime.now(timezone.utc).isoformat()
+                        }
                     }
                 }
             )
+            logger.info(f"✅ Job {job_id} marked as completed in database")
 
             # Create generation record
             from .database import GenerationModel

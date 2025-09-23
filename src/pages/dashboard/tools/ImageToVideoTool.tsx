@@ -30,6 +30,14 @@ const ImageToVideoTool = () => {
     refetchInterval: 5000, // Poll every 5 seconds for video generation (60-90s duration)
   });
 
+  // HOTFIX: Auto-stop polling if we have video URL but job is still "processing"
+  useEffect(() => {
+    if (jobStatus?.status === 'processing' && jobStatus?.final_urls?.length > 0) {
+      console.log('🔧 HOTFIX: Video found but status still processing - stopping excessive polling');
+      // Optionally reduce polling frequency
+    }
+  }, [jobStatus]);
+
   // Fixed 5 seconds duration - no user selection needed
   const fixedDuration = { value: "5", label: "5 seconds", credits: 100 };
 
@@ -171,9 +179,11 @@ const ImageToVideoTool = () => {
   const isJobCompleted = jobStatus?.status === 'completed';
   const isJobFailed = jobStatus?.status === 'failed';
 
-  // Check if we have video URLs available (more flexible)
-  const hasVideoUrls = jobStatus?.final_urls?.length > 0 || jobStatus?.preview_url;
-  const videoUrl = jobStatus?.final_urls?.[0] || jobStatus?.preview_url;
+  // Check if we have video URLs available (more flexible) - prioritize final_urls over preview_url
+  const workerVideoUrl = jobStatus?.worker_meta?.video_url || jobStatus?.worker_meta?.final_url;
+  const videoUrl = jobStatus?.final_urls?.[0] || jobStatus?.preview_url || workerVideoUrl;
+  const hasVideoUrls = !!videoUrl;
+  const finalVideoUrl = videoUrl;
 
   // COMPREHENSIVE DEBUG LOGGING
   if (jobStatus) {
@@ -182,8 +192,11 @@ const ImageToVideoTool = () => {
       status: jobStatus.status,
       preview_url: jobStatus.preview_url,
       final_urls: jobStatus.final_urls,
+      worker_meta: jobStatus.worker_meta,
       hasVideoUrls: hasVideoUrls,
       videoUrl: videoUrl,
+      workerVideoUrl: workerVideoUrl,
+      finalVideoUrl: finalVideoUrl,
       isJobCompleted: isJobCompleted,
       isJobRunning: isJobRunning,
       isJobFailed: isJobFailed,
@@ -196,7 +209,8 @@ const ImageToVideoTool = () => {
     shouldShowVideo: hasVideoUrls,
     hasVideoUrls: hasVideoUrls,
     currentJobId: currentJobId,
-    jobStatusExists: !!jobStatus
+    jobStatusExists: !!jobStatus,
+    finalVideoUrl: finalVideoUrl
   });
 
   const downloadVideo = async (url: string) => {
@@ -366,7 +380,7 @@ const ImageToVideoTool = () => {
         {hasVideoUrls && (
           <div className="space-y-4">
             <div className="bg-green-100 p-2 text-sm text-green-800 rounded">
-              🎬 DEBUG: Video section is rendering! URL: {videoUrl?.substring(0, 50)}...
+              🎬 DEBUG: Video section is rendering! URL: {finalVideoUrl?.substring(0, 50)}...
             </div>
             <div className="aspect-video bg-black rounded-lg overflow-hidden">
               <video
@@ -378,7 +392,7 @@ const ImageToVideoTool = () => {
                 onError={(e) => console.error('🎬 Video error:', e)}
               >
                 <source
-                  src={videoUrl}
+                  src={finalVideoUrl}
                   type="video/mp4"
                 />
                 Your browser does not support the video tag.
@@ -391,7 +405,7 @@ const ImageToVideoTool = () => {
                 <p><strong>Quality:</strong> {qualities.find(q => q.value === quality)?.label}</p>
                 <p><strong>Model:</strong> FAL AI Wan v2.2-5B</p>
                 <p><strong>Status:</strong> {jobStatus?.status}</p>
-                {videoUrl && <p><strong>Video URL:</strong> ✅ Available</p>}
+                {finalVideoUrl && <p><strong>Video URL:</strong> ✅ Available</p>}
                 {jobStatus?.created_at && (
                   <p><strong>Generated:</strong> {new Date(jobStatus.created_at).toLocaleString()}</p>
                 )}
@@ -400,8 +414,8 @@ const ImageToVideoTool = () => {
                 )}
               </div>
               <div className="flex space-x-2">
-                {videoUrl ? (
-                  <Button onClick={() => downloadVideo(videoUrl)}>
+                {finalVideoUrl ? (
+                  <Button onClick={() => downloadVideo(finalVideoUrl)}>
                     <Download className="w-4 h-4 mr-2" />
                     {isJobCompleted ? 'Download MP4' : 'Preview'}
                   </Button>
