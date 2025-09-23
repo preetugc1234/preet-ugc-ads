@@ -318,20 +318,29 @@ class QueueManager:
                         if sync_result.get('success'):
                             # IMMEDIATE UPDATE: Store video URL in worker_meta first
                             video_url = sync_result.get('video_url')
+                            logger.info(f"🔍 DEBUG: sync_result keys: {list(sync_result.keys())}")
+                            logger.info(f"🔍 DEBUG: video_url from sync_result: {video_url}")
+
                             if video_url:
                                 logger.info(f"🚀 IMMEDIATE UPDATE: Storing video URL in worker_meta for job {job_id}")
-                                db.jobs.update_one(
+                                update_result = db.jobs.update_one(
                                     {"_id": job_id},
                                     {
                                         "$set": {
-                                            "workerMeta.video_url": video_url,
-                                            "workerMeta.final_url": video_url,
-                                            "workerMeta.processing_complete": True,
+                                            "workerMeta": {
+                                                "video_url": video_url,
+                                                "final_url": video_url,
+                                                "processing_complete": True,
+                                                "stored_at": datetime.now(timezone.utc).isoformat()
+                                            },
                                             "updatedAt": datetime.now(timezone.utc)
                                         }
                                     }
                                 )
-                                logger.info(f"✅ Video URL immediately available in worker_meta: {video_url}")
+                                logger.info(f"✅ Video URL stored in worker_meta: {video_url}")
+                                logger.info(f"🔍 Update result: matched={update_result.matched_count}, modified={update_result.modified_count}")
+                            else:
+                                logger.error(f"❌ No video_url found in sync_result: {sync_result}")
 
                             # Process sync result immediately
                             final_asset = await asset_handler.handle_video_result(

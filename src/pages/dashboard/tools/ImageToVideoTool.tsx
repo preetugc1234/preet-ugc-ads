@@ -191,7 +191,11 @@ const ImageToVideoTool = () => {
   // SUPER AGGRESSIVE: Force show video if job has been running for more than 2 minutes and has any URL
   const jobAge = jobStatus?.created_at ? (Date.now() - new Date(jobStatus.created_at).getTime()) / 1000 : 0;
   const forceShowVideo = jobAge > 120 && (videoUrl || workerVideoUrl);
-  const shouldShowVideo = isVideoReady || forceShowVideo;
+
+  // EMERGENCY: For jobs older than 3 minutes, force show even without URL (backend probably completed)
+  const emergencyShow = jobAge > 180 && jobStatus?.status === 'processing';
+
+  const shouldShowVideo = isVideoReady || forceShowVideo || emergencyShow;
 
   // COMPREHENSIVE DEBUG LOGGING
   if (jobStatus) {
@@ -205,6 +209,7 @@ const ImageToVideoTool = () => {
       isVideoReady: isVideoReady,
       shouldShowVideo: shouldShowVideo,
       forceShowVideo: forceShowVideo,
+      emergencyShow: emergencyShow,
       jobAge: jobAge,
       videoUrl: videoUrl,
       workerVideoUrl: workerVideoUrl,
@@ -227,6 +232,7 @@ const ImageToVideoTool = () => {
     hasVideoUrls: hasVideoUrls,
     isVideoReady: isVideoReady,
     forceShowVideo: forceShowVideo,
+    emergencyShow: emergencyShow,
     jobAge: jobAge,
     currentJobId: currentJobId,
     jobStatusExists: !!jobStatus,
@@ -391,9 +397,9 @@ const ImageToVideoTool = () => {
             <p><strong>Worker Video URL:</strong> {workerVideoUrl || 'None'}</p>
             <p><strong>Any Video URL:</strong> {finalVideoUrl || 'None'}</p>
 
-            {/* EMERGENCY BUTTON: Force show video if any URL exists */}
-            {(workerVideoUrl || finalVideoUrl) && (
-              <div className="mt-3">
+            {/* EMERGENCY BUTTON: Force show video if any URL exists OR job is old */}
+            {((workerVideoUrl || finalVideoUrl) || jobAge > 10) && (
+              <div className="mt-3 space-y-2">
                 <Button
                   onClick={() => {
                     console.log('🚨 EMERGENCY: Forcing video display with URL:', finalVideoUrl || workerVideoUrl);
@@ -403,6 +409,18 @@ const ImageToVideoTool = () => {
                 >
                   🚨 FORCE SHOW VIDEO (Emergency)
                 </Button>
+
+                {jobAge > 10 && (
+                  <Button
+                    onClick={() => {
+                      console.log('🔄 REFRESH: Job is old, refreshing status...');
+                      refetchJobStatus(); // Refetch status
+                    }}
+                    className="bg-blue-500 hover:bg-blue-600 text-white"
+                  >
+                    🔄 REFRESH STATUS
+                  </Button>
+                )}
               </div>
             )}
 
@@ -417,8 +435,11 @@ const ImageToVideoTool = () => {
 
         {shouldShowVideo && (
           <div className="space-y-4">
-            <div className="bg-green-100 p-2 text-sm text-green-800 rounded">
-              🎬 DEBUG: Video section is rendering! URL: {finalVideoUrl?.substring(0, 50)}...
+            <div className={`p-2 text-sm rounded ${emergencyShow ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+              {emergencyShow ?
+                '🚨 EMERGENCY MODE: Video processing completed but URL missing - checking database...' :
+                `🎬 DEBUG: Video section is rendering! URL: ${finalVideoUrl?.substring(0, 50)}...`
+              }
             </div>
             <div className="aspect-video bg-black rounded-lg overflow-hidden">
               <video
