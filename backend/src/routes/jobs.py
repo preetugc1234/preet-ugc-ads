@@ -45,7 +45,7 @@ MODULE_CONFIGS = {
         "name": "Image to Video (No Audio)",
         "cost": 0,  # Free for testing - uses FAL AI directly
         "provider": "fal",
-        "model": "kling-v2-pro",
+        "model": "wan-pro",
         "avg_time_seconds": 45
     },
     "tts": {
