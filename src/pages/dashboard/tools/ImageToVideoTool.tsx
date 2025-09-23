@@ -172,9 +172,9 @@ const ImageToVideoTool = () => {
   const isJobCompleted = jobStatus?.status === 'completed';
   const isJobFailed = jobStatus?.status === 'failed';
 
-  // Check if we have video URLs available (more flexible) - prioritize final_urls over preview_url
+  // Check if we have video URLs available (more flexible) - prioritize finalUrls over preview_url
   const workerVideoUrl = jobStatus?.worker_meta?.video_url || jobStatus?.worker_meta?.final_url;
-  const videoUrl = jobStatus?.final_urls?.[0] || workerVideoUrl || jobStatus?.preview_url;
+  const videoUrl = jobStatus?.finalUrls?.[0] || workerVideoUrl || jobStatus?.preview_url;
   const hasVideoUrls = !!videoUrl;
   const finalVideoUrl = videoUrl;
 
@@ -215,7 +215,7 @@ const ImageToVideoTool = () => {
       jobId: currentJobId,
       status: jobStatus.status,
       preview_url: jobStatus.preview_url,
-      final_urls: jobStatus.final_urls,
+      finalUrls: jobStatus.finalUrls,
       worker_meta: jobStatus.worker_meta,
       hasVideoUrls: hasVideoUrls,
       isVideoReady: isVideoReady,

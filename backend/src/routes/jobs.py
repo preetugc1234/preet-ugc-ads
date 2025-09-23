@@ -105,7 +105,7 @@ class JobStatusResponse(BaseModel):
     params: Dict[str, Any]
     used_credits: int
     preview_url: Optional[str] = None
-    final_urls: List[str] = []
+    finalUrls: List[str] = []
     worker_meta: Dict[str, Any] = {}
     created_at: datetime
     updated_at: datetime
@@ -117,7 +117,7 @@ class PreviewReadyRequest(BaseModel):
 
 class JobCallbackRequest(BaseModel):
     status: str  # completed, failed
-    final_urls: Optional[List[str]] = []
+    finalUrls: Optional[List[str]] = []
     worker_meta: Optional[Dict[str, Any]] = {}
     used_credits: Optional[int] = None
     error_message: Optional[str] = None
@@ -295,7 +295,7 @@ async def get_job_status(
             params=job["params"],
             used_credits=job["usedCredits"],
             preview_url=job.get("previewUrl"),
-            final_urls=job.get("finalUrls", []),
+            finalUrls=job.get("finalUrls", []),
             worker_meta=job.get("workerMeta", {}),
             created_at=job["createdAt"],
             updated_at=job["updatedAt"],
@@ -425,8 +425,8 @@ async def job_callback(
             "workerMeta": {**job.get("workerMeta", {}), **(request.worker_meta or {})}
         }
 
-        if request.final_urls:
-            update_data["finalUrls"] = request.final_urls
+        if request.finalUrls:
+            update_data["finalUrls"] = request.finalUrls
 
         if request.error_message:
             update_data["errorMessage"] = request.error_message
@@ -441,13 +441,13 @@ async def job_callback(
         )
 
         # If job completed successfully, create generation record and handle eviction
-        if request.status == "completed" and request.final_urls:
+        if request.status == "completed" and request.finalUrls:
             generation_doc = GenerationModel.create_generation(
                 user_id=job["userId"],
                 job_id=job["_id"],
                 generation_type=request.generation_type or job["module"],
                 preview_url=job.get("previewUrl", ""),
-                final_urls=request.final_urls,
+                final_urls=request.finalUrls,
                 size_bytes=request.size_bytes or 0
             )
 

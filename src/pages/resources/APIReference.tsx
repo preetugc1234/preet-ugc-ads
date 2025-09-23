@@ -98,7 +98,7 @@ job = client.jobs.create(
 
 # Wait for completion
 result = client.jobs.wait_for_completion(job.id)
-print(f"Generated image: {result.final_urls[0]}")`,
+print(f"Generated image: {result.finalUrls[0]}")`,
     javascript: `const AdmaxAI = require('@admax/ai-sdk');
 
 const client = new AdmaxAI({

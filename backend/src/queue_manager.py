@@ -343,17 +343,25 @@ class QueueManager:
                                 logger.error(f"❌ No video_url found in sync_result: {sync_result}")
 
                             # Process sync result immediately
+                            # Try to upload to Cloudinary, but don't fail if it doesn't work
                             final_asset = await asset_handler.handle_video_result(
                                 sync_result, str(job_id), user_id, False
                             )
-                            final_urls = final_asset.get('urls', []) if final_asset.get('success') else []
+                            cloudinary_urls = final_asset.get('urls', []) if final_asset.get('success') else []
 
-                            if final_urls:
-                                logger.info(f"✅ Direct processing successful for job {job_id}: {final_urls}")
-                                # Continue with completion logic below
+                            # FALLBACK: Use original FAL AI URL if Cloudinary upload fails
+                            if cloudinary_urls:
+                                final_urls = cloudinary_urls
+                                logger.info(f"✅ Cloudinary upload successful for job {job_id}: {final_urls}")
                             else:
-                                logger.error(f"❌ Asset handler failed for job {job_id}: {final_asset}")
-                                raise Exception("Asset handler failed to generate URLs")
+                                # Use FAL AI URL directly as fallback
+                                fal_video_url = sync_result.get('video_url')
+                                if fal_video_url:
+                                    final_urls = [fal_video_url]
+                                    logger.info(f"⚠️ Cloudinary upload failed, using FAL AI URL for job {job_id}: {final_urls}")
+                                else:
+                                    logger.error(f"❌ No video URL available for job {job_id}")
+                                    raise Exception("No video URL available")
                         else:
                             error_msg = sync_result.get('error', 'Unknown FAL AI error')
                             logger.error(f"❌ FAL AI direct processing failed: {error_msg}")

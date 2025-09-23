@@ -75,7 +75,7 @@ const History = () => {
     prompt: undefined, // API doesn't store prompts currently
     thumbnail: gen.preview_url,
     previewUrl: gen.preview_url,
-    finalUrl: gen.final_urls?.[0] || gen.preview_url || "#",
+    finalUrl: gen.finalUrls?.[0] || gen.preview_url || "#",
     credits: gen.credit_cost || 0,
     timestamp: new Date(gen.created_at),
     status: (gen.status as 'completed' | 'processing' | 'failed') || 'completed',

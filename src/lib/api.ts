@@ -46,7 +46,7 @@ export interface GenerationItem {
   id: string
   type: string
   preview_url?: string
-  final_urls: string[]
+  finalUrls: string[]
   size_bytes: number
   created_at: string
   credit_cost?: number
@@ -75,7 +75,7 @@ export interface JobResponse {
   estimated_cost?: number
   estimated_time_seconds?: number
   preview_url?: string
-  final_urls?: string[]
+  finalUrls?: string[]
   created_at?: string
 }
 
@@ -83,7 +83,7 @@ export interface JobStatus {
   id: string
   status: 'queued' | 'processing' | 'completed' | 'failed'
   preview_url?: string
-  final_urls?: string[]
+  finalUrls?: string[]
   progress?: number
   error_message?: string
   created_at: string
