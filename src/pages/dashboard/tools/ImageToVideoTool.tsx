@@ -188,12 +188,8 @@ const ImageToVideoTool = () => {
   // EMERGENCY: For jobs older than 3 minutes, force show even without URL (backend probably completed)
   const emergencyShow = jobAge > 180 && jobStatus?.status === 'processing';
 
-  // EMERGENCY URL: Try to construct cloudinary URL from job ID for emergency cases
-  const emergencyVideoUrl = emergencyShow && !finalVideoUrl ?
-    `https://res.cloudinary.com/drkudvqhy/video/upload/user_${jobStatus?.params?.user_id || 'unknown'}/job_${currentJobId}/final_video.mp4` : null;
-
-  // Final video URL with emergency fallback
-  const displayVideoUrl = finalVideoUrl || emergencyVideoUrl;
+  // Since backend is fixed, use only proper URLs from API (no emergency URL construction)
+  const displayVideoUrl = finalVideoUrl;
 
   const shouldShowVideo = isVideoReady || forceShowVideo || (emergencyShow && displayVideoUrl);
 
@@ -226,7 +222,6 @@ const ImageToVideoTool = () => {
       videoUrl: videoUrl,
       workerVideoUrl: workerVideoUrl,
       finalVideoUrl: finalVideoUrl,
-      emergencyVideoUrl: emergencyVideoUrl,
       displayVideoUrl: displayVideoUrl,
       isJobCompleted: isJobCompleted,
       isJobRunning: isJobRunning,
@@ -251,7 +246,6 @@ const ImageToVideoTool = () => {
     currentJobId: currentJobId,
     jobStatusExists: !!jobStatus,
     finalVideoUrl: finalVideoUrl,
-    emergencyVideoUrl: emergencyVideoUrl,
     displayVideoUrl: displayVideoUrl
   });
 
@@ -264,16 +258,9 @@ const ImageToVideoTool = () => {
         : 'motion_video';
       const filename = `${promptSlug}_${duration}s_${timestamp}.mp4`;
 
-      // Check if it's a Cloudinary URL for high-quality download
+      // Use video URL directly without transformations to avoid corruption
       let downloadUrl = url;
-      if (url.includes('cloudinary.com') && url.includes('/video/upload/')) {
-        // Transform Cloudinary URL for highest quality download
-        downloadUrl = url.replace(
-          '/video/upload/',
-          '/video/upload/q_100,f_mp4,br_5000k/' // 100% quality, MP4 format, 5Mbps bitrate
-        );
-        console.log('🎬 Downloading high-quality video from Cloudinary');
-      }
+      console.log('🎬 Downloading video directly from source');
 
       console.log(`⬇️ Starting download: ${filename}`);
 
