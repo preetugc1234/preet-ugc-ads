@@ -21,6 +21,7 @@ class FalAdapter:
 
     def __init__(self):
         self.api_key = os.getenv("FAL_API_KEY")
+        self.img2vid_api_key = os.getenv("FAL_IMG2VID_API_KEY")  # Specific key for img2vid
         self.base_url = "https://fal.run"
 
         # Initialize fal client with fallback for different versions
@@ -35,6 +36,8 @@ class FalAdapter:
         except Exception as e:
             logger.warning(f"Could not initialize fal client: {e}")
             self.fal = None
+
+        logger.info(f"🔑 FAL API Keys - General: {bool(self.api_key)}, IMG2VID: {bool(self.img2vid_api_key)}")
 
         # Fal AI model endpoints (updated with working models)
         self.models = {
@@ -637,8 +640,7 @@ class FalAdapter:
                 "prompt": f"{prompt}, smooth motion, cinematic",
                 "negative_prompt": params.get("negative_prompt", "blur, distort, low quality, static image, bad motion"),
                 "num_frames": num_frames,
-                "fps": 8,
-                "seed": None  # Random seed for variety
+                "fps": 8
             }
 
             # Add motion intensity to prompt if provided
@@ -651,12 +653,34 @@ class FalAdapter:
 
             logger.info(f"🔧 FAL AI arguments: {arguments}")
 
-            # Submit request to FAL AI
-            result = await asyncio.to_thread(
-                fal_client.run,
-                self.models["img2vid_noaudio"],
-                arguments=arguments
-            )
+            # Use specific IMG2VID API key for this request
+            if self.img2vid_api_key:
+                logger.info(f"🔑 Using dedicated IMG2VID API key for better access")
+                # Temporarily set the environment variable for this specific call
+                original_key = os.environ.get("FAL_KEY")
+                os.environ["FAL_KEY"] = self.img2vid_api_key
+
+                try:
+                    # Submit request to FAL AI with img2vid-specific key
+                    result = await asyncio.to_thread(
+                        fal_client.run,
+                        self.models["img2vid_noaudio"],
+                        arguments=arguments
+                    )
+                finally:
+                    # Restore original key
+                    if original_key:
+                        os.environ["FAL_KEY"] = original_key
+                    else:
+                        os.environ.pop("FAL_KEY", None)
+            else:
+                logger.warning(f"⚠️ No dedicated IMG2VID API key, using general FAL API key")
+                # Submit request to FAL AI with general key
+                result = await asyncio.to_thread(
+                    fal_client.run,
+                    self.models["img2vid_noaudio"],
+                    arguments=arguments
+                )
 
             logger.info(f"📊 FAL AI response: {result}")
 
