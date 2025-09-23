@@ -43,7 +43,7 @@ MODULE_CONFIGS = {
     },
     "img2vid_noaudio": {
         "name": "Image to Video (No Audio)",
-        "cost_per_second": 20,  # 100 credits per 5 seconds
+        "cost": 0,  # Free for testing - uses FAL AI directly
         "provider": "fal",
         "model": "kling-v2-pro",
         "avg_time_seconds": 45
