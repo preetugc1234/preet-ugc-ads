@@ -43,7 +43,7 @@ class FalAdapter:
         self.models = {
             "tts": "fal-ai/elevenlabs-text-to-speech/v1",  # Fixed TTS path
             "tts_turbo": "fal-ai/elevenlabs/tts/turbo-v2.5",  # ElevenLabs TTS Turbo v2.5
-            "img2vid_noaudio": "fal-ai/wan-pro/image-to-video",  # Wan Pro Image-to-Video
+            "img2vid_noaudio": "fal-ai/wan/v2.2-5b/image-to-video",  # Wan v2.2-5B Image-to-Video
             "img2vid_audio": "fal-ai/kling-video/v1/pro/ai-avatar",  # Kling v1 Pro AI Avatar
             "audio2vid": "veed/avatars/audio-to-video",  # Veed Avatars Audio-to-Video via Fal AI
             "image_generation": "fal-ai/flux/schnell"  # FLUX Schnell for image generation
@@ -630,32 +630,47 @@ class FalAdapter:
             if not image_url:
                 raise Exception("Image URL is required")
 
-            logger.info(f"🎬 Starting img2vid_noaudio generation with Wan Pro")
+            logger.info(f"🎬 Starting img2vid_noaudio generation with Wan v2.2-5B")
             logger.info(f"📷 Input: image_url length: {len(image_url)}, prompt: '{prompt}'")
 
-            # Wan Pro parameters
+            # Wan v2.2-5B parameters (optimized for quality and speed)
             arguments = {
-                "prompt": prompt if prompt else "A stylish scene with smooth cinematic motion",
                 "image_url": image_url,
-                "enable_safety_checker": True
+                "prompt": prompt if prompt else "Smooth cinematic motion with natural camera movement",
+                "num_frames": 41,  # Shorter for faster processing (41 frames)
+                "frames_per_second": 24,
+                "resolution": "720p",
+                "aspect_ratio": "auto",
+                "num_inference_steps": 30,  # Reduced for speed
+                "enable_safety_checker": True,
+                "enable_prompt_expansion": False,
+                "guidance_scale": 3.5,
+                "shift": 5,
+                "interpolator_model": "film",
+                "num_interpolated_frames": 0,
+                "adjust_fps_for_interpolation": True,
+                "video_quality": "high",
+                "video_write_mode": "balanced"
             }
 
-            # Add seed for reproducibility if provided
+            # Add optional parameters if provided
             if params.get("seed"):
                 arguments["seed"] = int(params["seed"])
+            if params.get("negative_prompt"):
+                arguments["negative_prompt"] = params["negative_prompt"]
 
             logger.info(f"🔧 FAL AI arguments: {arguments}")
 
             # Use specific IMG2VID API key for this request
             if self.img2vid_api_key:
-                logger.info(f"🔑 Using dedicated IMG2VID API key for Wan Pro")
+                logger.info(f"🔑 Using dedicated IMG2VID API key for Wan v2.2-5B")
                 # Temporarily set the environment variable for this specific call
                 original_key = os.environ.get("FAL_KEY")
                 os.environ["FAL_KEY"] = self.img2vid_api_key
 
                 try:
-                    # Submit async request to Wan Pro (requires queue API)
-                    logger.info(f"📤 Submitting async request to Wan Pro...")
+                    # Submit async request to Wan v2.2-5B (requires queue API)
+                    logger.info(f"📤 Submitting async request to Wan v2.2-5B...")
                     submit_result = await asyncio.to_thread(
                         fal_client.submit,
                         self.models["img2vid_noaudio"],
@@ -663,10 +678,10 @@ class FalAdapter:
                     )
 
                     request_id = submit_result.request_id
-                    logger.info(f"✅ Wan Pro request submitted: {request_id}")
+                    logger.info(f"✅ Wan v2.2-5B request submitted: {request_id}")
 
                     # Wait for completion
-                    logger.info(f"⏳ Waiting for Wan Pro completion...")
+                    logger.info(f"⏳ Waiting for Wan v2.2-5B completion...")
                     result = await asyncio.to_thread(submit_result.get)
 
                 finally:
@@ -685,10 +700,10 @@ class FalAdapter:
                 )
 
                 request_id = result.request_id
-                logger.info(f"✅ Wan Pro request submitted with general key: {request_id}")
+                logger.info(f"✅ Wan v2.2-5B request submitted with general key: {request_id}")
 
                 # Wait for completion
-                logger.info(f"⏳ Waiting for Wan Pro completion...")
+                logger.info(f"⏳ Waiting for Wan v2.2-5B completion...")
                 result = await asyncio.to_thread(result.get)
 
             logger.info(f"📊 FAL AI response: {result}")
@@ -702,13 +717,13 @@ class FalAdapter:
                 return {
                     "success": True,
                     "video_url": video_url,
-                    "duration": 6,  # Wan Pro generates 6-second videos
-                    "aspect_ratio": "16:9",
-                    "quality": "1080p",
-                    "model": "wan-pro",
+                    "duration": 41/24,  # 41 frames at 24fps ≈ 1.7 seconds
+                    "aspect_ratio": "auto",
+                    "quality": "720p",
+                    "model": "wan-v2.2-5b",
                     "has_audio": False,
                     "preview": False,
-                    "processing_time": "~90 seconds"
+                    "processing_time": "~60 seconds"
                 }
             else:
                 logger.error(f"❌ FAL AI response missing video: {result}")
