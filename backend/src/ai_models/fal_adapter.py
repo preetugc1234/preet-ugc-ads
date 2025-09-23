@@ -136,8 +136,13 @@ class FalAdapter:
                 logger.error(f"❌ Error type: {type(submit_error).__name__}")
                 raise submit_error
 
+            # Handle different response formats for request_id
             if hasattr(handler, 'request_id'):
                 request_id = handler.request_id
+            elif isinstance(handler, dict) and 'request_id' in handler:
+                request_id = handler['request_id']
+            elif isinstance(handler, dict) and 'requestId' in handler:
+                request_id = handler['requestId']
             else:
                 request_id = str(handler)
 
@@ -677,12 +682,30 @@ class FalAdapter:
                         arguments=arguments
                     )
 
-                    request_id = submit_result.request_id
-                    logger.info(f"✅ Wan v2.2-5B request submitted: {request_id}")
+                    logger.info(f"🔍 Submit result type: {type(submit_result)}")
+                    logger.info(f"🔍 Submit result content: {submit_result}")
 
-                    # Wait for completion
-                    logger.info(f"⏳ Waiting for Wan v2.2-5B completion...")
-                    result = await asyncio.to_thread(submit_result.get)
+                    # Handle different response formats
+                    if hasattr(submit_result, 'request_id'):
+                        request_id = submit_result.request_id
+                        logger.info(f"✅ Wan v2.2-5B request submitted: {request_id}")
+                        # Wait for completion
+                        logger.info(f"⏳ Waiting for Wan v2.2-5B completion...")
+                        result = await asyncio.to_thread(submit_result.get)
+                    elif isinstance(submit_result, dict) and 'request_id' in submit_result:
+                        request_id = submit_result['request_id']
+                        logger.info(f"✅ Wan v2.2-5B request submitted (dict): {request_id}")
+                        # Wait for completion using fal_client.result
+                        logger.info(f"⏳ Waiting for Wan v2.2-5B completion...")
+                        result = await asyncio.to_thread(
+                            fal_client.result,
+                            self.models["img2vid_noaudio"],
+                            request_id
+                        )
+                    else:
+                        # Direct result case
+                        logger.info(f"✅ Wan v2.2-5B direct result received")
+                        result = submit_result
 
                 finally:
                     # Restore original key
@@ -693,18 +716,36 @@ class FalAdapter:
             else:
                 logger.warning(f"⚠️ No dedicated IMG2VID API key, using general FAL API key")
                 # Use general API key as fallback
-                result = await asyncio.to_thread(
+                submit_result = await asyncio.to_thread(
                     fal_client.submit,
                     self.models["img2vid_noaudio"],
                     arguments=arguments
                 )
 
-                request_id = result.request_id
-                logger.info(f"✅ Wan v2.2-5B request submitted with general key: {request_id}")
+                logger.info(f"🔍 Submit result type (general key): {type(submit_result)}")
+                logger.info(f"🔍 Submit result content (general key): {submit_result}")
 
-                # Wait for completion
-                logger.info(f"⏳ Waiting for Wan v2.2-5B completion...")
-                result = await asyncio.to_thread(result.get)
+                # Handle different response formats
+                if hasattr(submit_result, 'request_id'):
+                    request_id = submit_result.request_id
+                    logger.info(f"✅ Wan v2.2-5B request submitted with general key: {request_id}")
+                    # Wait for completion
+                    logger.info(f"⏳ Waiting for Wan v2.2-5B completion...")
+                    result = await asyncio.to_thread(submit_result.get)
+                elif isinstance(submit_result, dict) and 'request_id' in submit_result:
+                    request_id = submit_result['request_id']
+                    logger.info(f"✅ Wan v2.2-5B request submitted (dict) with general key: {request_id}")
+                    # Wait for completion using fal_client.result
+                    logger.info(f"⏳ Waiting for Wan v2.2-5B completion...")
+                    result = await asyncio.to_thread(
+                        fal_client.result,
+                        self.models["img2vid_noaudio"],
+                        request_id
+                    )
+                else:
+                    # Direct result case
+                    logger.info(f"✅ Wan v2.2-5B direct result received with general key")
+                    result = submit_result
 
             logger.info(f"📊 FAL AI response: {result}")
 
