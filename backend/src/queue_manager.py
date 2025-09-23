@@ -6,6 +6,7 @@ Handles job scheduling, status tracking, worker communication, and retry logic.
 import os
 import asyncio
 import logging
+import time
 from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional, Any
 from enum import Enum
@@ -144,9 +145,8 @@ class QueueManager:
         # For img2vid_noaudio, always use local processing for reliability
         if job["module"] == "img2vid_noaudio":
             logger.info(f"Using local processing for img2vid_noaudio job {job_id}")
-            # Don't use create_task - this was causing the infinite buffering
-            # Just await the processing directly
-            await self._mock_job_processing(job_id, job)
+            # Use create_task but ensure proper completion handling
+            asyncio.create_task(self._mock_job_processing(job_id, job))
             return
 
         # Call Supabase Edge Function for other modules
@@ -341,36 +341,13 @@ class QueueManager:
                         )
                         logger.info(f"✅ Image-to-video job {job_id} submitted to FAL AI successfully: {request_id}")
 
-                        # Don't return early! We need to wait for completion via polling or webhook
-                        # For now, let's use synchronous processing to avoid infinite buffering
-                        logger.info(f"Job {job_id} submitted to FAL AI, will wait for completion")
+                        # Job submitted successfully - let webhook handle completion
+                        # Schedule background polling as backup in case webhook fails
+                        asyncio.create_task(self._poll_fal_completion(job_id, request_id, user_id))
+                        logger.info(f"✅ Job {job_id} submitted to FAL AI successfully: {request_id}")
 
-                        # Set a reasonable timeout for completion (10 minutes)
-                        import time
-                        max_wait_time = 600  # 10 minutes
-                        start_time = time.time()
-
-                        # Poll for completion
-                        while time.time() - start_time < max_wait_time:
-                            await asyncio.sleep(15)  # Check every 15 seconds
-
-                            # Get the result
-                            async_result = await adapter.get_async_result(request_id)
-                            if async_result.get('success'):
-                                # Process the result
-                                final_asset = await asset_handler.handle_video_result(
-                                    async_result, str(job_id), user_id, False
-                                )
-                                final_urls = final_asset.get('urls', []) if final_asset.get('success') else []
-
-                                if final_urls:
-                                    logger.info(f"✅ FAL AI async processing successful for job {job_id}")
-                                    break
-                            elif async_result.get('status') == 'failed':
-                                raise Exception(f"FAL AI processing failed: {async_result.get('error')}")
-                        else:
-                            # Timeout reached
-                            raise Exception("FAL AI processing timed out after 10 minutes")
+                        # Exit the img2vid_noaudio processing since it's now async
+                        return
                     else:
                         error_msg = async_result.get('error', 'Unknown FAL AI error')
                         logger.error(f"❌ FAL AI async submission failed: {error_msg}")
@@ -541,6 +518,88 @@ class QueueManager:
         except Exception as e:
             logger.error(f"Failed to update job status for {job_id}: {e}")
             return False
+
+    async def _poll_fal_completion(self, job_id: ObjectId, request_id: str, user_id: str):
+        """Poll FAL AI for completion as backup to webhook."""
+        try:
+            from .ai_models.fal_adapter import FalAdapter
+            from .ai_models.asset_handler import AssetHandler
+
+            adapter = FalAdapter()
+            asset_handler = AssetHandler()
+
+            max_wait_time = 600  # 10 minutes
+            start_time = time.time()
+
+            # Poll every 30 seconds
+            while time.time() - start_time < max_wait_time:
+                await asyncio.sleep(30)
+
+                try:
+                    # Check if job was already completed by webhook
+                    db = get_db()
+                    job = db.jobs.find_one({"_id": job_id})
+                    if job and job.get("status") in ["completed", "failed"]:
+                        logger.info(f"Job {job_id} already completed via webhook")
+                        return
+
+                    # Get the result from FAL AI
+                    async_result = await adapter.get_async_result(request_id)
+                    if async_result.get('success'):
+                        # Process the result
+                        final_asset = await asset_handler.handle_video_result(
+                            async_result, str(job_id), user_id, False
+                        )
+                        final_urls = final_asset.get('urls', []) if final_asset.get('success') else []
+
+                        if final_urls:
+                            logger.info(f"✅ FAL AI polling completion successful for job {job_id}")
+
+                            # Update job as completed
+                            db.jobs.update_one(
+                                {"_id": job_id},
+                                {
+                                    "$set": {
+                                        "status": "completed",
+                                        "finalUrls": final_urls,
+                                        "completedAt": datetime.now(timezone.utc),
+                                        "updatedAt": datetime.now(timezone.utc)
+                                    }
+                                }
+                            )
+
+                            # Create generation record
+                            from .database import GenerationModel
+                            generation_doc = GenerationModel.create_generation(
+                                user_id=ObjectId(user_id),
+                                job_id=job_id,
+                                generation_type="img2vid_noaudio",
+                                preview_url="",
+                                final_urls=final_urls,
+                                size_bytes=sum([1024 for _ in final_urls])
+                            )
+                            db.generations.insert_one(generation_doc)
+
+                            # Handle history eviction
+                            from .database import cleanup_old_generations
+                            cleanup_old_generations(ObjectId(user_id), max_count=30)
+
+                            return
+
+                    elif async_result.get('status') == 'failed':
+                        raise Exception(f"FAL AI processing failed: {async_result.get('error')}")
+
+                except Exception as poll_error:
+                    logger.error(f"Polling error for job {job_id}: {poll_error}")
+                    continue
+
+            # Timeout reached - mark as failed
+            logger.error(f"FAL AI polling timed out for job {job_id}")
+            await self._handle_job_failure(job_id, "FAL AI processing timed out after 10 minutes")
+
+        except Exception as e:
+            logger.error(f"Error in FAL AI polling for job {job_id}: {e}")
+            await self._handle_job_failure(job_id, f"Polling error: {str(e)}")
 
     async def _handle_job_failure(
         self,
