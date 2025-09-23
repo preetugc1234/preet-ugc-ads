@@ -43,7 +43,7 @@ class FalAdapter:
         self.models = {
             "tts": "fal-ai/elevenlabs-text-to-speech/v1",  # Fixed TTS path
             "tts_turbo": "fal-ai/elevenlabs/tts/turbo-v2.5",  # ElevenLabs TTS Turbo v2.5
-            "img2vid_noaudio": "fal-ai/kling-video/v2.1/pro/image-to-video",  # Kling v2.1 Pro with correct params
+            "img2vid_noaudio": "fal-ai/wan-pro/image-to-video",  # Wan Pro Image-to-Video
             "img2vid_audio": "fal-ai/kling-video/v1/pro/ai-avatar",  # Kling v1 Pro AI Avatar
             "audio2vid": "veed/avatars/audio-to-video",  # Veed Avatars Audio-to-Video via Fal AI
             "image_generation": "fal-ai/flux/schnell"  # FLUX Schnell for image generation
@@ -630,44 +630,32 @@ class FalAdapter:
             if not image_url:
                 raise Exception("Image URL is required")
 
-            logger.info(f"🎬 Starting img2vid_noaudio generation with Kling v2.1 Pro")
-            logger.info(f"📷 Input: image_url length: {len(image_url)}, prompt: '{prompt}', duration: {duration}s")
+            logger.info(f"🎬 Starting img2vid_noaudio generation with Wan Pro")
+            logger.info(f"📷 Input: image_url length: {len(image_url)}, prompt: '{prompt}'")
 
-            # Kling v2.1 Pro parameters (according to documentation)
+            # Wan Pro Image-to-Video parameters (simple schema)
             arguments = {
-                "prompt": prompt if prompt else "Create smooth cinematic motion with natural camera movement",
+                "prompt": prompt if prompt else "A stylish scene with smooth cinematic motion",
                 "image_url": image_url,
-                "duration": str(duration),  # "5" or "10" as string
-                "aspect_ratio": params.get("aspect_ratio", "16:9"),
-                "negative_prompt": params.get("negative_prompt", "blur, distort, and low quality"),
-                "cfg_scale": params.get("cfg_scale", 0.5)
+                "enable_safety_checker": True
             }
 
-            # Add motion intensity by adjusting cfg_scale
-            if params.get("motion_intensity"):
-                motion_factor = float(params["motion_intensity"])
-                arguments["cfg_scale"] = min(max(motion_factor, 0.1), 1.0)
-
-            # Add optional parameters if provided
-            if params.get("static_mask_url"):
-                arguments["static_mask_url"] = params["static_mask_url"]
-            if params.get("dynamic_mask_url"):
-                arguments["dynamic_mask_url"] = params["dynamic_mask_url"]
-            if params.get("special_fx"):
-                arguments["special_fx"] = params["special_fx"]
+            # Add seed for reproducibility if provided
+            if params.get("seed"):
+                arguments["seed"] = int(params["seed"])
 
             logger.info(f"🔧 FAL AI arguments: {arguments}")
 
             # Use specific IMG2VID API key for this request
             if self.img2vid_api_key:
-                logger.info(f"🔑 Using dedicated IMG2VID API key for Kling v2.1 Pro")
+                logger.info(f"🔑 Using dedicated IMG2VID API key for Wan Pro")
                 # Temporarily set the environment variable for this specific call
                 original_key = os.environ.get("FAL_KEY")
                 os.environ["FAL_KEY"] = self.img2vid_api_key
 
                 try:
-                    # Submit async request to Kling v2.1 Pro (requires queue API)
-                    logger.info(f"📤 Submitting async request to Kling v2.1 Pro...")
+                    # Submit async request to Wan Pro (requires queue API)
+                    logger.info(f"📤 Submitting async request to Wan Pro...")
                     submit_result = await asyncio.to_thread(
                         fal_client.submit,
                         self.models["img2vid_noaudio"],
@@ -675,10 +663,10 @@ class FalAdapter:
                     )
 
                     request_id = submit_result.request_id
-                    logger.info(f"✅ Kling v2.1 Pro request submitted: {request_id}")
+                    logger.info(f"✅ Wan Pro request submitted: {request_id}")
 
                     # Wait for completion
-                    logger.info(f"⏳ Waiting for Kling v2.1 Pro completion...")
+                    logger.info(f"⏳ Waiting for Wan Pro completion...")
                     result = await asyncio.to_thread(submit_result.get)
 
                 finally:
@@ -688,8 +676,8 @@ class FalAdapter:
                     else:
                         os.environ.pop("FAL_KEY", None)
             else:
-                logger.error(f"❌ No dedicated IMG2VID API key - Kling v2.1 Pro requires specific key")
-                raise Exception("Kling v2.1 Pro requires dedicated API key")
+                logger.error(f"❌ No dedicated IMG2VID API key - Wan Pro requires specific key")
+                raise Exception("Wan Pro requires dedicated API key")
 
             logger.info(f"📊 FAL AI response: {result}")
 
@@ -702,13 +690,13 @@ class FalAdapter:
                 return {
                     "success": True,
                     "video_url": video_url,
-                    "duration": duration,
-                    "aspect_ratio": params.get("aspect_ratio", "16:9"),
-                    "quality": "pro",
-                    "model": "fal-ai-animatediff",
+                    "duration": 6,  # Wan Pro generates 6-second videos
+                    "aspect_ratio": "16:9",
+                    "quality": "1080p",
+                    "model": "wan-pro",
                     "has_audio": False,
                     "preview": False,
-                    "processing_time": f"~{duration*30} seconds"
+                    "processing_time": "~90 seconds"
                 }
             else:
                 logger.error(f"❌ FAL AI response missing video: {result}")
