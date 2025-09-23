@@ -57,6 +57,11 @@ class FalAdapter:
     async def submit_img2vid_noaudio_async(self, params: Dict[str, Any], webhook_url: str = None) -> Dict[str, Any]:
         """Submit Image-to-Video (no audio) request asynchronously with optional webhook."""
         try:
+            logger.info(f"💡 FAL Adapter init check - fal client: {bool(self.fal)}, api_key: {bool(self.api_key)}")
+
+            if not self.api_key:
+                raise Exception("FAL_API_KEY environment variable not set")
+
             if not self.fal:
                 raise Exception("Fal client not initialized - check API key")
 
@@ -65,8 +70,13 @@ class FalAdapter:
             duration = min(params.get("duration_seconds", 10), 10)
             quality = params.get("quality", "hd")
 
+            logger.info(f"📝 Processing params - image_url: {bool(image_url)}, prompt: {prompt[:50]}..., duration: {duration}s")
+
             if not image_url:
                 raise Exception("Image URL is required")
+
+            if not image_url.startswith(('http', 'data:')):
+                raise Exception(f"Invalid image URL format: {image_url[:50]}...")
 
             # Enhanced parameters for Kling v2.1 Pro
             arguments = {
@@ -86,25 +96,37 @@ class FalAdapter:
             if params.get("tail_image_url"):
                 arguments["tail_image_url"] = params["tail_image_url"]
 
-            logger.info(f"Submitting img2vid_noaudio with args: {arguments}")
+            logger.info(f"🚀 Submitting to FAL AI - Model: {self.models['img2vid_noaudio']}")
+            logger.info(f"🚀 Args: {arguments}")
+            logger.info(f"🚀 Webhook: {webhook_url}")
 
             # Submit request for async processing using the modern API
-            if hasattr(self.fal, 'submit'):
-                # New API
-                handler = await asyncio.to_thread(
-                    self.fal.submit,
-                    self.models["img2vid_noaudio"],
-                    arguments,
-                    webhook_url=webhook_url
-                )
-            else:
-                # Legacy API
-                handler = await asyncio.to_thread(
-                    fal_client.submit,
-                    self.models["img2vid_noaudio"],
-                    arguments=arguments,
-                    webhook_url=webhook_url
-                )
+            try:
+                if hasattr(self.fal, 'submit'):
+                    # New API
+                    logger.info("Using new FAL client API")
+                    handler = await asyncio.to_thread(
+                        self.fal.submit,
+                        self.models["img2vid_noaudio"],
+                        arguments,
+                        webhook_url=webhook_url
+                    )
+                else:
+                    # Legacy API
+                    logger.info("Using legacy FAL client API")
+                    handler = await asyncio.to_thread(
+                        fal_client.submit,
+                        self.models["img2vid_noaudio"],
+                        arguments=arguments,
+                        webhook_url=webhook_url
+                    )
+
+                logger.info(f"🎉 FAL AI submission successful - Handler: {handler}")
+
+            except Exception as submit_error:
+                logger.error(f"❌ FAL AI submission failed: {submit_error}")
+                logger.error(f"❌ Error type: {type(submit_error).__name__}")
+                raise submit_error
 
             if hasattr(handler, 'request_id'):
                 request_id = handler.request_id

@@ -126,8 +126,8 @@ class QueueManager:
         supabase_anon_key = os.getenv("SUPABASE_ANON_KEY", "")
 
         if not supabase_url or not supabase_anon_key:
-            logger.warning("Supabase credentials not configured. Using mock processing.")
-            # Schedule mock completion for demo
+            logger.warning("Supabase credentials not configured. Using local processing.")
+            # Schedule local processing that calls FAL AI directly
             asyncio.create_task(self._mock_job_processing(job_id, job))
             return
 
@@ -141,7 +141,13 @@ class QueueManager:
             "userId": str(job["userId"])
         }
 
-        # Call Supabase Edge Function
+        # For img2vid_noaudio, always use local processing for reliability
+        if job["module"] == "img2vid_noaudio":
+            logger.info(f"Using local processing for img2vid_noaudio job {job_id}")
+            asyncio.create_task(self._mock_job_processing(job_id, job))
+            return
+
+        # Call Supabase Edge Function for other modules
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
@@ -161,7 +167,7 @@ class QueueManager:
 
         except Exception as e:
             logger.error(f"Failed to call Supabase worker: {e}")
-            # Fallback to mock processing
+            # Fallback to local processing
             asyncio.create_task(self._mock_job_processing(job_id, job))
 
     async def _mock_job_processing(self, job_id: ObjectId, job: dict):
@@ -295,40 +301,75 @@ class QueueManager:
                 # For img2vid_noaudio, use async workflow for better performance
                 if module == 'img2vid_noaudio':
                     logger.info(f"Starting img2vid_noaudio async workflow for job {job_id}")
+                    logger.info(f"Input params: image_url length: {len(params.get('image_url', ''))}, prompt: {params.get('prompt', '')[:50]}...")
 
                     # Submit async request to FAL AI
                     webhook_url = f"{os.getenv('BACKEND_URL', 'https://preet-ugc-ads.onrender.com')}/api/webhooks/fal/{job_id}"
-                    async_result = await adapter.submit_img2vid_noaudio_async(params, webhook_url)
+                    logger.info(f"Webhook URL: {webhook_url}")
+
+                    try:
+                        async_result = await adapter.submit_img2vid_noaudio_async(params, webhook_url)
+                        logger.info(f"FAL AI async result: {async_result}")
+                    except Exception as fal_error:
+                        logger.error(f"FAL AI submission error: {fal_error}")
+                        raise Exception(f"FAL AI submission failed: {str(fal_error)}")
 
                     if async_result.get('success'):
                         # Store the request ID for tracking
+                        request_id = async_result.get('request_id')
+                        logger.info(f"FAL AI request ID: {request_id}")
+
                         db.jobs.update_one(
                             {"_id": job_id},
                             {
                                 "$set": {
                                     "status": "processing",
-                                    "providerRequestId": async_result.get('request_id'),
+                                    "providerRequestId": request_id,
                                     "processingMeta": {
                                         "model": async_result.get('model'),
                                         "estimated_time": async_result.get('estimated_processing_time'),
                                         "quality": async_result.get('quality'),
-                                        "duration": async_result.get('duration')
+                                        "duration": async_result.get('duration'),
+                                        "webhook_url": webhook_url
                                     },
                                     "updatedAt": datetime.now(timezone.utc)
                                 }
                             }
                         )
-                        logger.info(f"Image-to-video job {job_id} submitted to FAL AI: {async_result.get('request_id')}")
+                        logger.info(f"✅ Image-to-video job {job_id} submitted to FAL AI successfully: {request_id}")
 
                         # The webhook will handle completion, so we return early
                         return {
                             "success": True,
                             "status": "processing",
                             "message": "Job submitted to FAL AI for processing",
-                            "request_id": async_result.get('request_id')
+                            "request_id": request_id
                         }
                     else:
-                        raise Exception(f"Failed to submit to FAL AI: {async_result.get('error')}")
+                        error_msg = async_result.get('error', 'Unknown FAL AI error')
+                        logger.error(f"❌ FAL AI async submission failed: {error_msg}")
+
+                        # Try fallback sync method for immediate processing
+                        logger.info(f"🔄 Attempting fallback sync processing for job {job_id}")
+                        try:
+                            sync_result = await adapter.generate_img2vid_noaudio_final(params)
+                            if sync_result.get('success'):
+                                # Process sync result immediately
+                                final_asset = await asset_handler.handle_video_result(
+                                    sync_result, str(job_id), user_id, False
+                                )
+                                final_urls = final_asset.get('urls', []) if final_asset.get('success') else []
+
+                                if final_urls:
+                                    logger.info(f"✅ Sync fallback successful for job {job_id}")
+                                    # Don't return here, let the completion logic run
+                                else:
+                                    raise Exception("Sync fallback failed to generate URLs")
+                            else:
+                                raise Exception(f"Sync fallback failed: {sync_result.get('error')}")
+                        except Exception as sync_error:
+                            logger.error(f"❌ Sync fallback also failed: {sync_error}")
+                            raise Exception(f"Both async and sync methods failed: {error_msg}, {sync_error}")
 
                 else:
                     # Use existing sync workflow for other modules
