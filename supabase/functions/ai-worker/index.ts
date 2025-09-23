@@ -44,8 +44,8 @@ const MODULE_CONFIGS: Record<string, ModelConfig> = {
   "img2vid_noaudio": {
     name: "Image to Video (No Audio)",
     provider: "fal",
-    model: "fal-ai/kling-video/v2.1/pro/image-to-video",
-    avg_time_seconds: 360  // 6 minutes for Kling v2.1 Pro
+    model: "fal-ai/wan/v2.2-5b/image-to-video",
+    avg_time_seconds: 60  // ~60 seconds for Wan v2.2-5B
   },
   "tts": {
     name: "Text to Speech",
@@ -282,16 +282,31 @@ class ModelAdapter {
         break
 
       case 'img2vid_noaudio':
-        endpoint = 'fal-ai/kling-video/v2.1/pro/image-to-video'
+        endpoint = 'fal-ai/wan/v2.2-5b/image-to-video'
         requestPayload = {
           image_url: params.image_url,
-          prompt: params.prompt || 'Create smooth cinematic motion with natural camera movement',
-          duration: String(Math.min(params.duration_seconds || 5, isPreview ? 5 : 10)),
-          negative_prompt: params.negative_prompt || 'blur, distort, low quality, static image',
-          cfg_scale: params.cfg_scale || 0.5
+          prompt: params.prompt || 'Smooth cinematic motion with natural camera movement',
+          num_frames: 41,  // 41 frames for faster processing
+          frames_per_second: 24,
+          resolution: '720p',
+          aspect_ratio: 'auto',
+          num_inference_steps: 30,  // Reduced for speed
+          enable_safety_checker: true,
+          enable_prompt_expansion: false,
+          guidance_scale: 3.5,
+          shift: 5,
+          interpolator_model: 'film',
+          num_interpolated_frames: 0,
+          adjust_fps_for_interpolation: true,
+          video_quality: 'high',
+          video_write_mode: 'balanced'
         }
-        if (params.tail_image_url) {
-          requestPayload.tail_image_url = params.tail_image_url
+        // Add optional parameters if provided
+        if (params.seed) {
+          requestPayload.seed = parseInt(params.seed)
+        }
+        if (params.negative_prompt) {
+          requestPayload.negative_prompt = params.negative_prompt
         }
         break
 
@@ -364,11 +379,11 @@ class ModelAdapter {
           type: 'video',
           video_url: videoUrl,
           thumbnail_url: thumbnailUrl,
-          duration: result.video?.duration || result.duration || params.duration_seconds || 5,
+          duration: result.video?.duration || result.duration || (module === 'img2vid_noaudio' ? 41/24 : params.duration_seconds || 5),
           aspect_ratio: params.aspect_ratio || '16:9',
           fps: result.video?.fps || (isPreview ? 24 : 30),
           has_audio: module === 'img2vid_audio',
-          model: module === 'img2vid_noaudio' ? 'kling-v2.1-pro' : 'kling-v1-pro',
+          model: module === 'img2vid_noaudio' ? 'wan-v2.2-5b' : 'kling-v1-pro',
           preview: isPreview
         }
 
