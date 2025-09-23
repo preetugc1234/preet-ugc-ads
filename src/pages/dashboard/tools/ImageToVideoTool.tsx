@@ -175,15 +175,29 @@ const ImageToVideoTool = () => {
   const hasVideoUrls = jobStatus?.final_urls?.length > 0 || jobStatus?.preview_url;
   const videoUrl = jobStatus?.final_urls?.[0] || jobStatus?.preview_url;
 
-  // Debug logging for video URLs
-  if (jobStatus && hasVideoUrls) {
-    console.log('🎬 Video URLs available:', {
+  // COMPREHENSIVE DEBUG LOGGING
+  if (jobStatus) {
+    console.log('🔍 FULL JOB STATUS DEBUG:', {
+      jobId: currentJobId,
       status: jobStatus.status,
       preview_url: jobStatus.preview_url,
       final_urls: jobStatus.final_urls,
-      videoUrl: videoUrl
+      hasVideoUrls: hasVideoUrls,
+      videoUrl: videoUrl,
+      isJobCompleted: isJobCompleted,
+      isJobRunning: isJobRunning,
+      isJobFailed: isJobFailed,
+      fullResponse: jobStatus
     });
   }
+
+  // ADDITIONAL DEBUGGING
+  console.log('🎯 DISPLAY CONDITIONS:', {
+    shouldShowVideo: hasVideoUrls,
+    hasVideoUrls: hasVideoUrls,
+    currentJobId: currentJobId,
+    jobStatusExists: !!jobStatus
+  });
 
   const downloadVideo = async (url: string) => {
     try {
@@ -333,13 +347,35 @@ const ImageToVideoTool = () => {
           </div>
         )}
 
+        {/* DEBUG: Always show job status when available */}
+        {jobStatus && !hasVideoUrls && (
+          <div className="bg-yellow-100 p-4 text-sm text-yellow-800 rounded">
+            <h4 className="font-semibold">🔍 DEBUG: Job Status Available but No Video URLs</h4>
+            <p><strong>Status:</strong> {jobStatus.status}</p>
+            <p><strong>Preview URL:</strong> {jobStatus.preview_url || 'None'}</p>
+            <p><strong>Final URLs:</strong> {jobStatus.final_urls?.length || 0} items</p>
+            <details className="mt-2">
+              <summary>Full Response</summary>
+              <pre className="text-xs mt-1 bg-white p-2 rounded overflow-auto">
+                {JSON.stringify(jobStatus, null, 2)}
+              </pre>
+            </details>
+          </div>
+        )}
+
         {hasVideoUrls && (
           <div className="space-y-4">
+            <div className="bg-green-100 p-2 text-sm text-green-800 rounded">
+              🎬 DEBUG: Video section is rendering! URL: {videoUrl?.substring(0, 50)}...
+            </div>
             <div className="aspect-video bg-black rounded-lg overflow-hidden">
               <video
                 controls
                 className="w-full h-full"
                 poster={uploadedImage || undefined}
+                onLoadStart={() => console.log('🎬 Video loading started')}
+                onCanPlay={() => console.log('🎬 Video can play')}
+                onError={(e) => console.error('🎬 Video error:', e)}
               >
                 <source
                   src={videoUrl}
