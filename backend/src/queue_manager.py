@@ -289,51 +289,89 @@ class QueueManager:
                     raise Exception(f"TTS final generation failed: {final_result.get('error', 'Unknown error')}")
 
             elif module in ['img2vid_noaudio', 'img2vid_audio', 'audio2vid']:
-                # Fal AI Video workflows
+                # Fal AI Video workflows with improved async handling
                 adapter = FalAdapter()
 
-                # Generate preview
+                # For img2vid_noaudio, use async workflow for better performance
                 if module == 'img2vid_noaudio':
-                    preview_result = await adapter.generate_img2vid_noaudio_preview(params)
-                elif module == 'img2vid_audio':
-                    preview_result = await adapter.generate_img2vid_audio_preview(params)
-                else:  # audio2vid
-                    preview_result = await adapter.generate_audio2vid_preview(params)
+                    logger.info(f"Starting img2vid_noaudio async workflow for job {job_id}")
 
-                if preview_result.get('success'):
-                    preview_asset = await asset_handler.handle_video_result(
-                        preview_result, str(job_id), user_id, True
-                    )
+                    # Submit async request to FAL AI
+                    webhook_url = f"{os.getenv('BACKEND_URL', 'https://preet-ugc-ads.onrender.com')}/api/webhooks/fal/{job_id}"
+                    async_result = await adapter.submit_img2vid_noaudio_async(params, webhook_url)
 
-                    if preview_asset.get('success'):
+                    if async_result.get('success'):
+                        # Store the request ID for tracking
                         db.jobs.update_one(
                             {"_id": job_id},
                             {
                                 "$set": {
-                                    "previewUrl": preview_asset.get('urls', [''])[0] if preview_asset.get('urls') else '',
-                                    "status": "preview_ready",
-                                    "previewMeta": preview_asset.get('metadata', {}),
+                                    "status": "processing",
+                                    "providerRequestId": async_result.get('request_id'),
+                                    "processingMeta": {
+                                        "model": async_result.get('model'),
+                                        "estimated_time": async_result.get('estimated_processing_time'),
+                                        "quality": async_result.get('quality'),
+                                        "duration": async_result.get('duration')
+                                    },
                                     "updatedAt": datetime.now(timezone.utc)
                                 }
                             }
                         )
-                        logger.info(f"Video preview ready for job {job_id}")
+                        logger.info(f"Image-to-video job {job_id} submitted to FAL AI: {async_result.get('request_id')}")
 
-                # Generate final
-                if module == 'img2vid_noaudio':
-                    final_result = await adapter.generate_img2vid_noaudio_final(params)
-                elif module == 'img2vid_audio':
-                    final_result = await adapter.generate_img2vid_audio_final(params)
-                else:  # audio2vid
-                    final_result = await adapter.generate_audio2vid_final(params)
+                        # The webhook will handle completion, so we return early
+                        return {
+                            "success": True,
+                            "status": "processing",
+                            "message": "Job submitted to FAL AI for processing",
+                            "request_id": async_result.get('request_id')
+                        }
+                    else:
+                        raise Exception(f"Failed to submit to FAL AI: {async_result.get('error')}")
 
-                if final_result.get('success'):
-                    final_asset = await asset_handler.handle_video_result(
-                        final_result, str(job_id), user_id, False
-                    )
-                    final_urls = final_asset.get('urls', []) if final_asset.get('success') else []
                 else:
-                    raise Exception(f"Video final generation failed: {final_result.get('error', 'Unknown error')}")
+                    # Use existing sync workflow for other modules
+                    # Generate preview
+                    if module == 'img2vid_audio':
+                        preview_result = await adapter.generate_img2vid_audio_preview(params)
+                    else:  # audio2vid
+                        preview_result = await adapter.generate_audio2vid_preview(params)
+
+                    if preview_result.get('success'):
+                        preview_asset = await asset_handler.handle_video_result(
+                            preview_result, str(job_id), user_id, True
+                        )
+
+                        if preview_asset.get('success'):
+                            db.jobs.update_one(
+                                {"_id": job_id},
+                                {
+                                    "$set": {
+                                        "previewUrl": preview_asset.get('urls', [''])[0] if preview_asset.get('urls') else '',
+                                        "status": "preview_ready",
+                                        "previewMeta": preview_asset.get('metadata', {}),
+                                        "updatedAt": datetime.now(timezone.utc)
+                                    }
+                                }
+                            )
+                            logger.info(f"Video preview ready for job {job_id}")
+
+                    # Generate final
+                    if module == 'img2vid_audio':
+                        final_result = await adapter.generate_img2vid_audio_final(params)
+                    else:  # audio2vid
+                        final_result = await adapter.generate_audio2vid_final(params)
+
+                    if final_result.get('success'):
+                        final_asset = await asset_handler.handle_video_result(
+                            final_result, str(job_id), user_id, False
+                        )
+                        final_urls = final_asset.get('urls', []) if final_asset.get('success') else []
+                    else:
+                        raise Exception(f"Video final generation failed: {final_result.get('error', 'Unknown error')}")
+
+                # For non-img2vid_noaudio modules, continue with existing completion logic
 
             else:
                 raise Exception(f"Unsupported module: {module}")

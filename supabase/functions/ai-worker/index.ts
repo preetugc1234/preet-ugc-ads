@@ -260,6 +260,10 @@ class ModelAdapter {
       throw new Error('Fal API key not configured')
     }
 
+    // Use fal_client for proper async processing with queue support
+    const fal_client = await import('https://esm.sh/@fal-ai/serverless-client@0.14.2')
+    fal_client.config({ credentials: FAL_API_KEY })
+
     let endpoint: string
     let requestPayload: any
 
@@ -281,9 +285,9 @@ class ModelAdapter {
         endpoint = 'fal-ai/kling-video/v2.1/pro/image-to-video'
         requestPayload = {
           image_url: params.image_url,
-          prompt: params.prompt || '',
+          prompt: params.prompt || 'Create smooth cinematic motion with natural camera movement',
           duration: String(Math.min(params.duration_seconds || 5, isPreview ? 5 : 10)),
-          negative_prompt: params.negative_prompt || 'blur, distort, and low quality',
+          negative_prompt: params.negative_prompt || 'blur, distort, low quality, static image',
           cfg_scale: params.cfg_scale || 0.5
         }
         if (params.tail_image_url) {
@@ -303,13 +307,13 @@ class ModelAdapter {
         break
 
       case 'audio2vid':
-        endpoint = 'fal-ai/luma-dream-machine'
+        endpoint = 'veed/avatars/audio-to-video'
         requestPayload = {
-          prompt: params.prompt || 'A person speaking',
-          audio_url: params.audio_url,
-          duration: Math.min(params.duration_seconds || 30, isPreview ? 15 : 120),
-          aspect_ratio: params.aspect_ratio || '16:9',
-          quality: isPreview ? 'standard' : 'high'
+          avatar_id: params.avatar_id || 'emily_vertical_primary',
+          audio_url: params.audio_url
+        }
+        if (!params.audio_url) {
+          throw new Error('Audio URL is required for audio-to-video')
         }
         break
 
@@ -317,30 +321,30 @@ class ModelAdapter {
         throw new Error(`Unsupported Fal AI module: ${module}`)
     }
 
-    const response = await fetch(`https://fal.run/${endpoint}`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Key ${FAL_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(requestPayload)
+    // Use subscribe for synchronous processing with proper error handling
+    const result = await fal_client.subscribe(endpoint, {
+      input: requestPayload,
+      logs: true,
+      onQueueUpdate: (update) => {
+        console.log(`${module} queue update:`, update.status)
+      }
     })
 
-    if (!response.ok) {
-      throw new Error(`Fal AI error: ${response.status} - ${await response.text()}`)
+    if (!result) {
+      throw new Error(`No result from Fal AI for ${module}`)
     }
 
-    const result = await response.json()
+    console.log(`Fal AI ${module} result:`, JSON.stringify(result, null, 2))
 
     // Handle different response formats based on module
     switch (module) {
       case 'tts':
-        if (!result.audio_url) {
+        if (!result.audio_url && !result.audio?.url) {
           throw new Error('No audio URL in TTS result')
         }
         return {
           type: 'audio',
-          audio_url: result.audio_url,
+          audio_url: result.audio_url || result.audio?.url,
           text: params.text,
           voice: params.voice,
           duration: result.duration || 0,
@@ -350,33 +354,36 @@ class ModelAdapter {
 
       case 'img2vid_noaudio':
       case 'img2vid_audio':
-        if (!result.video) {
-          throw new Error('No video in result')
+        if (!result.video && !result.video_url) {
+          throw new Error(`No video in ${module} result: ${JSON.stringify(result)}`)
         }
+        const videoUrl = result.video?.url || result.video_url
+        const thumbnailUrl = result.video?.thumbnail_url || result.thumbnail_url
+
         return {
           type: 'video',
-          video_url: result.video.url,
-          thumbnail_url: result.video.thumbnail_url,
-          duration: result.video.duration || params.duration_seconds,
+          video_url: videoUrl,
+          thumbnail_url: thumbnailUrl,
+          duration: result.video?.duration || result.duration || params.duration_seconds || 5,
           aspect_ratio: params.aspect_ratio || '16:9',
-          fps: result.video.fps || (isPreview ? 24 : 30),
+          fps: result.video?.fps || (isPreview ? 24 : 30),
           has_audio: module === 'img2vid_audio',
-          model: 'kling',
+          model: module === 'img2vid_noaudio' ? 'kling-v2.1-pro' : 'kling-v1-pro',
           preview: isPreview
         }
 
       case 'audio2vid':
-        if (!result.video_url) {
-          throw new Error('No video URL in audio2vid result')
+        if (!result.video && !result.video_url) {
+          throw new Error(`No video in audio2vid result: ${JSON.stringify(result)}`)
         }
         return {
           type: 'video',
-          video_url: result.video_url,
-          thumbnail_url: result.thumbnail_url,
-          duration: result.duration || params.duration_seconds,
-          aspect_ratio: params.aspect_ratio || '16:9',
+          video_url: result.video?.url || result.video_url,
+          thumbnail_url: result.video?.thumbnail_url || result.thumbnail_url,
+          duration: result.video?.duration || result.duration || params.duration_seconds,
+          aspect_ratio: params.aspect_ratio || '9:16',
           quality: params.quality,
-          model: 'luma-dream-machine',
+          model: 'veed-avatars',
           preview: isPreview
         }
 

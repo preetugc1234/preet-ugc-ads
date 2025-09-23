@@ -57,73 +57,147 @@ class FalAdapter:
     async def submit_img2vid_noaudio_async(self, params: Dict[str, Any], webhook_url: str = None) -> Dict[str, Any]:
         """Submit Image-to-Video (no audio) request asynchronously with optional webhook."""
         try:
+            if not self.fal:
+                raise Exception("Fal client not initialized - check API key")
+
             image_url = params.get("image_url")
-            prompt = params.get("prompt", "")
+            prompt = params.get("prompt", "Create smooth cinematic motion with natural camera movement")
             duration = min(params.get("duration_seconds", 10), 10)
+            quality = params.get("quality", "hd")
 
             if not image_url:
                 raise Exception("Image URL is required")
 
+            # Enhanced parameters for Kling v2.1 Pro
             arguments = {
                 "image_url": image_url,
                 "prompt": prompt,
                 "duration": str(duration),
-                "negative_prompt": params.get("negative_prompt", "blur, distort, and low quality"),
+                "negative_prompt": params.get("negative_prompt", "blur, distort, low quality, static image, bad motion"),
                 "cfg_scale": params.get("cfg_scale", 0.5)
             }
+
+            # Add motion intensity if provided
+            if params.get("motion_intensity"):
+                # Map motion_intensity (0.1-1.0) to cfg_scale for better motion control
+                motion_factor = float(params["motion_intensity"])
+                arguments["cfg_scale"] = min(max(motion_factor, 0.1), 1.0)
 
             if params.get("tail_image_url"):
                 arguments["tail_image_url"] = params["tail_image_url"]
 
-            # Submit request for async processing
-            handler = await asyncio.to_thread(
-                fal_client.submit,
-                self.models["img2vid_noaudio"],
-                arguments=arguments,
-                webhook_url=webhook_url
-            )
+            logger.info(f"Submitting img2vid_noaudio with args: {arguments}")
+
+            # Submit request for async processing using the modern API
+            if hasattr(self.fal, 'submit'):
+                # New API
+                handler = await asyncio.to_thread(
+                    self.fal.submit,
+                    self.models["img2vid_noaudio"],
+                    arguments,
+                    webhook_url=webhook_url
+                )
+            else:
+                # Legacy API
+                handler = await asyncio.to_thread(
+                    fal_client.submit,
+                    self.models["img2vid_noaudio"],
+                    arguments=arguments,
+                    webhook_url=webhook_url
+                )
+
+            if hasattr(handler, 'request_id'):
+                request_id = handler.request_id
+            else:
+                request_id = str(handler)
+
+            logger.info(f"Image-to-video job submitted successfully: {request_id}")
 
             return {
                 "success": True,
-                "request_id": handler.request_id,
+                "request_id": request_id,
                 "status": "submitted",
                 "model": "kling-v2.1-pro",
-                "estimated_processing_time": "6 minutes"
+                "estimated_processing_time": "6 minutes",
+                "quality": quality,
+                "duration": duration
             }
 
         except Exception as e:
-            logger.error(f"Async submission failed: {e}")
+            logger.error(f"Image-to-video async submission failed: {e}")
             return {
                 "success": False,
                 "error": str(e)
             }
 
-    async def get_async_result(self, request_id: str) -> Dict[str, Any]:
+    async def get_async_result(self, request_id: str, model: str = None) -> Dict[str, Any]:
         """Get result from async submission."""
         try:
-            result = await asyncio.to_thread(
-                fal_client.result,
-                self.models["img2vid_noaudio"],
-                request_id
-            )
+            if not self.fal:
+                raise Exception("Fal client not initialized - check API key")
 
-            if result and "video" in result:
-                video_data = result["video"]
+            # Use the appropriate model endpoint
+            model_endpoint = model or self.models["img2vid_noaudio"]
+
+            if hasattr(self.fal, 'result'):
+                # New API
+                result = await asyncio.to_thread(
+                    self.fal.result,
+                    model_endpoint,
+                    request_id
+                )
+            else:
+                # Legacy API
+                result = await asyncio.to_thread(
+                    fal_client.result,
+                    model_endpoint,
+                    request_id
+                )
+
+            logger.info(f"Async result for {request_id}: {result}")
+
+            if result and ("video" in result or "video_url" in str(result)):
+                # Handle different response formats
+                if "video" in result and isinstance(result["video"], dict):
+                    video_data = result["video"]
+                    video_url = video_data.get("url")
+                    thumbnail_url = video_data.get("thumbnail_url")
+                    duration = video_data.get("duration", 5)
+                elif "video_url" in result:
+                    video_url = result["video_url"]
+                    thumbnail_url = result.get("thumbnail_url")
+                    duration = result.get("duration", 5)
+                else:
+                    # Try to extract from nested structure
+                    video_url = None
+                    for key, value in result.items():
+                        if isinstance(value, dict) and "url" in value:
+                            video_url = value["url"]
+                            thumbnail_url = value.get("thumbnail_url")
+                            duration = value.get("duration", 5)
+                            break
+
+                    if not video_url:
+                        raise Exception(f"No video URL found in result: {result}")
+
                 return {
                     "success": True,
-                    "video_url": video_data.get("url"),
+                    "video_url": video_url,
+                    "thumbnail_url": thumbnail_url,
+                    "duration": duration,
                     "model": "kling-v2.1-pro",
                     "status": "completed"
                 }
             else:
+                logger.error(f"No video in result for {request_id}: {result}")
                 return {
                     "success": False,
                     "status": "failed",
-                    "error": "No video generated"
+                    "error": f"No video generated. Result: {result}"
                 }
 
         except Exception as e:
-            logger.error(f"Failed to get async result: {e}")
+            logger.error(f"Failed to get async result for {request_id}: {e}")
             return {
                 "success": False,
                 "error": str(e),

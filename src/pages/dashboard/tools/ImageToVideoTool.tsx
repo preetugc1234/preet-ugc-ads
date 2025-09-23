@@ -309,7 +309,7 @@ const ImageToVideoTool = () => {
                   ></div>
                 </div>
                 <p className="text-xs text-gray-500">
-                  This usually takes 2-6 minutes using FAL AI Kling v2.1 Pro
+                  This usually takes 2-6 minutes using FAL AI Kling v2.1 Pro (Image-to-Video without audio)
                 </p>
               </div>
             </div>
@@ -399,10 +399,10 @@ const ImageToVideoTool = () => {
   return (
     <DashboardLayout>
       <ToolEditorLayout
-        toolName="Image to Video"
+        toolName="Image to Video (No Audio)"
         toolIcon={Video}
         credits="100-200/video"
-        estimatedTime="~45s"
+        estimatedTime="~6min"
         onGenerate={handleGenerate}
         isGenerating={createJobMutation.isPending || isJobRunning}
         canGenerate={!!uploadedImage && !isJobRunning}
