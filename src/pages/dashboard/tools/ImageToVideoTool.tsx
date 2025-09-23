@@ -171,6 +171,20 @@ const ImageToVideoTool = () => {
   const isJobCompleted = jobStatus?.status === 'completed';
   const isJobFailed = jobStatus?.status === 'failed';
 
+  // Check if we have video URLs available (more flexible)
+  const hasVideoUrls = jobStatus?.final_urls?.length > 0 || jobStatus?.preview_url;
+  const videoUrl = jobStatus?.final_urls?.[0] || jobStatus?.preview_url;
+
+  // Debug logging for video URLs
+  if (jobStatus && hasVideoUrls) {
+    console.log('🎬 Video URLs available:', {
+      status: jobStatus.status,
+      preview_url: jobStatus.preview_url,
+      final_urls: jobStatus.final_urls,
+      videoUrl: videoUrl
+    });
+  }
+
   const downloadVideo = async (url: string) => {
     try {
       // Generate descriptive filename
@@ -319,7 +333,7 @@ const ImageToVideoTool = () => {
           </div>
         )}
 
-        {(jobStatus?.preview_url || isJobCompleted) && (
+        {hasVideoUrls && (
           <div className="space-y-4">
             <div className="aspect-video bg-black rounded-lg overflow-hidden">
               <video
@@ -328,7 +342,7 @@ const ImageToVideoTool = () => {
                 poster={uploadedImage || undefined}
               >
                 <source
-                  src={isJobCompleted && jobStatus?.final_urls?.[0] ? jobStatus.final_urls[0] : jobStatus?.preview_url}
+                  src={videoUrl}
                   type="video/mp4"
                 />
                 Your browser does not support the video tag.
@@ -340,6 +354,8 @@ const ImageToVideoTool = () => {
                 <p><strong>Duration:</strong> 5 seconds (fixed)</p>
                 <p><strong>Quality:</strong> {qualities.find(q => q.value === quality)?.label}</p>
                 <p><strong>Model:</strong> FAL AI Wan v2.2-5B</p>
+                <p><strong>Status:</strong> {jobStatus?.status}</p>
+                {videoUrl && <p><strong>Video URL:</strong> ✅ Available</p>}
                 {jobStatus?.created_at && (
                   <p><strong>Generated:</strong> {new Date(jobStatus.created_at).toLocaleString()}</p>
                 )}
@@ -348,20 +364,10 @@ const ImageToVideoTool = () => {
                 )}
               </div>
               <div className="flex space-x-2">
-                {jobStatus?.preview_url && !isJobCompleted && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => downloadVideo(jobStatus.preview_url!)}
-                  >
+                {videoUrl ? (
+                  <Button onClick={() => downloadVideo(videoUrl)}>
                     <Download className="w-4 h-4 mr-2" />
-                    Preview
-                  </Button>
-                )}
-                {isJobCompleted && jobStatus?.final_urls?.[0] ? (
-                  <Button onClick={() => downloadVideo(jobStatus.final_urls![0])}>
-                    <Download className="w-4 h-4 mr-2" />
-                    Download MP4
+                    {isJobCompleted ? 'Download MP4' : 'Preview'}
                   </Button>
                 ) : isJobRunning ? (
                   <Button variant="outline" disabled>
