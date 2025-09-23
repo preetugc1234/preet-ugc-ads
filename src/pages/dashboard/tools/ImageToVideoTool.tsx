@@ -181,9 +181,12 @@ const ImageToVideoTool = () => {
 
   // Check if we have video URLs available (more flexible) - prioritize final_urls over preview_url
   const workerVideoUrl = jobStatus?.worker_meta?.video_url || jobStatus?.worker_meta?.final_url;
-  const videoUrl = jobStatus?.final_urls?.[0] || jobStatus?.preview_url || workerVideoUrl;
+  const videoUrl = jobStatus?.final_urls?.[0] || workerVideoUrl || jobStatus?.preview_url;
   const hasVideoUrls = !!videoUrl;
   const finalVideoUrl = videoUrl;
+
+  // AGGRESSIVE CHECK: If we have worker_meta with processing_complete, treat as ready
+  const isVideoReady = hasVideoUrls || (jobStatus?.worker_meta?.processing_complete && workerVideoUrl);
 
   // COMPREHENSIVE DEBUG LOGGING
   if (jobStatus) {
@@ -194,6 +197,7 @@ const ImageToVideoTool = () => {
       final_urls: jobStatus.final_urls,
       worker_meta: jobStatus.worker_meta,
       hasVideoUrls: hasVideoUrls,
+      isVideoReady: isVideoReady,
       videoUrl: videoUrl,
       workerVideoUrl: workerVideoUrl,
       finalVideoUrl: finalVideoUrl,
@@ -202,12 +206,18 @@ const ImageToVideoTool = () => {
       isJobFailed: isJobFailed,
       fullResponse: jobStatus
     });
+
+    // SPECIFIC DEBUG: Show worker_meta contents
+    if (jobStatus.worker_meta) {
+      console.log('🔧 WORKER_META DEBUG:', jobStatus.worker_meta);
+    }
   }
 
   // ADDITIONAL DEBUGGING
   console.log('🎯 DISPLAY CONDITIONS:', {
-    shouldShowVideo: hasVideoUrls,
+    shouldShowVideo: isVideoReady,
     hasVideoUrls: hasVideoUrls,
+    isVideoReady: isVideoReady,
     currentJobId: currentJobId,
     jobStatusExists: !!jobStatus,
     finalVideoUrl: finalVideoUrl
@@ -377,7 +387,7 @@ const ImageToVideoTool = () => {
           </div>
         )}
 
-        {hasVideoUrls && (
+        {isVideoReady && (
           <div className="space-y-4">
             <div className="bg-green-100 p-2 text-sm text-green-800 rounded">
               🎬 DEBUG: Video section is rendering! URL: {finalVideoUrl?.substring(0, 50)}...

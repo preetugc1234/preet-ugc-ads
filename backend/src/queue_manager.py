@@ -316,6 +316,23 @@ class QueueManager:
                         logger.info(f"🎯 FAL AI direct result: {sync_result}")
 
                         if sync_result.get('success'):
+                            # IMMEDIATE UPDATE: Store video URL in worker_meta first
+                            video_url = sync_result.get('video_url')
+                            if video_url:
+                                logger.info(f"🚀 IMMEDIATE UPDATE: Storing video URL in worker_meta for job {job_id}")
+                                db.jobs.update_one(
+                                    {"_id": job_id},
+                                    {
+                                        "$set": {
+                                            "workerMeta.video_url": video_url,
+                                            "workerMeta.final_url": video_url,
+                                            "workerMeta.processing_complete": True,
+                                            "updatedAt": datetime.now(timezone.utc)
+                                        }
+                                    }
+                                )
+                                logger.info(f"✅ Video URL immediately available in worker_meta: {video_url}")
+
                             # Process sync result immediately
                             final_asset = await asset_handler.handle_video_result(
                                 sync_result, str(job_id), user_id, False
