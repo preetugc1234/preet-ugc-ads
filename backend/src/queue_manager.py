@@ -144,7 +144,9 @@ class QueueManager:
         # For img2vid_noaudio, always use local processing for reliability
         if job["module"] == "img2vid_noaudio":
             logger.info(f"Using local processing for img2vid_noaudio job {job_id}")
-            asyncio.create_task(self._mock_job_processing(job_id, job))
+            # Don't use create_task - this was causing the infinite buffering
+            # Just await the processing directly
+            await self._mock_job_processing(job_id, job)
             return
 
         # Call Supabase Edge Function for other modules
@@ -185,8 +187,9 @@ class QueueManager:
             params = job['params']
             user_id = str(job['userId'])
 
-            # Initialize adapters
+            # Initialize adapters and variables
             asset_handler = AssetHandler()
+            final_urls = []  # Initialize final_urls for all modules
 
             # Process based on module type
             if module == 'chat':
@@ -338,19 +341,42 @@ class QueueManager:
                         )
                         logger.info(f"✅ Image-to-video job {job_id} submitted to FAL AI successfully: {request_id}")
 
-                        # The webhook will handle completion, so we return early
-                        return {
-                            "success": True,
-                            "status": "processing",
-                            "message": "Job submitted to FAL AI for processing",
-                            "request_id": request_id
-                        }
+                        # Don't return early! We need to wait for completion via polling or webhook
+                        # For now, let's use synchronous processing to avoid infinite buffering
+                        logger.info(f"Job {job_id} submitted to FAL AI, will wait for completion")
+
+                        # Set a reasonable timeout for completion (10 minutes)
+                        import time
+                        max_wait_time = 600  # 10 minutes
+                        start_time = time.time()
+
+                        # Poll for completion
+                        while time.time() - start_time < max_wait_time:
+                            await asyncio.sleep(15)  # Check every 15 seconds
+
+                            # Get the result
+                            async_result = await adapter.get_async_result(request_id)
+                            if async_result.get('success'):
+                                # Process the result
+                                final_asset = await asset_handler.handle_video_result(
+                                    async_result, str(job_id), user_id, False
+                                )
+                                final_urls = final_asset.get('urls', []) if final_asset.get('success') else []
+
+                                if final_urls:
+                                    logger.info(f"✅ FAL AI async processing successful for job {job_id}")
+                                    break
+                            elif async_result.get('status') == 'failed':
+                                raise Exception(f"FAL AI processing failed: {async_result.get('error')}")
+                        else:
+                            # Timeout reached
+                            raise Exception("FAL AI processing timed out after 10 minutes")
                     else:
                         error_msg = async_result.get('error', 'Unknown FAL AI error')
                         logger.error(f"❌ FAL AI async submission failed: {error_msg}")
 
-                        # Try fallback sync method for immediate processing
-                        logger.info(f"🔄 Attempting fallback sync processing for job {job_id}")
+                        # Try direct sync method as fallback
+                        logger.info(f"🔄 Attempting direct sync processing for job {job_id}")
                         try:
                             sync_result = await adapter.generate_img2vid_noaudio_final(params)
                             if sync_result.get('success'):
@@ -361,15 +387,15 @@ class QueueManager:
                                 final_urls = final_asset.get('urls', []) if final_asset.get('success') else []
 
                                 if final_urls:
-                                    logger.info(f"✅ Sync fallback successful for job {job_id}")
-                                    # Don't return here, let the completion logic run
+                                    logger.info(f"✅ Direct sync processing successful for job {job_id}")
+                                    # Continue with completion logic below
                                 else:
-                                    raise Exception("Sync fallback failed to generate URLs")
+                                    raise Exception("Direct sync processing failed to generate URLs")
                             else:
-                                raise Exception(f"Sync fallback failed: {sync_result.get('error')}")
+                                raise Exception(f"Direct sync processing failed: {sync_result.get('error')}")
                         except Exception as sync_error:
-                            logger.error(f"❌ Sync fallback also failed: {sync_error}")
-                            raise Exception(f"Both async and sync methods failed: {error_msg}, {sync_error}")
+                            logger.error(f"❌ Direct sync processing also failed: {sync_error}")
+                            raise Exception(f"All processing methods failed: {error_msg}, {sync_error}")
 
                 else:
                     # Use existing sync workflow for other modules
@@ -412,6 +438,7 @@ class QueueManager:
                     else:
                         raise Exception(f"Video final generation failed: {final_result.get('error', 'Unknown error')}")
 
+                # For img2vid_noaudio, final_urls should already be set above
                 # For non-img2vid_noaudio modules, continue with existing completion logic
 
             else:

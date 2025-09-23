@@ -628,20 +628,29 @@ class FalAdapter:
                 "image_url": image_url,
                 "prompt": prompt,
                 "duration": str(duration),
-                "negative_prompt": params.get("negative_prompt", "blur, distort, and low quality"),
+                "negative_prompt": params.get("negative_prompt", "blur, distort, low quality, static image, bad motion"),
                 "cfg_scale": params.get("cfg_scale", 0.5)
             }
+
+            # Add motion intensity if provided
+            if params.get("motion_intensity"):
+                # Map motion_intensity (0.1-1.0) to cfg_scale for better motion control
+                motion_factor = float(params["motion_intensity"])
+                arguments["cfg_scale"] = min(max(motion_factor, 0.1), 1.0)
 
             # Add tail image if provided for more sophisticated videos
             if params.get("tail_image_url"):
                 arguments["tail_image_url"] = params["tail_image_url"]
 
-            # Submit request asynchronously
+            logger.info(f"🎬 Starting sync img2vid_noaudio generation with args: {arguments}")
+
+            # Submit request synchronously for immediate processing
             result = await asyncio.to_thread(
                 fal_client.subscribe,
                 self.models["img2vid_noaudio"],
                 arguments=arguments,
-                with_logs=True
+                with_logs=True,
+                logs=True
             )
 
             if result and "video" in result:
