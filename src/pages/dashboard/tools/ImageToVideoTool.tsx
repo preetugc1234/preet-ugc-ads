@@ -30,17 +30,6 @@ const ImageToVideoTool = () => {
     refetchInterval: 5000, // Poll every 5 seconds for video generation (60-90s duration)
   });
 
-  // AUTO-REFRESH for old jobs without video URLs
-  useEffect(() => {
-    if (jobStatus && jobAge > 30 && !finalVideoUrl && !workerVideoUrl && jobStatus?.status === 'processing') {
-      console.log('🔄 AUTO-REFRESH: Job is old and missing video URL, refreshing status...');
-      const timer = setTimeout(() => {
-        refetchJobStatus();
-      }, 3000); // Auto-refresh after 3 seconds
-
-      return () => clearTimeout(timer);
-    }
-  }, [jobAge, finalVideoUrl, workerVideoUrl, jobStatus?.status, refetchJobStatus]);
 
   // Fixed 5 seconds duration - no user selection needed
   const fixedDuration = { value: "5", label: "5 seconds", credits: 100 };
@@ -207,6 +196,18 @@ const ImageToVideoTool = () => {
   const displayVideoUrl = finalVideoUrl || emergencyVideoUrl;
 
   const shouldShowVideo = isVideoReady || forceShowVideo || (emergencyShow && displayVideoUrl);
+
+  // AUTO-REFRESH for old jobs without video URLs
+  useEffect(() => {
+    if (jobStatus && jobAge > 30 && !finalVideoUrl && !workerVideoUrl && jobStatus?.status === 'processing') {
+      console.log('🔄 AUTO-REFRESH: Job is old and missing video URL, refreshing status...');
+      const timer = setTimeout(() => {
+        refetchJobStatus();
+      }, 3000); // Auto-refresh after 3 seconds
+
+      return () => clearTimeout(timer);
+    }
+  }, [jobAge, finalVideoUrl, workerVideoUrl, jobStatus?.status, refetchJobStatus]);
 
   // COMPREHENSIVE DEBUG LOGGING
   if (jobStatus) {
