@@ -175,7 +175,8 @@ class QueueManager:
     async def _mock_job_processing(self, job_id: ObjectId, job: dict):
         """Process job using local AI adapters when Supabase is not available."""
         try:
-            logger.info(f"Processing job {job_id} locally with module {job['module']}")
+            logger.info(f"🚀 Processing job {job_id} locally with module {job['module']}")
+            logger.info(f"📋 Job params: {job['params']}")
 
             # Import AI adapters
             from .ai_models.openrouter_adapter import OpenRouterAdapter
@@ -186,6 +187,8 @@ class QueueManager:
             module = job['module']
             params = job['params']
             user_id = str(job['userId'])
+
+            logger.info(f"🔧 Initialized adapters for module: {module}")
 
             # Initialize adapters and variables
             asset_handler = AssetHandler()
@@ -301,78 +304,40 @@ class QueueManager:
                 # Fal AI Video workflows with improved async handling
                 adapter = FalAdapter()
 
-                # For img2vid_noaudio, use async workflow for better performance
+                # For img2vid_noaudio, use DIRECT sync processing for reliability
                 if module == 'img2vid_noaudio':
-                    logger.info(f"Starting img2vid_noaudio async workflow for job {job_id}")
-                    logger.info(f"Input params: image_url length: {len(params.get('image_url', ''))}, prompt: {params.get('prompt', '')[:50]}...")
-
-                    # Submit async request to FAL AI
-                    webhook_url = f"{os.getenv('BACKEND_URL', 'https://preet-ugc-ads.onrender.com')}/api/webhooks/fal/{job_id}"
-                    logger.info(f"Webhook URL: {webhook_url}")
+                    logger.info(f"🎬 Starting img2vid_noaudio DIRECT processing for job {job_id}")
+                    logger.info(f"📷 Input params: image_url length: {len(params.get('image_url', ''))}, prompt: '{params.get('prompt', '')}'")
 
                     try:
-                        async_result = await adapter.submit_img2vid_noaudio_async(params, webhook_url)
-                        logger.info(f"FAL AI async result: {async_result}")
-                    except Exception as fal_error:
-                        logger.error(f"FAL AI submission error: {fal_error}")
-                        raise Exception(f"FAL AI submission failed: {str(fal_error)}")
+                        # Use direct sync processing instead of async for immediate results
+                        logger.info(f"🔄 Using direct FAL AI processing for reliability...")
+                        sync_result = await adapter.generate_img2vid_noaudio_final(params)
+                        logger.info(f"🎯 FAL AI direct result: {sync_result}")
 
-                    if async_result.get('success'):
-                        # Store the request ID for tracking
-                        request_id = async_result.get('request_id')
-                        logger.info(f"FAL AI request ID: {request_id}")
+                        if sync_result.get('success'):
+                            # Process sync result immediately
+                            final_asset = await asset_handler.handle_video_result(
+                                sync_result, str(job_id), user_id, False
+                            )
+                            final_urls = final_asset.get('urls', []) if final_asset.get('success') else []
 
-                        db.jobs.update_one(
-                            {"_id": job_id},
-                            {
-                                "$set": {
-                                    "status": "processing",
-                                    "providerRequestId": request_id,
-                                    "processingMeta": {
-                                        "model": async_result.get('model'),
-                                        "estimated_time": async_result.get('estimated_processing_time'),
-                                        "quality": async_result.get('quality'),
-                                        "duration": async_result.get('duration'),
-                                        "webhook_url": webhook_url
-                                    },
-                                    "updatedAt": datetime.now(timezone.utc)
-                                }
-                            }
-                        )
-                        logger.info(f"✅ Image-to-video job {job_id} submitted to FAL AI successfully: {request_id}")
-
-                        # Job submitted successfully - let webhook handle completion
-                        # Schedule background polling as backup in case webhook fails
-                        asyncio.create_task(self._poll_fal_completion(job_id, request_id, user_id))
-                        logger.info(f"✅ Job {job_id} submitted to FAL AI successfully: {request_id}")
-
-                        # Exit the img2vid_noaudio processing since it's now async
-                        return
-                    else:
-                        error_msg = async_result.get('error', 'Unknown FAL AI error')
-                        logger.error(f"❌ FAL AI async submission failed: {error_msg}")
-
-                        # Try direct sync method as fallback
-                        logger.info(f"🔄 Attempting direct sync processing for job {job_id}")
-                        try:
-                            sync_result = await adapter.generate_img2vid_noaudio_final(params)
-                            if sync_result.get('success'):
-                                # Process sync result immediately
-                                final_asset = await asset_handler.handle_video_result(
-                                    sync_result, str(job_id), user_id, False
-                                )
-                                final_urls = final_asset.get('urls', []) if final_asset.get('success') else []
-
-                                if final_urls:
-                                    logger.info(f"✅ Direct sync processing successful for job {job_id}")
-                                    # Continue with completion logic below
-                                else:
-                                    raise Exception("Direct sync processing failed to generate URLs")
+                            if final_urls:
+                                logger.info(f"✅ Direct processing successful for job {job_id}: {final_urls}")
+                                # Continue with completion logic below
                             else:
-                                raise Exception(f"Direct sync processing failed: {sync_result.get('error')}")
-                        except Exception as sync_error:
-                            logger.error(f"❌ Direct sync processing also failed: {sync_error}")
-                            raise Exception(f"All processing methods failed: {error_msg}, {sync_error}")
+                                logger.error(f"❌ Asset handler failed for job {job_id}: {final_asset}")
+                                raise Exception("Asset handler failed to generate URLs")
+                        else:
+                            error_msg = sync_result.get('error', 'Unknown FAL AI error')
+                            logger.error(f"❌ FAL AI direct processing failed: {error_msg}")
+                            raise Exception(f"FAL AI processing failed: {error_msg}")
+
+                    except Exception as processing_error:
+                        logger.error(f"❌ img2vid_noaudio processing failed for job {job_id}: {processing_error}")
+                        # Mark job as failed and exit
+                        await self._handle_job_failure(job_id, f"Processing failed: {str(processing_error)}")
+                        return
 
                 else:
                     # Use existing sync workflow for other modules
