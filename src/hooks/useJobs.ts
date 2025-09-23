@@ -64,13 +64,24 @@ export const useCreateJob = () => {
 }
 
 // Job status polling hook
-export const useJobStatus = (jobId: string | null, enabled: boolean = true) => {
+export const useJobStatus = (jobId: string | null, options?: { enabled?: boolean, refetchInterval?: number }) => {
+  const enabled = options?.enabled ?? true;
+  const customRefetchInterval = options?.refetchInterval;
+
   return useQuery({
     queryKey: ['job', 'status', jobId],
     queryFn: () => jobId ? api.getJobStatus(jobId) : null,
     enabled: enabled && !!jobId,
     refetchInterval: (data) => {
-      // Poll every 3 seconds if job is still processing
+      // Use custom interval if provided
+      if (customRefetchInterval) {
+        if (data?.status === 'queued' || data?.status === 'processing' || data?.status === 'preview_ready') {
+          return customRefetchInterval;
+        }
+        return false;
+      }
+
+      // Default: Poll every 3 seconds if job is still processing
       if (data?.status === 'queued' || data?.status === 'processing' || data?.status === 'preview_ready') {
         return 3000
       }
@@ -78,6 +89,10 @@ export const useJobStatus = (jobId: string | null, enabled: boolean = true) => {
       return false
     },
     staleTime: 0, // Always consider stale to enable polling
+    retry: 10, // Retry up to 10 times on network errors
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
+    refetchOnWindowFocus: false, // Don't refetch when window regains focus
+    refetchOnReconnect: true, // Refetch when connection is restored
   })
 }
 

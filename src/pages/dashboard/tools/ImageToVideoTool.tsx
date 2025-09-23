@@ -27,7 +27,7 @@ const ImageToVideoTool = () => {
   const createJobMutation = useCreateJob();
   const { data: jobStatus, refetch: refetchJobStatus } = useJobStatus(currentJobId || '', {
     enabled: !!currentJobId,
-    refetchInterval: 3000, // Poll every 3 seconds
+    refetchInterval: 5000, // Poll every 5 seconds for video generation (60-90s duration)
   });
 
   // Fixed 5 seconds duration - no user selection needed
@@ -306,9 +306,14 @@ const ImageToVideoTool = () => {
                     }}
                   ></div>
                 </div>
-                <p className="text-xs text-gray-500">
-                  This usually takes 60-90 seconds using FAL AI Wan v2.2-5B (5 seconds video)
-                </p>
+                <div className="space-y-1">
+                  <p className="text-xs text-gray-500">
+                    This usually takes 90-180 seconds using FAL AI Wan v2.2-5B (5 seconds video)
+                  </p>
+                  <p className="text-xs text-blue-600">
+                    ⏱️ Please wait - video is being generated and will appear once complete
+                  </p>
+                </div>
               </div>
             </div>
           </div>
