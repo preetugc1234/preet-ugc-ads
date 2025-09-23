@@ -188,6 +188,11 @@ const ImageToVideoTool = () => {
   // AGGRESSIVE CHECK: If we have worker_meta with processing_complete, treat as ready
   const isVideoReady = hasVideoUrls || (jobStatus?.worker_meta?.processing_complete && workerVideoUrl);
 
+  // SUPER AGGRESSIVE: Force show video if job has been running for more than 2 minutes and has any URL
+  const jobAge = jobStatus?.created_at ? (Date.now() - new Date(jobStatus.created_at).getTime()) / 1000 : 0;
+  const forceShowVideo = jobAge > 120 && (videoUrl || workerVideoUrl);
+  const shouldShowVideo = isVideoReady || forceShowVideo;
+
   // COMPREHENSIVE DEBUG LOGGING
   if (jobStatus) {
     console.log('🔍 FULL JOB STATUS DEBUG:', {
@@ -198,6 +203,9 @@ const ImageToVideoTool = () => {
       worker_meta: jobStatus.worker_meta,
       hasVideoUrls: hasVideoUrls,
       isVideoReady: isVideoReady,
+      shouldShowVideo: shouldShowVideo,
+      forceShowVideo: forceShowVideo,
+      jobAge: jobAge,
       videoUrl: videoUrl,
       workerVideoUrl: workerVideoUrl,
       finalVideoUrl: finalVideoUrl,
@@ -215,9 +223,11 @@ const ImageToVideoTool = () => {
 
   // ADDITIONAL DEBUGGING
   console.log('🎯 DISPLAY CONDITIONS:', {
-    shouldShowVideo: isVideoReady,
+    shouldShowVideo: shouldShowVideo,
     hasVideoUrls: hasVideoUrls,
     isVideoReady: isVideoReady,
+    forceShowVideo: forceShowVideo,
+    jobAge: jobAge,
     currentJobId: currentJobId,
     jobStatusExists: !!jobStatus,
     finalVideoUrl: finalVideoUrl
@@ -372,12 +382,30 @@ const ImageToVideoTool = () => {
         )}
 
         {/* DEBUG: Always show job status when available */}
-        {jobStatus && !hasVideoUrls && (
+        {jobStatus && !shouldShowVideo && (
           <div className="bg-yellow-100 p-4 text-sm text-yellow-800 rounded">
             <h4 className="font-semibold">🔍 DEBUG: Job Status Available but No Video URLs</h4>
             <p><strong>Status:</strong> {jobStatus.status}</p>
             <p><strong>Preview URL:</strong> {jobStatus.preview_url || 'None'}</p>
             <p><strong>Final URLs:</strong> {jobStatus.final_urls?.length || 0} items</p>
+            <p><strong>Worker Video URL:</strong> {workerVideoUrl || 'None'}</p>
+            <p><strong>Any Video URL:</strong> {finalVideoUrl || 'None'}</p>
+
+            {/* EMERGENCY BUTTON: Force show video if any URL exists */}
+            {(workerVideoUrl || finalVideoUrl) && (
+              <div className="mt-3">
+                <Button
+                  onClick={() => {
+                    console.log('🚨 EMERGENCY: Forcing video display with URL:', finalVideoUrl || workerVideoUrl);
+                    window.location.reload(); // Force refresh
+                  }}
+                  className="bg-red-500 hover:bg-red-600 text-white"
+                >
+                  🚨 FORCE SHOW VIDEO (Emergency)
+                </Button>
+              </div>
+            )}
+
             <details className="mt-2">
               <summary>Full Response</summary>
               <pre className="text-xs mt-1 bg-white p-2 rounded overflow-auto">
@@ -387,7 +415,7 @@ const ImageToVideoTool = () => {
           </div>
         )}
 
-        {isVideoReady && (
+        {shouldShowVideo && (
           <div className="space-y-4">
             <div className="bg-green-100 p-2 text-sm text-green-800 rounded">
               🎬 DEBUG: Video section is rendering! URL: {finalVideoUrl?.substring(0, 50)}...
