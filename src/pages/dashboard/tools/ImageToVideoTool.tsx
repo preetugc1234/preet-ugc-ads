@@ -17,7 +17,7 @@ const ImageToVideoTool = () => {
   const { isAuthenticated } = useAuth();
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
-  const [duration, setDuration] = useState("5");
+  const duration = "5"; // Fixed 5 seconds
   const [quality, setQuality] = useState("hd");
   const [motionPrompt, setMotionPrompt] = useState("");
   const [intensity, setIntensity] = useState([0.7]);
@@ -30,10 +30,8 @@ const ImageToVideoTool = () => {
     refetchInterval: 3000, // Poll every 3 seconds
   });
 
-  const durations = [
-    { value: "5", label: "5 seconds", credits: 100 },
-    { value: "10", label: "10 seconds", credits: 200 }
-  ];
+  // Fixed 5 seconds duration - no user selection needed
+  const fixedDuration = { value: "5", label: "5 seconds", credits: 100 };
 
   const qualities = [
     { value: "hd", label: "HD (720p)", description: "Good quality, faster" },
@@ -154,13 +152,13 @@ const ImageToVideoTool = () => {
   };
 
   const calculateCost = () => {
-    const baseCost = durations.find(d => d.value === duration)?.credits || 100;
+    const baseCost = fixedDuration.credits;
     const qualityMultiplier = quality === '4k' ? 2 : quality === 'fhd' ? 1.5 : 1;
     return Math.round(baseCost * qualityMultiplier);
   };
 
   const costBreakdown = {
-    baseCost: durations.find(d => d.value === duration)?.credits || 100,
+    baseCost: fixedDuration.credits,
     additionalCosts: quality !== 'hd' ? [
       { name: quality === '4k' ? '4K Quality' : 'Full HD Quality',
         cost: quality === '4k' ? 100 : 50 }
@@ -309,7 +307,7 @@ const ImageToVideoTool = () => {
                   ></div>
                 </div>
                 <p className="text-xs text-gray-500">
-                  This usually takes 2-6 minutes using FAL AI Kling v2.1 Pro (Image-to-Video without audio)
+                  This usually takes 60-90 seconds using FAL AI Wan v2.2-5B (5 seconds video)
                 </p>
               </div>
             </div>
@@ -334,9 +332,9 @@ const ImageToVideoTool = () => {
 
             <div className="flex items-center justify-between">
               <div className="text-sm text-gray-600 dark:text-gray-400">
-                <p><strong>Duration:</strong> {duration} seconds</p>
+                <p><strong>Duration:</strong> 5 seconds (fixed)</p>
                 <p><strong>Quality:</strong> {qualities.find(q => q.value === quality)?.label}</p>
-                <p><strong>Model:</strong> FAL AI Kling v2.1 Pro</p>
+                <p><strong>Model:</strong> FAL AI Wan v2.2-5B</p>
                 {jobStatus?.created_at && (
                   <p><strong>Generated:</strong> {new Date(jobStatus.created_at).toLocaleString()}</p>
                 )}
@@ -475,23 +473,15 @@ const ImageToVideoTool = () => {
             <CardTitle className="text-base">Video Settings</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <Label>Duration</Label>
-              <Select value={duration} onValueChange={setDuration}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {durations.map((d) => (
-                    <SelectItem key={d.value} value={d.value}>
-                      <div className="flex justify-between w-full">
-                        <span>{d.label}</span>
-                        <span className="text-xs text-gray-500 ml-4">{d.credits} credits</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* Fixed 5 seconds duration - no user selection */}
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-blue-900 dark:text-blue-100">Video Duration</p>
+                  <p className="text-sm text-blue-700 dark:text-blue-300">Fixed at 5 seconds for optimal quality</p>
+                </div>
+                <Badge variant="secondary">5s</Badge>
+              </div>
             </div>
 
             <div>
@@ -533,21 +523,27 @@ const ImageToVideoTool = () => {
         {/* Motion Description */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Motion Description (Optional)</CardTitle>
+            <CardTitle className="text-base">Motion Description</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label htmlFor="motionPrompt">Describe the motion</Label>
+              <Label htmlFor="motionPrompt" className="text-base font-semibold">
+                🎬 Describe Your Motion (Required)
+              </Label>
               <Textarea
                 id="motionPrompt"
-                placeholder="Describe how you want the image to move..."
+                placeholder="Example: Gentle head nod with natural eye movement, subtle smile appearing..."
                 value={motionPrompt}
                 onChange={(e) => setMotionPrompt(e.target.value)}
-                className="min-h-[80px]"
+                className="min-h-[100px] text-base"
               />
-              <p className="text-xs text-gray-500 mt-1">
-                Leave blank for automatic motion generation
-              </p>
+              <div className="flex items-start space-x-2 mt-2">
+                <div className="w-2 h-2 rounded-full bg-blue-500 mt-2"></div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <strong>Be specific!</strong> Describe exactly how you want your image to move.
+                  Better descriptions = better videos. Leave empty for automatic motion.
+                </p>
+              </div>
             </div>
 
             <div className="space-y-2">

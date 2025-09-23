@@ -286,11 +286,11 @@ class ModelAdapter {
         requestPayload = {
           image_url: params.image_url,
           prompt: params.prompt || 'Smooth cinematic motion with natural camera movement',
-          num_frames: 41,  // 41 frames for faster processing
+          num_frames: 120,  // 120 frames for exactly 5 seconds at 24fps
           frames_per_second: 24,
           resolution: '720p',
           aspect_ratio: 'auto',
-          num_inference_steps: 30,  // Reduced for speed
+          num_inference_steps: 30,
           enable_safety_checker: true,
           enable_prompt_expansion: false,
           guidance_scale: 3.5,
@@ -379,7 +379,7 @@ class ModelAdapter {
           type: 'video',
           video_url: videoUrl,
           thumbnail_url: thumbnailUrl,
-          duration: result.video?.duration || result.duration || (module === 'img2vid_noaudio' ? 41/24 : params.duration_seconds || 5),
+          duration: result.video?.duration || result.duration || (module === 'img2vid_noaudio' ? 5 : params.duration_seconds || 5),
           aspect_ratio: params.aspect_ratio || '16:9',
           fps: result.video?.fps || (isPreview ? 24 : 30),
           has_audio: module === 'img2vid_audio',

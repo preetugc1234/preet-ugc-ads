@@ -633,11 +633,11 @@ class FalAdapter:
             logger.info(f"🎬 Starting img2vid_noaudio generation with Wan v2.2-5B")
             logger.info(f"📷 Input: image_url length: {len(image_url)}, prompt: '{prompt}'")
 
-            # Wan v2.2-5B parameters (optimized for quality and speed)
+            # Wan v2.2-5B parameters (fixed 5 seconds)
             arguments = {
                 "image_url": image_url,
                 "prompt": prompt if prompt else "Smooth cinematic motion with natural camera movement",
-                "num_frames": 41,  # Shorter for faster processing (41 frames)
+                "num_frames": 120,  # Exactly 5 seconds at 24fps (120 frames)
                 "frames_per_second": 24,
                 "resolution": "720p",
                 "aspect_ratio": "auto",
@@ -717,13 +717,13 @@ class FalAdapter:
                 return {
                     "success": True,
                     "video_url": video_url,
-                    "duration": 41/24,  # 41 frames at 24fps ≈ 1.7 seconds
+                    "duration": 5.0,  # Exactly 5 seconds (120 frames at 24fps)
                     "aspect_ratio": "auto",
                     "quality": "720p",
                     "model": "wan-v2.2-5b",
                     "has_audio": False,
                     "preview": False,
-                    "processing_time": "~60 seconds"
+                    "processing_time": "~90 seconds"
                 }
             else:
                 logger.error(f"❌ FAL AI response missing video: {result}")
