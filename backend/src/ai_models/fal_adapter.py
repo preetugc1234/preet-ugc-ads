@@ -618,7 +618,7 @@ class FalAdapter:
             }
 
     async def generate_img2vid_noaudio_final(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate final Image-to-Video (no audio) - MOCK implementation for reliability."""
+        """Generate final Image-to-Video (no audio) using AnimateDiff."""
         try:
             image_url = params.get("image_url")
             prompt = params.get("prompt", "")
@@ -627,32 +627,66 @@ class FalAdapter:
             if not image_url:
                 raise Exception("Image URL is required")
 
-            logger.info(f"🎬 MOCK img2vid_noaudio generation - simulating successful processing")
-            logger.info(f"📷 Input: {len(image_url)} chars, prompt: '{prompt}', duration: {duration}s")
+            logger.info(f"🎬 Starting img2vid_noaudio generation with FAL AI")
+            logger.info(f"📷 Input: image_url length: {len(image_url)}, prompt: '{prompt}', duration: {duration}s")
 
-            # Simulate processing delay
-            await asyncio.sleep(2)
+            # Convert duration to frames (assuming 8 fps)
+            num_frames = min(duration * 8, 24)  # Max 24 frames for AnimateDiff
 
-            # Return mock successful result with a demo video URL
-            mock_video_url = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-
-            return {
-                "success": True,
-                "video_url": mock_video_url,
-                "duration": duration,
-                "aspect_ratio": params.get("aspect_ratio", "16:9"),
-                "quality": "pro",
-                "model": "mock-img2vid",
-                "has_audio": False,
-                "preview": False,
-                "processing_time": "~2 seconds (mock)"
+            arguments = {
+                "prompt": f"{prompt}, smooth motion, cinematic",
+                "negative_prompt": params.get("negative_prompt", "blur, distort, low quality, static image, bad motion"),
+                "num_frames": num_frames,
+                "fps": 8,
+                "seed": None  # Random seed for variety
             }
 
+            # Add motion intensity to prompt if provided
+            if params.get("motion_intensity"):
+                motion_factor = float(params["motion_intensity"])
+                if motion_factor > 0.7:
+                    arguments["prompt"] += ", dynamic motion"
+                elif motion_factor < 0.3:
+                    arguments["prompt"] += ", gentle motion"
+
+            logger.info(f"🔧 FAL AI arguments: {arguments}")
+
+            # Submit request to FAL AI
+            result = await asyncio.to_thread(
+                fal_client.run,
+                self.models["img2vid_noaudio"],
+                arguments=arguments
+            )
+
+            logger.info(f"📊 FAL AI response: {result}")
+
+            if result and "video" in result:
+                video_data = result["video"]
+                video_url = video_data.get("url") if isinstance(video_data, dict) else video_data
+
+                logger.info(f"✅ FAL AI img2vid_noaudio successful: {video_url}")
+
+                return {
+                    "success": True,
+                    "video_url": video_url,
+                    "duration": duration,
+                    "aspect_ratio": params.get("aspect_ratio", "16:9"),
+                    "quality": "pro",
+                    "model": "fal-ai-animatediff",
+                    "has_audio": False,
+                    "preview": False,
+                    "processing_time": f"~{duration*30} seconds"
+                }
+            else:
+                logger.error(f"❌ FAL AI response missing video: {result}")
+                raise Exception(f"FAL AI returned no video. Response: {result}")
+
         except Exception as e:
-            logger.error(f"Mock image-to-video failed: {e}")
+            logger.error(f"❌ FAL AI img2vid_noaudio failed: {e}")
+            logger.error(f"❌ This indicates FAL AI service is blocked or unavailable")
             return {
                 "success": False,
-                "error": str(e),
+                "error": f"FAL AI service error: {str(e)}",
                 "video_url": None
             }
 
