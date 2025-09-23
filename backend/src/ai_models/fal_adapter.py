@@ -24,20 +24,28 @@ class FalAdapter:
         self.img2vid_api_key = os.getenv("FAL_IMG2VID_API_KEY")  # Specific key for img2vid
         self.base_url = "https://fal.run"
 
-        # Initialize fal client with fallback for different versions
+        # Initialize fal client - always use general FAL API key
         try:
-            # Try new SyncClient API (newer versions)
-            if hasattr(fal_client, 'SyncClient'):
-                self.fal = fal_client.SyncClient(key=self.api_key) if self.api_key else None
+            if self.api_key:
+                # Set the environment variable for FAL client
+                os.environ["FAL_KEY"] = self.api_key
+
+                # Try new SyncClient API (newer versions)
+                if hasattr(fal_client, 'SyncClient'):
+                    self.fal = fal_client.SyncClient(key=self.api_key)
+                    logger.info("Using modern fal_client.SyncClient with general FAL API key")
+                else:
+                    # Fallback for older versions - just use fal_client directly
+                    self.fal = fal_client
+                    logger.info("Using legacy fal_client API with general FAL API key")
             else:
-                # Fallback for older versions - just use fal_client directly
-                self.fal = fal_client if self.api_key else None
-                logger.info("Using legacy fal_client API")
+                logger.warning("FAL API key not available - FAL client will not be initialized")
+                self.fal = None
         except Exception as e:
             logger.warning(f"Could not initialize fal client: {e}")
             self.fal = None
 
-        logger.info(f"🔑 FAL API Keys - General: {bool(self.api_key)}, IMG2VID: {bool(self.img2vid_api_key)}")
+        logger.info(f"🔑 FAL API Key Status - General: {bool(self.api_key)}")
 
         # Fal AI model endpoints (correct models)
         self.models = {
@@ -49,17 +57,8 @@ class FalAdapter:
             "image_generation": "fal-ai/flux/schnell"  # FLUX Schnell for image generation
         }
 
-        # Configure environment variable for backward compatibility
-        if self.api_key:
-            os.environ["FAL_KEY"] = self.api_key
-        else:
-            # Try to get from existing env
-            self.api_key = os.getenv("FAL_KEY") or os.getenv("FAL_API_KEY")
-            if self.api_key:
-                os.environ["FAL_KEY"] = self.api_key
-
         if not self.api_key:
-            logger.warning("Fal AI API key not configured")
+            logger.warning("⚠️ FAL_API_KEY not configured - video generation will fail")
 
     # Async submission methods for long-running requests
     async def submit_img2vid_noaudio_async(self, params: Dict[str, Any], webhook_url: str = None) -> Dict[str, Any]:
@@ -666,86 +665,47 @@ class FalAdapter:
 
             logger.info(f"🔧 FAL AI arguments: {arguments}")
 
-            # Use specific IMG2VID API key for this request
-            if self.img2vid_api_key:
-                logger.info(f"🔑 Using dedicated IMG2VID API key for Wan v2.2-5B")
-                # Temporarily set the environment variable for this specific call
-                original_key = os.environ.get("FAL_KEY")
-                os.environ["FAL_KEY"] = self.img2vid_api_key
+            # ALWAYS use general FAL API key (matches working local setup)
+            logger.info(f"🔑 Using general FAL API key for Wan v2.2-5B (matching local setup)")
 
-                try:
-                    # Submit async request to Wan v2.2-5B (requires queue API)
-                    logger.info(f"📤 Submitting async request to Wan v2.2-5B...")
-                    submit_result = await asyncio.to_thread(
-                        fal_client.submit,
-                        self.models["img2vid_noaudio"],
-                        arguments=arguments
-                    )
+            # Ensure general FAL API key is set in environment
+            if not self.api_key:
+                raise Exception("General FAL_API_KEY not available")
 
-                    logger.info(f"🔍 Submit result type: {type(submit_result)}")
-                    logger.info(f"🔍 Submit result content: {submit_result}")
+            os.environ["FAL_KEY"] = self.api_key
 
-                    # Handle different response formats
-                    if hasattr(submit_result, 'request_id'):
-                        request_id = submit_result.request_id
-                        logger.info(f"✅ Wan v2.2-5B request submitted: {request_id}")
-                        # Wait for completion
-                        logger.info(f"⏳ Waiting for Wan v2.2-5B completion...")
-                        result = await asyncio.to_thread(submit_result.get)
-                    elif isinstance(submit_result, dict) and 'request_id' in submit_result:
-                        request_id = submit_result['request_id']
-                        logger.info(f"✅ Wan v2.2-5B request submitted (dict): {request_id}")
-                        # Wait for completion using fal_client.result
-                        logger.info(f"⏳ Waiting for Wan v2.2-5B completion...")
-                        result = await asyncio.to_thread(
-                            fal_client.result,
-                            self.models["img2vid_noaudio"],
-                            request_id
-                        )
-                    else:
-                        # Direct result case
-                        logger.info(f"✅ Wan v2.2-5B direct result received")
-                        result = submit_result
+            # Submit async request to Wan v2.2-5B using general FAL API key
+            logger.info(f"📤 Submitting async request to Wan v2.2-5B...")
+            submit_result = await asyncio.to_thread(
+                fal_client.submit,
+                self.models["img2vid_noaudio"],
+                arguments=arguments
+            )
 
-                finally:
-                    # Restore original key
-                    if original_key:
-                        os.environ["FAL_KEY"] = original_key
-                    else:
-                        os.environ.pop("FAL_KEY", None)
-            else:
-                logger.warning(f"⚠️ No dedicated IMG2VID API key, using general FAL API key")
-                # Use general API key as fallback
-                submit_result = await asyncio.to_thread(
-                    fal_client.submit,
+            logger.info(f"🔍 Submit result type: {type(submit_result)}")
+            logger.info(f"🔍 Submit result content: {submit_result}")
+
+            # Handle different response formats
+            if hasattr(submit_result, 'request_id'):
+                request_id = submit_result.request_id
+                logger.info(f"✅ Wan v2.2-5B request submitted: {request_id}")
+                # Wait for completion
+                logger.info(f"⏳ Waiting for Wan v2.2-5B completion...")
+                result = await asyncio.to_thread(submit_result.get)
+            elif isinstance(submit_result, dict) and 'request_id' in submit_result:
+                request_id = submit_result['request_id']
+                logger.info(f"✅ Wan v2.2-5B request submitted (dict): {request_id}")
+                # Wait for completion using fal_client.result
+                logger.info(f"⏳ Waiting for Wan v2.2-5B completion...")
+                result = await asyncio.to_thread(
+                    fal_client.result,
                     self.models["img2vid_noaudio"],
-                    arguments=arguments
+                    request_id
                 )
-
-                logger.info(f"🔍 Submit result type (general key): {type(submit_result)}")
-                logger.info(f"🔍 Submit result content (general key): {submit_result}")
-
-                # Handle different response formats
-                if hasattr(submit_result, 'request_id'):
-                    request_id = submit_result.request_id
-                    logger.info(f"✅ Wan v2.2-5B request submitted with general key: {request_id}")
-                    # Wait for completion
-                    logger.info(f"⏳ Waiting for Wan v2.2-5B completion...")
-                    result = await asyncio.to_thread(submit_result.get)
-                elif isinstance(submit_result, dict) and 'request_id' in submit_result:
-                    request_id = submit_result['request_id']
-                    logger.info(f"✅ Wan v2.2-5B request submitted (dict) with general key: {request_id}")
-                    # Wait for completion using fal_client.result
-                    logger.info(f"⏳ Waiting for Wan v2.2-5B completion...")
-                    result = await asyncio.to_thread(
-                        fal_client.result,
-                        self.models["img2vid_noaudio"],
-                        request_id
-                    )
-                else:
-                    # Direct result case
-                    logger.info(f"✅ Wan v2.2-5B direct result received with general key")
-                    result = submit_result
+            else:
+                # Direct result case
+                logger.info(f"✅ Wan v2.2-5B direct result received")
+                result = submit_result
 
             logger.info(f"📊 FAL AI response: {result}")
 
