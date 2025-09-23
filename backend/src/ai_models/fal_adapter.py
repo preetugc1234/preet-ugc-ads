@@ -676,8 +676,20 @@ class FalAdapter:
                     else:
                         os.environ.pop("FAL_KEY", None)
             else:
-                logger.error(f"❌ No dedicated IMG2VID API key - Wan Pro requires specific key")
-                raise Exception("Wan Pro requires dedicated API key")
+                logger.warning(f"⚠️ No dedicated IMG2VID API key, using general FAL API key")
+                # Use general API key as fallback
+                result = await asyncio.to_thread(
+                    fal_client.submit,
+                    self.models["img2vid_noaudio"],
+                    arguments=arguments
+                )
+
+                request_id = result.request_id
+                logger.info(f"✅ Wan Pro request submitted with general key: {request_id}")
+
+                # Wait for completion
+                logger.info(f"⏳ Waiting for Wan Pro completion...")
+                result = await asyncio.to_thread(result.get)
 
             logger.info(f"📊 FAL AI response: {result}")
 
