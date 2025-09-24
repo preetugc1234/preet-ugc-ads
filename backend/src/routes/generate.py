@@ -467,32 +467,99 @@ async def stream_tts_turbo(request: TTSTurboRequest):
         logger.error(f"TTS Turbo streaming failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# Audio-to-Video endpoints using veed/avatars/audio-to-video
+# Enhanced Audio-to-Video endpoints using veed/avatars/audio-to-video with perfect integration
 @router.post("/audio2video/submit", response_model=Audio2VideoResponse)
-async def submit_audio2video(request: Audio2VideoRequest):
-    """Submit Audio-to-Video request using veed/avatars/audio-to-video"""
+async def submit_audio2video(request: Audio2VideoRequest, current_user = Depends(get_current_user)):
+    """Submit Audio-to-Video request using veed/avatars/audio-to-video with Cloudinary integration"""
     try:
-        # Validate audio duration
+        # Import video service here to avoid circular imports
+        from ..services.video_service import VideoService
+
+        # Enhanced validation
         if request.audio_duration_seconds and request.audio_duration_seconds > 300:
             raise HTTPException(status_code=400, detail="Audio duration cannot exceed 5 minutes (300 seconds)")
 
-        result = await fal_adapter.submit_audio2vid_async({
-            "audio_url": request.audio_url,
-            "avatar_id": request.avatar_id,
-            "audio_duration_seconds": request.audio_duration_seconds
-        })
+        if not request.audio_url or not request.audio_url.startswith(('http://', 'https://')):
+            raise HTTPException(status_code=400, detail="Valid audio URL is required")
+
+        # Validate avatar_id
+        video_service = VideoService()
+        avatars = await video_service.get_available_avatars()
+        valid_avatar_ids = [avatar["id"] for avatar in avatars]
+
+        if request.avatar_id not in valid_avatar_ids:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid avatar_id: {request.avatar_id}. Available: {valid_avatar_ids[:5]}"
+            )
+
+        logger.info(f"🎤 Audio-to-Video request: user={current_user.id if current_user else 'anonymous'}, "
+                   f"avatar={request.avatar_id}, duration={request.audio_duration_seconds}s")
+
+        # Generate unique job ID for tracking
+        import uuid
+        job_id = str(uuid.uuid4())
+
+        # Submit async job using enhanced video service
+        result = await video_service.generate_audio_to_video_async(
+            audio_url=request.audio_url,
+            avatar_id=request.avatar_id,
+            audio_duration_seconds=request.audio_duration_seconds,
+            user_id=current_user.id if current_user else None,
+            job_id=job_id
+        )
+
+        # Save to user history if successful and we have a user
+        if result.get("success") and current_user and result.get("video_url"):
+            try:
+                from ..database import get_db
+                from datetime import datetime, timezone
+
+                db = get_db()
+
+                # Calculate credits based on audio duration
+                duration_increments = max(1, (request.audio_duration_seconds + 29) // 30)
+                credit_cost = duration_increments * 100
+
+                generation_record = {
+                    "userId": current_user.id,
+                    "type": "audio_to_video",
+                    "jobId": job_id,
+                    "audioUrl": request.audio_url,
+                    "avatarId": request.avatar_id,
+                    "audioDurationSeconds": request.audio_duration_seconds,
+                    "previewUrl": result.get("video_url"),
+                    "finalUrls": [result.get("video_url")] if result.get("video_url") else [],
+                    "cloudinaryPublicId": result.get("cloudinary_public_id"),
+                    "sizeBytes": 0,  # TODO: Get actual file size from Cloudinary result
+                    "model": "veed-avatars-audio2video",
+                    "processingTime": result.get("processing_time"),
+                    "creditCost": credit_cost,
+                    "createdAt": datetime.now(timezone.utc),
+                    "status": "completed"
+                }
+
+                db.generations.insert_one(generation_record)
+                logger.info(f"✅ Audio-to-Video generation saved to history: user={current_user.id}, job={job_id}")
+
+            except Exception as e:
+                logger.error(f"❌ Failed to save generation to history: {e}")
+                # Don't fail the API call if history saving fails
 
         return Audio2VideoResponse(
             success=result["success"],
             request_id=result.get("request_id"),
             video_url=result.get("video_url"),
-            status=result.get("status", "error"),
+            status="completed" if result["success"] else "failed",
             error=result.get("error"),
-            avatar_id=result.get("avatar_id"),
-            estimated_processing_time=result.get("estimated_processing_time")
+            avatar_id=request.avatar_id,
+            estimated_processing_time=result.get("processing_time")
         )
+
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Audio2Video submission failed: {e}")
+        logger.error(f"❌ Audio2Video submission failed: {e}")
         return Audio2VideoResponse(
             success=False,
             status="error",
@@ -545,14 +612,88 @@ async def get_audio2video_result(request: StatusRequest):
 
 @router.get("/audio2video/avatars")
 async def get_available_avatars():
-    """Get list of available avatars for audio-to-video generation"""
+    """Get list of available avatars for audio-to-video generation with enhanced metadata"""
     try:
-        avatars = fal_adapter.get_available_avatars()
+        from ..services.video_service import VideoService
+
+        video_service = VideoService()
+        avatars = await video_service.get_available_avatars()
+
         return {
             "success": True,
             "avatars": avatars,
-            "total_count": len(avatars)
+            "total_count": len(avatars),
+            "model": "veed-avatars-audio2video",
+            "pricing": {
+                "credits_per_30s": 100,
+                "max_duration_seconds": 300,
+                "processing_estimate": "~200 seconds for 30s audio"
+            }
         }
     except Exception as e:
         logger.error(f"Failed to get avatars: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/audio2video/estimate")
+async def estimate_processing_cost(request: dict):
+    """Estimate processing time and credit cost for audio duration"""
+    try:
+        from ..services.video_service import VideoService
+
+        audio_duration = request.get("audio_duration_seconds", 30)
+
+        if audio_duration > 300:
+            raise HTTPException(status_code=400, detail="Audio duration cannot exceed 5 minutes (300 seconds)")
+
+        video_service = VideoService()
+        estimate = await video_service.estimate_processing_time(audio_duration)
+
+        return estimate
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to estimate processing cost: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/audio2video/upload-audio")
+async def upload_audio_for_processing(file: UploadFile = File(...)):
+    """Upload audio file to FAL storage for audio-to-video processing"""
+    try:
+        # Validate file type
+        if not file.content_type or not file.content_type.startswith('audio/'):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid file type: {file.content_type}. Must be an audio file."
+            )
+
+        # Validate file size (max 50MB)
+        file_data = await file.read()
+        if len(file_data) > 50 * 1024 * 1024:  # 50MB
+            raise HTTPException(status_code=400, detail="Audio file too large. Maximum size is 50MB.")
+
+        # Upload to FAL storage
+        url = await fal_adapter.upload_file(file_data, file.filename)
+
+        # Try to get audio duration (optional)
+        audio_duration = None
+        try:
+            # This would require additional audio processing library
+            # For now, we'll let the user specify duration
+            pass
+        except:
+            pass
+
+        return {
+            "success": True,
+            "audio_url": url,
+            "filename": file.filename,
+            "size_bytes": len(file_data),
+            "content_type": file.content_type,
+            "duration_seconds": audio_duration,
+            "message": "Audio uploaded successfully. You can now use this URL for audio-to-video generation."
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Audio upload failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))

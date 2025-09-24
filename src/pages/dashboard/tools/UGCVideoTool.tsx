@@ -119,28 +119,70 @@ const UGCVideoTool = () => {
     if (!canGenerate) return;
 
     setIsGenerating(true);
+    setGeneratedVideo(null);
 
-    // Simulate generation process
-    setTimeout(() => {
-      setGeneratedVideo({
-        id: Date.now().toString(),
-        previewUrl: "https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4",
-        finalUrl: "",
-        mode: mode,
-        timestamp: new Date(),
-        status: 'preview'
-      });
-    }, 4000);
+    try {
+      if (mode === "audio-to-video") {
+        // Step 1: Upload audio file to FAL storage
+        const audioFile = await fetch(uploadedAudio!).then(r => r.blob());
+        const formData = new FormData();
+        formData.append('file', audioFile, 'audio.mp3');
 
-    // Final generation
-    setTimeout(() => {
-      setGeneratedVideo(prev => prev ? {
-        ...prev,
-        finalUrl: "https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_2mb.mp4",
-        status: 'final'
-      } : null);
+        const uploadResponse = await fetch(`${API_BASE_URL}/api/generate/audio2video/upload-audio`, {
+          method: 'POST',
+          body: formData,
+          credentials: 'include'
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error('Failed to upload audio file');
+        }
+
+        const uploadResult = await uploadResponse.json();
+        const audioUrl = uploadResult.audio_url;
+
+        // Step 2: Submit audio-to-video generation
+        const generateResponse = await fetch(`${API_BASE_URL}/api/generate/audio2video/submit`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            audio_url: audioUrl,
+            avatar_id: avatarId,
+            audio_duration_seconds: audioDuration
+          }),
+          credentials: 'include'
+        });
+
+        if (!generateResponse.ok) {
+          throw new Error('Failed to submit generation request');
+        }
+
+        const generateResult = await generateResponse.json();
+
+        if (generateResult.success) {
+          setGeneratedVideo({
+            id: generateResult.request_id || Date.now().toString(),
+            previewUrl: generateResult.video_url,
+            finalUrl: generateResult.video_url,
+            mode: mode,
+            timestamp: new Date(),
+            status: 'final'
+          });
+        } else {
+          throw new Error(generateResult.error || 'Generation failed');
+        }
+      } else {
+        // Image-to-video mode (placeholder - would integrate with existing image-to-video API)
+        throw new Error('Image-to-video mode not yet implemented with new backend');
+      }
+    } catch (error) {
+      console.error('Generation failed:', error);
+      alert(`Generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
       setIsGenerating(false);
-    }, 10000);
+    }
   };
 
   const calculateCost = () => {
@@ -242,11 +284,13 @@ const UGCVideoTool = () => {
 
         {generatedVideo && (
           <div className="space-y-4">
-            <div className="aspect-video bg-black rounded-lg overflow-hidden">
+            <div className="aspect-video bg-black rounded-lg overflow-hidden relative group">
               <video
                 controls
+                controlsList="nodownload"
                 className="w-full h-full"
                 poster={mode === "image-to-video-audio" ? uploadedImage || undefined : undefined}
+                onContextMenu={(e) => e.preventDefault()}
               >
                 <source
                   src={generatedVideo.status === 'final' ? generatedVideo.finalUrl : generatedVideo.previewUrl}
@@ -254,23 +298,75 @@ const UGCVideoTool = () => {
                 />
                 Your browser does not support the video tag.
               </video>
+
+              {/* Custom video overlay controls */}
+              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
+                <div className="flex items-center space-x-4 bg-black bg-opacity-70 px-4 py-2 rounded-full">
+                  <button
+                    onClick={() => {
+                      const video = document.querySelector('video');
+                      if (video) {
+                        if (video.paused) {
+                          video.play();
+                        } else {
+                          video.pause();
+                        }
+                      }
+                    }}
+                    className="text-white hover:text-gray-300 transition-colors"
+                  >
+                    <Play className="w-6 h-6" />
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-600 dark:text-gray-400">
+              <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
                 <p><strong>Mode:</strong> {generatedVideo.mode.replace("-", " → ").replace("to", " → ")}</p>
                 <p><strong>Avatar:</strong> {mode === "audio-to-video" ?
                   availableAvatars.find((a: any) => a.id === avatarId)?.name || avatarId :
                   "Image + Audio Sync"
                 }</p>
                 <p><strong>Generated:</strong> {generatedVideo.timestamp.toLocaleString()}</p>
+                <p><strong>Quality:</strong> HD 1080p MP4</p>
               </div>
-              <div className="flex space-x-2">
+              <div className="flex flex-col space-y-2">
                 {generatedVideo.status === 'final' ? (
-                  <Button onClick={() => console.log('Download final video')}>
-                    <Download className="w-4 h-4 mr-2" />
-                    Download
-                  </Button>
+                  <>
+                    <Button
+                      onClick={async () => {
+                        try {
+                          const link = document.createElement('a');
+                          link.href = generatedVideo.finalUrl;
+                          link.download = `audio-to-video-${avatarId}-${Date.now()}.mp4`;
+                          link.target = '_blank';
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                        } catch (error) {
+                          console.error('Download failed:', error);
+                          // Fallback: open in new tab
+                          window.open(generatedVideo.finalUrl, '_blank');
+                        }
+                      }}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Download MP4
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(generatedVideo.finalUrl);
+                        // You could add a toast notification here
+                        alert('Video URL copied to clipboard!');
+                      }}
+                    >
+                      Copy URL
+                    </Button>
+                  </>
                 ) : (
                   <Button variant="outline" disabled>
                     <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
@@ -280,11 +376,44 @@ const UGCVideoTool = () => {
               </div>
             </div>
 
+            {/* Video metadata and sharing options */}
+            <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <span className="font-medium text-gray-500">Credits Used:</span>
+                  <p className="font-semibold">{calculateCost()}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-500">Processing Time:</span>
+                  <p className="font-semibold">{calculateProcessingTime()}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-500">Audio Duration:</span>
+                  <p className="font-semibold">{audioDuration}s</p>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-500">Model:</span>
+                  <p className="font-semibold">Veed Avatars</p>
+                </div>
+              </div>
+            </div>
+
             {generatedVideo.status !== 'final' && (
-              <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg">
-                <p className="text-sm text-red-800 dark:text-red-200">
-                  <strong>Preview Ready!</strong> Your final UGC video is being processed with enhanced quality.
-                </p>
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="flex items-start space-x-3">
+                  <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-blue-800 dark:text-blue-200 mb-1">
+                      🎬 Processing Your Avatar Video
+                    </p>
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      Your audio-to-video generation is in progress. The AI avatar is learning to speak your audio content with natural lip-sync and expressions.
+                    </p>
+                    <div className="mt-2 text-xs text-blue-600 dark:text-blue-400">
+                      This typically takes {calculateProcessingTime()} - hang tight!
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>

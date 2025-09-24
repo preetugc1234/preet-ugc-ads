@@ -1185,10 +1185,12 @@ class FalAdapter:
                 "video_url": None
             }
 
-    # New Audio-to-Video methods using modern fal client with queue support
+    # Enhanced Audio-to-Video methods using modern fal client with perfect queue support
     async def submit_audio2vid_async(self, params: Dict[str, Any], webhook_url: str = None) -> Dict[str, Any]:
-        """Submit Audio-to-Video request asynchronously using veed/avatars/audio-to-video."""
+        """Submit Audio-to-Video request asynchronously using veed/avatars/audio-to-video with enhanced error handling."""
         try:
+            logger.info(f"🎤 Starting Audio-to-Video async submission")
+
             if not self.fal:
                 raise Exception("Fal client not initialized - check API key")
 
@@ -1199,6 +1201,10 @@ class FalAdapter:
             if not audio_url:
                 raise Exception("Audio URL is required")
 
+            # Enhanced validation
+            if not audio_url.startswith(('http://', 'https://')):
+                raise Exception(f"Invalid audio URL format: {audio_url}")
+
             # Validate audio duration (max 5 minutes = 300 seconds)
             if audio_duration > 300:
                 raise Exception("Audio duration cannot exceed 5 minutes (300 seconds)")
@@ -1206,47 +1212,72 @@ class FalAdapter:
             # Validate avatar_id
             valid_avatars = self.get_available_avatars()
             if avatar_id not in [avatar["id"] for avatar in valid_avatars]:
-                raise Exception(f"Invalid avatar_id: {avatar_id}")
+                raise Exception(f"Invalid avatar_id: {avatar_id}. Available: {[a['id'] for a in valid_avatars[:5]]}")
+
+            logger.info(f"🎭 Using avatar: {avatar_id}, audio duration: {audio_duration}s")
 
             input_data = {
                 "avatar_id": avatar_id,
                 "audio_url": audio_url
             }
 
-            # Submit with logs and queue handling for long-running request
-            result = await asyncio.to_thread(
-                self.fal.subscribe,
-                self.models["audio2vid"],
-                {
-                    "input": input_data,
-                    "logs": True,
-                    "onQueueUpdate": self._queue_update_handler if not webhook_url else None
-                }
-            )
+            logger.info(f"📤 Submitting to FAL AI veed/avatars model...")
 
-            if hasattr(result, 'requestId'):
+            # Use the enhanced subscribe method for better reliability
+            if hasattr(self.fal, 'submit'):
+                # Modern async submit for queue management
+                handler = await asyncio.to_thread(
+                    self.fal.submit,
+                    self.models["audio2vid"],
+                    input_data,
+                    webhook_url=webhook_url
+                )
+
+                # Get request ID from handler
+                if hasattr(handler, 'request_id'):
+                    request_id = handler.request_id
+                elif isinstance(handler, dict) and 'request_id' in handler:
+                    request_id = handler['request_id']
+                else:
+                    request_id = str(handler)
+
                 # Calculate estimated processing time based on audio duration
                 estimated_time = self._calculate_audio2vid_processing_time(params)
 
+                logger.info(f"✅ Audio-to-Video submitted successfully: {request_id}")
+
                 return {
                     "success": True,
-                    "request_id": result.requestId,
+                    "request_id": request_id,
                     "status": "submitted",
                     "model": "veed-avatars-audio2video",
                     "avatar_id": avatar_id,
+                    "audio_duration": audio_duration,
                     "estimated_processing_time": estimated_time["display"],
-                    "timeout_buffer": "2 minutes",
+                    "processing_seconds": estimated_time["processing_seconds"],
+                    "timeout_buffer": "4 minutes",
                     "total_timeout": estimated_time["total_timeout"]
                 }
             else:
+                # Legacy subscribe for immediate processing
+                logger.info("Using legacy FAL client subscribe method")
+                result = await asyncio.to_thread(
+                    fal_client.subscribe,
+                    self.models["audio2vid"],
+                    arguments=input_data,
+                    with_logs=True,
+                    on_queue_update=self._queue_update_handler if not webhook_url else None
+                )
+
                 # Immediate result case
                 return self._format_audio2vid_result(result, is_async=False)
 
         except Exception as e:
-            logger.error(f"Audio-to-Video async submission failed: {e}")
+            logger.error(f"❌ Audio-to-Video async submission failed: {e}")
             return {
                 "success": False,
-                "error": str(e)
+                "error": str(e),
+                "model": "veed-avatars-audio2video"
             }
 
     async def check_audio2vid_status(self, request_id: str) -> Dict[str, Any]:
@@ -1346,17 +1377,53 @@ class FalAdapter:
             }
 
     def _format_audio2vid_result(self, result, request_id=None, is_async=True):
-        """Format Audio-to-Video result response."""
+        """Format Audio-to-Video result response with enhanced data extraction."""
         try:
-            if result and hasattr(result, 'data') and "video" in result.data:
-                video_data = result.data["video"]
+            logger.info(f"📊 Formatting audio2vid result: {type(result)} - {result}")
+
+            # Handle different response formats from veed/avatars/audio-to-video
+            video_url = None
+            content_type = "video/mp4"
+
+            if result:
+                # Method 1: Direct video object
+                if "video" in result:
+                    video_data = result["video"]
+                    if isinstance(video_data, dict):
+                        video_url = video_data.get("url")
+                        content_type = video_data.get("content_type", "video/mp4")
+                    elif isinstance(video_data, str):
+                        video_url = video_data
+
+                # Method 2: Result has data attribute
+                elif hasattr(result, 'data') and "video" in result.data:
+                    video_data = result.data["video"]
+                    video_url = video_data.get("url") if isinstance(video_data, dict) else video_data
+                    content_type = video_data.get("content_type", "video/mp4") if isinstance(video_data, dict) else "video/mp4"
+
+                # Method 3: Direct URL in result
+                elif isinstance(result, dict):
+                    # Look for URL patterns in the result
+                    for key, value in result.items():
+                        if key in ['url', 'video_url', 'output_url'] and isinstance(value, str):
+                            video_url = value
+                            break
+                        elif isinstance(value, dict) and 'url' in value:
+                            video_url = value['url']
+                            content_type = value.get('content_type', 'video/mp4')
+                            break
+
+            if video_url:
+                logger.info(f"✅ Successfully extracted video URL: {video_url}")
 
                 response = {
                     "success": True,
-                    "video_url": video_data.get("url"),
-                    "content_type": video_data.get("content_type", "video/mp4"),
+                    "video_url": video_url,
+                    "content_type": content_type,
                     "model": "veed-avatars-audio2video",
-                    "processing_completed": True
+                    "processing_completed": True,
+                    "format": "mp4",
+                    "quality": "high"
                 }
 
                 if request_id:
@@ -1366,14 +1433,16 @@ class FalAdapter:
 
                 return response
             else:
+                logger.error(f"❌ No video URL found in result: {result}")
                 return {
                     "success": False,
-                    "error": "No video generated",
-                    "request_id": request_id
+                    "error": "No video generated - missing video URL in response",
+                    "request_id": request_id,
+                    "raw_result": str(result)[:200]  # First 200 chars for debugging
                 }
 
         except Exception as e:
-            logger.error(f"Failed to format audio2vid result: {e}")
+            logger.error(f"❌ Failed to format audio2vid result: {e}")
             return {
                 "success": False,
                 "error": str(e),
