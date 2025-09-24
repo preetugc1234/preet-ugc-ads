@@ -31,7 +31,9 @@
       "Bash(timeout:*)",
       "WebFetch(domain:preet-ugc-ads.onrender.com)",
       "WebFetch(domain:preet-ugc-ads.lovable.app)",
-      "Bash(npm run lint:*)"
+      "Bash(npm run lint:*)",
+      "WebSearch",
+      "WebFetch(domain:fal.ai)"
     ],
     "deny": [],
     "ask": []

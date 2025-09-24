@@ -59,7 +59,7 @@ class FalAdapter:
 
         # Fal AI model endpoints (correct models)
         self.models = {
-            "tts": "fal-ai/elevenlabs-text-to-speech/v1",  # Fixed TTS path
+            "tts": "fal-ai/elevenlabs/tts/multilingual-v2",  # ElevenLabs TTS Multilingual v2 (stable)
             "tts_turbo": "fal-ai/elevenlabs/tts/turbo-v2.5",  # ElevenLabs TTS Turbo v2.5
             "img2vid_noaudio": "fal-ai/wan/v2.2-5b/image-to-video",  # Wan v2.2-5B Image-to-Video
             "img2vid_audio": "fal-ai/kling-video/v1/pro/ai-avatar",  # Kling v1 Pro AI Avatar
@@ -496,40 +496,59 @@ class FalAdapter:
 
     # Text-to-Speech Methods (Legacy)
     async def generate_tts_preview(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate TTS preview using ElevenLabs via Fal AI."""
+        """Generate TTS preview using ElevenLabs Multilingual v2 via Fal AI."""
         try:
+            if not self.fal:
+                raise Exception("Fal client not initialized - check API key")
+
             text = params.get("text", "Hello, this is a test speech.")
-            voice = params.get("voice", "rachel")  # Default voice
+            voice = params.get("voice", "Rachel")  # Default voice (capitalize for ElevenLabs)
 
             # Truncate text for preview (faster generation)
             preview_text = text[:100] + "..." if len(text) > 100 else text
 
-            payload = {
+            # Use correct parameter format for ElevenLabs TTS Multilingual v2
+            input_data = {
                 "text": preview_text,
                 "voice": voice,
-                "model_id": "eleven_monolingual_v1",
-                "voice_settings": {
-                    "stability": 0.5,
-                    "similarity_boost": 0.75,
-                    "style": 0.0,
-                    "use_speaker_boost": True
-                },
-                "output_format": "mp3_22050_32"
+                "stability": params.get("stability", 0.5),
+                "similarity_boost": params.get("similarity_boost", 0.75),
+                "speed": params.get("speed", 1.0)
             }
 
-            result = await self._make_request(self.models["tts"], payload)
+            # Use fal_client for the new ElevenLabs TTS endpoint
+            if hasattr(self.fal, 'subscribe'):
+                # New API
+                result = await asyncio.to_thread(
+                    self.fal.subscribe,
+                    self.models["tts"],
+                    {"input": input_data},
+                    with_logs=True
+                )
+            else:
+                # Legacy API
+                result = await asyncio.to_thread(
+                    fal_client.subscribe,
+                    self.models["tts"],
+                    {"input": input_data},
+                    with_logs=True
+                )
 
-            if result and "audio_url" in result:
+            logger.info(f"TTS preview result: {result}")
+
+            # Extract audio URL from the new response format
+            if result and "audio" in result and "url" in result["audio"]:
                 return {
                     "success": True,
-                    "audio_url": result["audio_url"],
+                    "audio_url": result["audio"]["url"],
                     "text": preview_text,
                     "voice": voice,
-                    "model": "elevenlabs-tts",
+                    "model": "elevenlabs-multilingual-v2",
                     "duration": result.get("duration", 0),
                     "preview": True
                 }
             else:
+                logger.error(f"No audio in TTS preview result: {result}")
                 raise Exception("No audio generated")
 
         except Exception as e:
@@ -541,39 +560,63 @@ class FalAdapter:
             }
 
     async def generate_tts_final(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate final TTS using ElevenLabs via Fal AI."""
+        """Generate final TTS using ElevenLabs Multilingual v2 via Fal AI."""
         try:
-            text = params.get("text", "Hello, this is a test speech.")
-            voice = params.get("voice", "rachel")
-            model_id = params.get("model_id", "eleven_multilingual_v2")  # Better model for final
+            if not self.fal:
+                raise Exception("Fal client not initialized - check API key")
 
-            payload = {
+            text = params.get("text", "Hello, this is a test speech.")
+            voice = params.get("voice", "Rachel")  # Default voice (capitalize for ElevenLabs)
+
+            # Use correct parameter format for ElevenLabs TTS Multilingual v2
+            input_data = {
                 "text": text,
                 "voice": voice,
-                "model_id": model_id,
-                "voice_settings": {
-                    "stability": 0.4,
-                    "similarity_boost": 0.8,
-                    "style": 0.2,
-                    "use_speaker_boost": True
-                },
-                "output_format": "mp3_44100_128"  # Higher quality for final
+                "stability": params.get("stability", 0.5),
+                "similarity_boost": params.get("similarity_boost", 0.75),
+                "speed": params.get("speed", 1.0)
             }
 
-            result = await self._make_request(self.models["tts"], payload)
+            # Optional parameters
+            if params.get("style") is not None:
+                input_data["style"] = params["style"]
+            if params.get("language_code"):
+                input_data["language_code"] = params["language_code"]
 
-            if result and "audio_url" in result:
+            # Use fal_client for the new ElevenLabs TTS endpoint
+            if hasattr(self.fal, 'subscribe'):
+                # New API
+                result = await asyncio.to_thread(
+                    self.fal.subscribe,
+                    self.models["tts"],
+                    {"input": input_data},
+                    with_logs=True
+                )
+            else:
+                # Legacy API
+                result = await asyncio.to_thread(
+                    fal_client.subscribe,
+                    self.models["tts"],
+                    {"input": input_data},
+                    with_logs=True
+                )
+
+            logger.info(f"TTS final result: {result}")
+
+            # Extract audio URL from the new response format
+            if result and "audio" in result and "url" in result["audio"]:
                 return {
                     "success": True,
-                    "audio_url": result["audio_url"],
+                    "audio_url": result["audio"]["url"],
                     "text": text,
                     "voice": voice,
-                    "model": model_id,
+                    "model": "elevenlabs-multilingual-v2",
                     "duration": result.get("duration", 0),
                     "file_size": result.get("file_size", 0),
                     "preview": False
                 }
             else:
+                logger.error(f"No audio in TTS final result: {result}")
                 raise Exception("No audio generated")
 
         except Exception as e:
@@ -1339,12 +1382,12 @@ class FalAdapter:
         """Get list of available Fal AI models."""
         return [
             {
-                "id": "fal-ai/elevenlabs-text-to-speech",
-                "name": "ElevenLabs TTS",
-                "description": "High-quality text-to-speech synthesis",
+                "id": "fal-ai/elevenlabs/tts/multilingual-v2",
+                "name": "ElevenLabs TTS Multilingual v2",
+                "description": "High-quality multilingual text-to-speech synthesis with 29 languages support",
                 "type": "audio",
                 "max_characters": 5000,
-                "supported_voices": ["rachel", "drew", "clyde", "paul"]
+                "supported_voices": ["Rachel", "Drew", "Clyde", "Paul", "Sarah", "Emily"]
             },
             {
                 "id": "fal-ai/kling-video-v1/pro/image-to-video",
