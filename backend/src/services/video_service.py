@@ -127,77 +127,97 @@ class VideoService:
                 self._update_job_progress(job_id, 30, "processing_on_fal",
                                         f"Request ID: {request_id}, ETA: {estimated_time}")
 
-            # Poll for completion
-            max_polls = 40  # 40 polls * 30 seconds = 20 minutes max
+            # Poll for completion with shorter intervals
+            max_polls = 60  # 60 polls * 15 seconds = 15 minutes max
             poll_count = 0
 
             while poll_count < max_polls:
-                await asyncio.sleep(30)  # Wait 30 seconds between polls
+                # Wait 15 seconds between polls (faster polling)
+                await asyncio.sleep(15 if poll_count < 10 else 30)  # Shorter wait initially
                 poll_count += 1
 
                 # Update progress incrementally
-                progress = min(30 + (poll_count * 1.5), 85)
-                if self.queue_manager:
-                    self._update_job_progress(job_id, int(progress), "processing_on_fal",
-                                            f"Polling attempt {poll_count}/{max_polls}")
+                progress = min(30 + (poll_count * 1), 85)
+                self._update_job_progress(job_id, int(progress), "processing_on_fal",
+                                        f"Polling attempt {poll_count}/{max_polls}")
 
                 # Check FAL AI status
-                status_result = await self.fal_adapter.check_audio2vid_status(request_id)
+                try:
+                    status_result = await self.fal_adapter.check_audio2vid_status(request_id)
+                    logger.info(f"📊 Status check result: {status_result}")
 
-                if not status_result.get("success"):
-                    logger.warning(f"Status check failed: {status_result.get('error')}")
-                    continue
+                    if not status_result.get("success"):
+                        logger.warning(f"⚠️ Status check failed: {status_result.get('error')}")
+                        continue
 
-                status = status_result.get("status", "unknown").lower()
-                logger.info(f"📊 FAL AI status: {status} (poll {poll_count})")
+                    status = status_result.get("status", "unknown").lower()
+                    logger.info(f"📊 FAL AI status: {status} (poll {poll_count}/{max_polls})")
 
-                if status in ["completed", "success"]:
-                    # Get the result
-                    result = await self.fal_adapter.get_audio2vid_result(request_id)
+                    if status in ["completed", "success"]:
+                        logger.info(f"🎉 FAL AI processing completed! Getting result...")
 
-                    if result.get("success") and result.get("video_url"):
-                        video_url = result["video_url"]
+                        # Get the result
+                        result = await self.fal_adapter.get_audio2vid_result(request_id)
+                        logger.info(f"📋 FAL AI result: {result}")
 
-                        # Update progress
-                        if self.queue_manager:
+                        if result.get("success") and result.get("video_url"):
+                            video_url = result["video_url"]
+                            logger.info(f"🎬 Got video URL: {video_url}")
+
+                            # Update progress
                             self._update_job_progress(job_id, 90, "uploading_to_cloudinary")
 
-                        # Download and upload to Cloudinary
-                        cloudinary_result = await self._handle_video_upload(
-                            video_url, user_id, job_id, avatar_id
-                        )
+                            # Download and upload to Cloudinary
+                            logger.info(f"☁️ Starting Cloudinary upload...")
+                            cloudinary_result = await self._handle_video_upload(
+                                video_url, user_id, job_id, avatar_id
+                            )
 
-                        if not cloudinary_result["success"]:
-                            logger.warning(f"Cloudinary upload failed: {cloudinary_result.get('error')}")
-                            # Continue with original URL if Cloudinary fails
-                            final_video_url = video_url
-                            public_id = None
-                        else:
-                            final_video_url = cloudinary_result["cloudinary_url"]
-                            public_id = cloudinary_result["public_id"]
+                            if not cloudinary_result["success"]:
+                                logger.warning(f"⚠️ Cloudinary upload failed: {cloudinary_result.get('error')}")
+                                logger.info(f"📁 Using original FAL URL: {video_url}")
+                                # Continue with original URL if Cloudinary fails
+                                final_video_url = video_url
+                                public_id = None
+                            else:
+                                final_video_url = cloudinary_result["cloudinary_url"]
+                                public_id = cloudinary_result["public_id"]
+                                logger.info(f"✅ Cloudinary upload successful: {final_video_url}")
 
-                        # Update final progress
-                        if self.queue_manager:
+                            # Update final progress
                             self._update_job_progress(job_id, 100, "completed")
 
-                        return {
-                            "success": True,
-                            "job_id": job_id,
-                            "request_id": request_id,
-                            "video_url": final_video_url,
-                            "original_video_url": video_url,
-                            "avatar_id": avatar_id,
-                            "audio_duration": audio_duration_seconds,
-                            "cloudinary_public_id": public_id,
-                            "processing_time": f"{poll_count * 30} seconds",
-                            "model": "veed-avatars-audio2video"
-                        }
-                    else:
-                        error_msg = result.get("error", "No video URL in result")
-                        logger.error(f"❌ FAL AI result error: {error_msg}")
+                            return {
+                                "success": True,
+                                "job_id": job_id,
+                                "request_id": request_id,
+                                "video_url": final_video_url,
+                                "original_video_url": video_url,
+                                "avatar_id": avatar_id,
+                                "audio_duration": audio_duration_seconds,
+                                "cloudinary_public_id": public_id,
+                                "processing_time": f"{poll_count * 15} seconds",
+                                "model": "veed-avatars-audio2video"
+                            }
+                        else:
+                            error_msg = result.get("error", "No video URL in result")
+                            logger.error(f"❌ FAL AI result error: {error_msg}")
+                            logger.error(f"❌ Full result: {result}")
 
-                        if self.queue_manager:
                             self._update_job_progress(job_id, 0, "failed", error_msg)
+
+                            return {
+                                "success": False,
+                                "error": error_msg,
+                                "job_id": job_id,
+                                "debug_result": result
+                            }
+
+                    elif status in ["failed", "error"]:
+                        error_msg = status_result.get("error", "FAL AI processing failed")
+                        logger.error(f"❌ FAL AI processing failed: {error_msg}")
+
+                        self._update_job_progress(job_id, 0, "failed", error_msg)
 
                         return {
                             "success": False,
@@ -205,20 +225,13 @@ class VideoService:
                             "job_id": job_id
                         }
 
-                elif status in ["failed", "error"]:
-                    error_msg = status_result.get("error", "FAL AI processing failed")
-                    logger.error(f"❌ FAL AI processing failed: {error_msg}")
+                    else:
+                        # Continue polling for other statuses (in_progress, queued, etc.)
+                        logger.info(f"⏳ Still processing... Status: {status}")
 
-                    if self.queue_manager:
-                        self._update_job_progress(job_id, 0, "failed", error_msg)
-
-                    return {
-                        "success": False,
-                        "error": error_msg,
-                        "job_id": job_id
-                    }
-
-                # Continue polling for other statuses (in_progress, queued, etc.)
+                except Exception as poll_error:
+                    logger.error(f"❌ Polling error: {poll_error}")
+                    # Continue polling even if individual poll fails
 
             # Timeout reached
             error_msg = f"Processing timeout after {max_polls * 30} seconds"
@@ -313,12 +326,15 @@ class VideoService:
             return {"success": False, "error": f"Cloudinary upload failed: {str(e)}"}
 
     def _update_job_progress(self, job_id: str, progress: int, status: str, details: str = None):
-        """Update job progress if queue manager is available."""
+        """Update job progress (simplified logging for audio-to-video)."""
         try:
-            if self.queue_manager:
-                self.queue_manager.update_job_progress(job_id, progress, status, details)
+            # Just log the progress instead of trying to update database
+            # since we're not creating actual job records for direct API calls
+            logger.info(f"🔄 Job {job_id[:8]}... Progress: {progress}% ({status})")
+            if details:
+                logger.info(f"   └── {details}")
         except Exception as e:
-            logger.warning(f"Failed to update job progress: {e}")
+            logger.warning(f"Failed to log job progress: {e}")
 
     async def get_available_avatars(self) -> List[Dict[str, Any]]:
         """Get list of available avatars with enhanced metadata."""
