@@ -1419,7 +1419,7 @@ class FalAdapter:
                 "description": "Exceptional stability, language diversity, and accent accuracy. Supports 29 languages with high-quality, natural-sounding voices.",
                 "type": "audio",
                 "max_characters": 5000,
-                "supported_voices": ["Rachel", "Drew", "Clyde", "Paul", "Sarah", "Emily", "Aria", "Roger", "Sarah"]
+                "supported_voices": ["Rachel", "Drew", "Paul", "Clyde", "Adam", "Sam", "Nicole", "Freya"]
             },
             {
                 "id": "fal-ai/kling-video-v1/pro/image-to-video",

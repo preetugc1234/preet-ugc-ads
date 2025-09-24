@@ -104,27 +104,27 @@ const TextToSpeechTool = () => {
         // For now, use predefined voices since backend voices endpoint may not be implemented
         console.log('Loading TTS voices...');
 
-        // Fallback to hardcoded voices (ElevenLabs standard voices)
+        // ElevenLabs Multilingual v2 compatible voices (verified working)
         setAvailableVoices([
-          { id: "Rachel", name: "Rachel", gender: "Female", accent: "American", description: "Professional, warm female voice" },
-          { id: "Drew", name: "Drew", gender: "Male", accent: "American", description: "Confident, articulate male voice" },
-          { id: "Paul", name: "Paul", gender: "Male", accent: "British", description: "Sophisticated British male voice" },
-          { id: "Sarah", name: "Sarah", gender: "Female", accent: "American", description: "Clear, professional female voice" },
-          { id: "Clyde", name: "Clyde", gender: "Male", accent: "American", description: "Friendly, approachable male voice" },
-          { id: "Emily", name: "Emily", gender: "Female", accent: "American", description: "Gentle, soothing female voice" },
-          { id: "Chris", name: "Chris", gender: "Male", accent: "American", description: "Natural, conversational male voice" },
-          { id: "Jessica", name: "Jessica", gender: "Female", accent: "American", description: "Young, expressive female voice" }
+          { id: "Rachel", name: "Rachel", gender: "Female", accent: "American", description: "Young female, calm tone - ideal for narration" },
+          { id: "Drew", name: "Drew", gender: "Male", accent: "American", description: "Middle-aged male, perfect for news reading" },
+          { id: "Paul", name: "Paul", gender: "Male", accent: "British", description: "Suitable for news, narration, and documentaries" },
+          { id: "Clyde", name: "Clyde", gender: "Male", accent: "American", description: "Middle-aged male, war veteran character" },
+          { id: "Adam", name: "Adam", gender: "Male", accent: "American", description: "Deep, authoritative male voice" },
+          { id: "Sam", name: "Sam", gender: "Male", accent: "American", description: "Casual, friendly male voice" },
+          { id: "Nicole", name: "Nicole", gender: "Female", accent: "American", description: "Professional, clear female voice" },
+          { id: "Freya", name: "Freya", gender: "Female", accent: "American", description: "Young, energetic female voice" }
         ]);
       } catch (error) {
         console.error('Failed to load voices:', error);
-        // Fallback voices
+        // Fallback voices (ElevenLabs Multilingual v2 verified)
         setAvailableVoices([
-          { id: "Rachel", name: "Rachel", gender: "Female", accent: "American", description: "Professional, warm female voice" },
-          { id: "Drew", name: "Drew", gender: "Male", accent: "American", description: "Confident, articulate male voice" },
-          { id: "Paul", name: "Paul", gender: "Male", accent: "British", description: "Sophisticated British male voice" },
-          { id: "Sarah", name: "Sarah", gender: "Female", accent: "American", description: "Clear, professional female voice" },
-          { id: "Clyde", name: "Clyde", gender: "Male", accent: "American", description: "Friendly, approachable male voice" },
-          { id: "Emily", name: "Emily", gender: "Female", accent: "American", description: "Gentle, soothing female voice" }
+          { id: "Rachel", name: "Rachel", gender: "Female", accent: "American", description: "Young female, calm tone - ideal for narration" },
+          { id: "Drew", name: "Drew", gender: "Male", accent: "American", description: "Middle-aged male, perfect for news reading" },
+          { id: "Paul", name: "Paul", gender: "Male", accent: "British", description: "Suitable for news, narration, and documentaries" },
+          { id: "Clyde", name: "Clyde", gender: "Male", accent: "American", description: "Middle-aged male, war veteran character" },
+          { id: "Adam", name: "Adam", gender: "Male", accent: "American", description: "Deep, authoritative male voice" },
+          { id: "Sam", name: "Sam", gender: "Male", accent: "American", description: "Casual, friendly male voice" }
         ]);
       }
     };

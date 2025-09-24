@@ -65,26 +65,21 @@ class TTSService:
         # ElevenLabs TTS Multilingual v2 model - focused on stability and quality
         self.tts_model = "fal-ai/elevenlabs/tts/multilingual-v2"
 
-        # Available voices with descriptions
+        # ElevenLabs Multilingual v2 verified working voices
         self.available_voices = {
-            "Rachel": {"name": "Rachel", "gender": "Female", "accent": "American", "description": "Professional, warm female voice"},
-            "Drew": {"name": "Drew", "gender": "Male", "accent": "American", "description": "Confident, articulate male voice"},
-            "Clyde": {"name": "Clyde", "gender": "Male", "accent": "American", "description": "Friendly, approachable male voice"},
-            "Paul": {"name": "Paul", "gender": "Male", "accent": "British", "description": "Sophisticated British male voice"},
-            "Domi": {"name": "Domi", "gender": "Female", "accent": "American", "description": "Youthful, energetic female voice"},
-            "Dave": {"name": "Dave", "gender": "Male", "accent": "British", "description": "Mature British male voice"},
-            "Fin": {"name": "Fin", "gender": "Male", "accent": "Irish", "description": "Charismatic Irish male voice"},
-            "Sarah": {"name": "Sarah", "gender": "Female", "accent": "American", "description": "Clear, professional female voice"},
-            "Antoni": {"name": "Antoni", "gender": "Male", "accent": "American", "description": "Warm, engaging male voice"},
-            "Thomas": {"name": "Thomas", "gender": "Male", "accent": "American", "description": "Authoritative, clear male voice"},
+            "Rachel": {"name": "Rachel", "gender": "Female", "accent": "American", "description": "Young female, calm tone - ideal for narration"},
+            "Drew": {"name": "Drew", "gender": "Male", "accent": "American", "description": "Middle-aged male, perfect for news reading"},
+            "Paul": {"name": "Paul", "gender": "Male", "accent": "British", "description": "Suitable for news, narration, and documentaries"},
+            "Clyde": {"name": "Clyde", "gender": "Male", "accent": "American", "description": "Middle-aged male, war veteran character"},
+            "Adam": {"name": "Adam", "gender": "Male", "accent": "American", "description": "Deep, authoritative male voice"},
+            "Sam": {"name": "Sam", "gender": "Male", "accent": "American", "description": "Casual, friendly male voice"},
+            "Nicole": {"name": "Nicole", "gender": "Female", "accent": "American", "description": "Professional, clear female voice"},
+            "Freya": {"name": "Freya", "gender": "Female", "accent": "American", "description": "Young, energetic female voice"},
             "Charlie": {"name": "Charlie", "gender": "Male", "accent": "Australian", "description": "Friendly Australian male voice"},
-            "Emily": {"name": "Emily", "gender": "Female", "accent": "American", "description": "Gentle, soothing female voice"},
-            "Elli": {"name": "Elli", "gender": "Female", "accent": "American", "description": "Bright, cheerful female voice"},
-            "Callum": {"name": "Callum", "gender": "Male", "accent": "American", "description": "Strong, confident male voice"},
-            "Patrick": {"name": "Patrick", "gender": "Male", "accent": "American", "description": "Smooth, professional male voice"},
-            "Harry": {"name": "Harry", "gender": "Male", "accent": "American", "description": "Dynamic, versatile male voice"},
-            "Liam": {"name": "Liam", "gender": "Male", "accent": "American", "description": "Young, energetic male voice"},
             "Dorothy": {"name": "Dorothy", "gender": "Female", "accent": "British", "description": "Elegant British female voice"},
+            "Elli": {"name": "Elli", "gender": "Female", "accent": "American", "description": "Bright, cheerful female voice"},
+            "Fin": {"name": "Fin", "gender": "Male", "accent": "Irish", "description": "Charismatic Irish male voice"},
+            "Harry": {"name": "Harry", "gender": "Male", "accent": "American", "description": "Dynamic, versatile male voice"},
             "Josh": {"name": "Josh", "gender": "Male", "accent": "American", "description": "Casual, relatable male voice"},
             "Arnold": {"name": "Arnold", "gender": "Male", "accent": "American", "description": "Deep, resonant male voice"},
             "Charlotte": {"name": "Charlotte", "gender": "Female", "accent": "British", "description": "Refined British female voice"},
