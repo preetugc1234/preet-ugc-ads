@@ -30,7 +30,8 @@
       "Bash(timeout 10 python render-startup.py)",
       "Bash(timeout:*)",
       "WebFetch(domain:preet-ugc-ads.onrender.com)",
-      "WebFetch(domain:preet-ugc-ads.lovable.app)"
+      "WebFetch(domain:preet-ugc-ads.lovable.app)",
+      "Bash(npm run lint:*)"
     ],
     "deny": [],
     "ask": []

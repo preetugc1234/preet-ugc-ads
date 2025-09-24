@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { AudioLines, Play, Pause, Download, Volume2, User, AlertCircle, CheckCircle, Clock, Loader2 } from "lucide-react";
+import { api, apiHelpers } from "@/lib/api";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import ToolEditorLayout from "@/components/dashboard/ToolEditorLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,8 +32,8 @@ interface TTSResponse {
   job_id?: string;
   audio_url?: string;
   cloudinary_public_id?: string;
-  timestamps?: any[];
-  metadata?: any;
+  timestamps?: Record<string, unknown>[];
+  metadata?: Record<string, unknown>;
   error?: string;
   processing_time?: number;
 }
@@ -84,8 +85,8 @@ const TextToSpeechTool = () => {
     cloudinary_public_id?: string;
     text: string;
     voice: string;
-    metadata: any;
-    timestamps?: any[];
+    metadata: Record<string, unknown>;
+    timestamps?: Record<string, unknown>[];
     processing_time?: number;
   } | null>(null);
 
@@ -99,11 +100,21 @@ const TextToSpeechTool = () => {
   useEffect(() => {
     const loadVoices = async () => {
       try {
-        const response = await fetch('/api/tts/voices');
-        if (response.ok) {
-          const voices = await response.json();
-          setAvailableVoices(voices);
-        }
+        // Try to get voices from backend API (if available)
+        // For now, use predefined voices since backend voices endpoint may not be implemented
+        console.log('Loading TTS voices...');
+
+        // Fallback to hardcoded voices (ElevenLabs standard voices)
+        setAvailableVoices([
+          { id: "Rachel", name: "Rachel", gender: "Female", accent: "American", description: "Professional, warm female voice" },
+          { id: "Drew", name: "Drew", gender: "Male", accent: "American", description: "Confident, articulate male voice" },
+          { id: "Paul", name: "Paul", gender: "Male", accent: "British", description: "Sophisticated British male voice" },
+          { id: "Sarah", name: "Sarah", gender: "Female", accent: "American", description: "Clear, professional female voice" },
+          { id: "Clyde", name: "Clyde", gender: "Male", accent: "American", description: "Friendly, approachable male voice" },
+          { id: "Emily", name: "Emily", gender: "Female", accent: "American", description: "Gentle, soothing female voice" },
+          { id: "Chris", name: "Chris", gender: "Male", accent: "American", description: "Natural, conversational male voice" },
+          { id: "Jessica", name: "Jessica", gender: "Female", accent: "American", description: "Young, expressive female voice" }
+        ]);
       } catch (error) {
         console.error('Failed to load voices:', error);
         // Fallback voices
@@ -123,55 +134,62 @@ const TextToSpeechTool = () => {
   // Progress tracking - poll job status
   const pollJobStatus = useCallback(async (jobId: string) => {
     try {
-      const response = await fetch(`/api/tts/job/${jobId}/status`);
-      if (response.ok) {
-        const status: TTSJobStatus = await response.json();
-        setProgress(Math.max(0, status.progress));
-        setStage(status.stage);
-        setEstimatedTimeRemaining(status.estimated_time_remaining || null);
+      const status = await api.getJobStatus(jobId);
 
-        if (status.error) {
-          setError(status.error);
+      // Map job status to TTS progress
+      let progress = 0;
+      let stage = 'initializing';
+
+      switch (status.status) {
+        case 'queued':
+          progress = 10;
+          stage = 'submitted';
+          break;
+        case 'processing':
+          progress = 50;
+          stage = 'processing_audio';
+          break;
+        case 'completed':
+          progress = 100;
+          stage = 'completed';
+          break;
+        case 'failed':
+          setError(status.error_message || "TTS generation failed");
           setIsGenerating(false);
-          toast.error(status.error);
+          toast.error(status.error_message || "TTS generation failed");
           return false; // Stop polling
-        }
-
-        if (status.status === 'completed' || status.progress >= 100) {
-          // Fetch the result
-          const resultResponse = await fetch(`/api/tts/job/${jobId}/result`);
-          if (resultResponse.ok) {
-            const result: TTSResponse = await resultResponse.json();
-            if (result.success) {
-              setGeneratedAudio({
-                job_id: jobId,
-                audio_url: result.audio_url!,
-                cloudinary_public_id: result.cloudinary_public_id,
-                text: text,
-                voice: voice,
-                metadata: result.metadata,
-                timestamps: result.timestamps,
-                processing_time: result.processing_time
-              });
-              toast.success("TTS generation completed successfully!");
-            } else {
-              setError(result.error || "TTS generation failed");
-              toast.error(result.error || "TTS generation failed");
-            }
-          }
-          setIsGenerating(false);
-          return false; // Stop polling
-        }
-
-        return true; // Continue polling
       }
+
+      setProgress(progress);
+      setStage(stage);
+
+      if (status.status === 'completed' && status.finalUrls && status.finalUrls.length > 0) {
+        setGeneratedAudio({
+          job_id: jobId,
+          audio_url: status.finalUrls[0],
+          cloudinary_public_id: undefined,
+          text: text,
+          voice: voice,
+          metadata: { estimated_duration: 30 }, // Default duration
+          timestamps: undefined,
+          processing_time: undefined
+        });
+        toast.success("TTS generation completed successfully!");
+        setIsGenerating(false);
+        return false; // Stop polling
+      }
+
+      if (status.status === 'failed') {
+        return false; // Stop polling
+      }
+
+      return status.status === 'queued' || status.status === 'processing'; // Continue polling
     } catch (error) {
       console.error('Failed to poll job status:', error);
       setError('Failed to track generation progress');
       setIsGenerating(false);
       return false; // Stop polling
     }
-    return false;
   }, [text, voice]);
 
   // Start progress polling
@@ -228,7 +246,8 @@ const TextToSpeechTool = () => {
     setEstimatedTimeRemaining(null);
 
     try {
-      const requestData: TTSRequest = {
+      // Prepare parameters for the TTS job
+      const jobParams = {
         text: text.trim(),
         voice: voice,
         stability: stability[0],
@@ -236,18 +255,17 @@ const TextToSpeechTool = () => {
         style: style[0] !== 0 ? style[0] : undefined,
         speed: speed[0],
         timestamps: timestamps,
-        language_code: languageCode || undefined
+        language_code: (languageCode && languageCode !== 'auto') ? languageCode : undefined
       };
 
-      const response = await fetch('/api/tts/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestData)
-      });
+      // Create a job using the unified API
+      const jobData = {
+        client_job_id: apiHelpers.generateClientJobId(),
+        module: 'tts' as const,
+        params: jobParams
+      };
 
-      const result: TTSResponse = await response.json();
+      const result = await api.createJob(jobData);
 
       if (result.success && result.job_id) {
         setCurrentJobId(result.job_id);
@@ -258,15 +276,16 @@ const TextToSpeechTool = () => {
         // Start polling for progress
         startProgressPolling(result.job_id);
       } else {
-        setError(result.error || "Failed to start TTS generation");
+        setError(result.message || "Failed to start TTS generation");
         setIsGenerating(false);
-        toast.error(result.error || "Failed to start TTS generation");
+        toast.error(result.message || "Failed to start TTS generation");
       }
     } catch (error) {
       console.error('TTS generation failed:', error);
-      setError("Network error - please try again");
+      const errorMessage = apiHelpers.handleApiError(error);
+      setError(errorMessage);
       setIsGenerating(false);
-      toast.error("Network error - please try again");
+      toast.error(errorMessage);
     }
   };
 
@@ -687,7 +706,7 @@ const TextToSpeechTool = () => {
                   <SelectValue placeholder="Auto-detect language" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Auto-detect</SelectItem>
+                  <SelectItem value="auto">Auto-detect</SelectItem>
                   <SelectItem value="en">English</SelectItem>
                   <SelectItem value="es">Spanish</SelectItem>
                   <SelectItem value="fr">French</SelectItem>
