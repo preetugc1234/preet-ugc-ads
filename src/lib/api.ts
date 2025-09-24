@@ -462,7 +462,7 @@ export const apiHelpers = {
         const duration1 = params.duration || 5
         return 100 * (duration1 / 5) // 100 credits per 5 seconds
       case 'tts':
-        return 100 // 100 credits per generation
+        return 0 // Free during testing mode
       case 'img2vid_audio':
         const duration2 = params.duration || 5
         return duration2 <= 5 ? 200 : 400 // 200/5s or 400/10s

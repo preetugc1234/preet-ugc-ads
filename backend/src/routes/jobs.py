@@ -50,7 +50,7 @@ MODULE_CONFIGS = {
     },
     "tts": {
         "name": "Text to Speech",
-        "cost": 100,
+        "cost": 0,  # Free during testing mode
         "provider": "fal",
         "model": "11labs-v2.5",
         "avg_time_seconds": 10

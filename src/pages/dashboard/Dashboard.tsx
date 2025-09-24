@@ -107,7 +107,7 @@ const Dashboard = () => {
       description: "Convert text to natural speech",
       icon: AudioLines,
       href: "/dashboard/text-to-speech",
-      credits: "100 credits",
+      credits: "Free (Testing)",
       color: "from-orange-500 to-orange-600",
       popular: false
     },

@@ -98,7 +98,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
       href: "/dashboard/text-to-speech",
       icon: AudioLines,
       description: "Text to Speech Generation",
-      credits: "100 credits"
+      credits: "Free (Testing)"
     },
     {
       name: "UGC Video Gen",

@@ -37,7 +37,7 @@ const products = [
     description: "Natural voice synthesis with premium AI voices",
     badge: "PREMIUM",
     gradient: "from-green-500 to-emerald-500",
-    credits: "100 credits",
+    credits: "Free (Testing)",
     href: "/products/text-to-speech"
   },
   {
