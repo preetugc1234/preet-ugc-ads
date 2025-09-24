@@ -1034,19 +1034,28 @@ class FalAdapter:
     async def upload_file(self, file_data: bytes, filename: str) -> str:
         """Upload file to Fal storage and return URL."""
         try:
-            if not self.fal:
-                raise Exception("Fal client not initialized - check API key")
+            import tempfile
+            import os
 
-            # Convert bytes to file-like object
-            import io
-            file_obj = io.BytesIO(file_data)
-            file_obj.name = filename
+            # Create a temporary file to upload
+            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(filename)[1]) as temp_file:
+                temp_file.write(file_data)
+                temp_file_path = temp_file.name
 
-            url = await asyncio.to_thread(self.fal.storage.upload, file_obj)
-            return url
+            try:
+                # Use the working fal_client.upload_file method directly
+                url = await asyncio.to_thread(fal_client.upload_file, temp_file_path)
+                logger.info(f"✅ File uploaded to FAL storage: {url}")
+                return url
+            finally:
+                # Clean up the temporary file
+                try:
+                    os.unlink(temp_file_path)
+                except:
+                    pass
 
         except Exception as e:
-            logger.error(f"Failed to upload file to Fal: {e}")
+            logger.error(f"❌ Failed to upload file to Fal: {e}")
             raise
 
     def _queue_update_handler(self, update):
