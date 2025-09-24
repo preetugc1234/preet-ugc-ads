@@ -62,8 +62,8 @@ class TTSService:
             logger.error("fal-client not installed")
             raise ImportError("Please install fal-client: pip install fal-client")
 
-        # ElevenLabs TTS Turbo v2.5 model
-        self.tts_model = "fal-ai/elevenlabs/tts/turbo-v2.5"
+        # ElevenLabs TTS Multilingual v2 model - focused on stability and quality
+        self.tts_model = "fal-ai/elevenlabs/tts/multilingual-v2"
 
         # Available voices with descriptions
         self.available_voices = {
@@ -265,7 +265,7 @@ class TTSService:
                     "language_code": language_code,
                     "estimated_duration": estimated_duration,
                     "processing_time": round(time.time() - start_time, 2),
-                    "model": "elevenlabs-tts-turbo-v2.5",
+                    "model": "elevenlabs-tts-multilingual-v2",
                     "generated_at": datetime.now(timezone.utc).isoformat()
                 }
             }

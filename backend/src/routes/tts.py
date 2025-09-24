@@ -384,7 +384,7 @@ async def _save_to_history(user_id: str, job_id: str, request: TTSRequest, resul
             "previewUrl": result.get("audio_url"),
             "finalUrls": [result.get("audio_url")] if result.get("audio_url") else [],
             "sizeBytes": 0,  # TODO: Get actual file size from Cloudinary
-            "model": "elevenlabs-tts-turbo-v2.5",
+            "model": "elevenlabs-tts-multilingual-v2",
             "voice_info": result.get("metadata", {}).get("voice_info", {}),
             "parameters": {
                 "stability": request.stability,

@@ -131,9 +131,18 @@ const TextToSpeechTool = () => {
     loadVoices();
   }, []);
 
-  // Progress tracking - poll job status
-  const pollJobStatus = useCallback(async (jobId: string) => {
+  // Progress tracking - poll job status with timeout protection
+  const pollJobStatus = useCallback(async (jobId: string, startTime: number = Date.now()) => {
     try {
+      // Add timeout protection - max 10 minutes
+      const TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+      if (Date.now() - startTime > TIMEOUT_MS) {
+        setError('TTS generation timed out. Please try again.');
+        setIsGenerating(false);
+        toast.error('TTS generation timed out');
+        return false; // Stop polling
+      }
+
       const status = await api.getJobStatus(jobId);
 
       // Map job status to TTS progress
@@ -142,11 +151,11 @@ const TextToSpeechTool = () => {
 
       switch (status.status) {
         case 'queued':
-          progress = 10;
+          progress = 15;
           stage = 'submitted';
           break;
         case 'processing':
-          progress = 50;
+          progress = 60;
           stage = 'processing_audio';
           break;
         case 'completed':
@@ -158,53 +167,75 @@ const TextToSpeechTool = () => {
           setIsGenerating(false);
           toast.error(status.error_message || "TTS generation failed");
           return false; // Stop polling
+        default:
+          // Handle unknown status
+          console.warn(`Unknown job status: ${status.status}`);
+          break;
       }
 
       setProgress(progress);
       setStage(stage);
 
-      if (status.status === 'completed' && status.finalUrls && status.finalUrls.length > 0) {
-        setGeneratedAudio({
-          job_id: jobId,
-          audio_url: status.finalUrls[0],
-          cloudinary_public_id: undefined,
-          text: text,
-          voice: voice,
-          metadata: { estimated_duration: 30 }, // Default duration
-          timestamps: undefined,
-          processing_time: undefined
-        });
-        toast.success("TTS generation completed successfully!");
-        setIsGenerating(false);
-        return false; // Stop polling
+      // Check for completion with proper audio URL
+      if (status.status === 'completed') {
+        let audioUrl = null;
+
+        // Try different ways to get the audio URL
+        if (status.finalUrls && status.finalUrls.length > 0) {
+          audioUrl = status.finalUrls[0];
+        } else if (status.result && status.result.audio_url) {
+          audioUrl = status.result.audio_url;
+        }
+
+        if (audioUrl) {
+          setGeneratedAudio({
+            job_id: jobId,
+            audio_url: audioUrl,
+            cloudinary_public_id: status.result?.cloudinary_public_id,
+            text: text,
+            voice: voice,
+            metadata: { estimated_duration: 30 },
+            timestamps: status.result?.timestamps,
+            processing_time: status.result?.processing_time
+          });
+          toast.success("TTS generation completed successfully!");
+          setIsGenerating(false);
+          return false; // Stop polling
+        } else {
+          // Completed but no audio URL - this is an error
+          setError('TTS completed but no audio file was generated');
+          setIsGenerating(false);
+          toast.error('No audio file generated');
+          return false; // Stop polling
+        }
       }
 
-      if (status.status === 'failed') {
-        return false; // Stop polling
-      }
-
-      return status.status === 'queued' || status.status === 'processing'; // Continue polling
+      // Continue polling for queued or processing
+      return status.status === 'queued' || status.status === 'processing';
     } catch (error) {
       console.error('Failed to poll job status:', error);
       setError('Failed to track generation progress');
       setIsGenerating(false);
+      toast.error('Connection error during TTS generation');
       return false; // Stop polling
     }
   }, [text, voice]);
 
-  // Start progress polling
+  // Start progress polling with start time tracking
   const startProgressPolling = useCallback((jobId: string) => {
     if (progressIntervalRef.current) {
       clearInterval(progressIntervalRef.current);
     }
 
+    const startTime = Date.now();
+
     progressIntervalRef.current = setInterval(async () => {
-      const shouldContinue = await pollJobStatus(jobId);
+      const shouldContinue = await pollJobStatus(jobId, startTime);
       if (!shouldContinue && progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
         progressIntervalRef.current = null;
       }
-    }, 2000); // Poll every 2 seconds
+    }, 3000); // Poll every 3 seconds (slightly slower to reduce server load)
   }, [pollJobStatus]);
 
   // Cleanup on unmount

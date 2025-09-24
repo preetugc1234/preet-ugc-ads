@@ -194,7 +194,7 @@ async def process_fal_completion_direct(job_id: ObjectId, user_id: str, module: 
                 "success": True,
                 "audio_url": audio_info.get("url"),
                 "timestamps": payload_data.get("timestamps", []),
-                "model": "elevenlabs-tts-turbo-v2.5",
+                "model": "elevenlabs-tts-multilingual-v2",
                 "has_audio": True
             }
 
@@ -301,7 +301,7 @@ async def process_fal_completion(job_id: ObjectId, user_id: str, module: str, re
                 "success": True,
                 "audio_url": result.get("audio", {}).get("url"),
                 "timestamps": result.get("timestamps", []),
-                "model": "elevenlabs-tts-turbo-v2.5",
+                "model": "elevenlabs-tts-multilingual-v2",
                 "has_audio": True
             }
 

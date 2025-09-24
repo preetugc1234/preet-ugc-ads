@@ -59,8 +59,8 @@ class FalAdapter:
 
         # Fal AI model endpoints (correct models)
         self.models = {
-            "tts": "fal-ai/elevenlabs/tts/turbo-v2.5",  # ElevenLabs TTS Turbo v2.5 (primary TTS model)
-            "tts_turbo": "fal-ai/elevenlabs/tts/turbo-v2.5",  # ElevenLabs TTS Turbo v2.5
+            "tts": "fal-ai/elevenlabs/tts/multilingual-v2",  # ElevenLabs TTS Multilingual v2 (primary TTS model - stability & quality focused)
+            "tts_turbo": "fal-ai/elevenlabs/tts/turbo-v2.5",  # ElevenLabs TTS Turbo v2.5 (kept for compatibility)
             "img2vid_noaudio": "fal-ai/wan/v2.2-5b/image-to-video",  # Wan v2.2-5B Image-to-Video
             "img2vid_audio": "fal-ai/kling-video/v1/pro/ai-avatar",  # Kling v1 Pro AI Avatar
             "audio2vid": "veed/avatars/audio-to-video",  # Veed Avatars Audio-to-Video via Fal AI
@@ -496,33 +496,46 @@ class FalAdapter:
 
     # Text-to-Speech Methods (Legacy)
     async def generate_tts_preview(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate TTS preview using ElevenLabs Turbo v2.5 via Fal AI."""
+        """Generate TTS preview using ElevenLabs Multilingual v2 via Fal AI."""
         try:
             if not self.fal:
                 raise Exception("Fal client not initialized - check API key")
 
             text = params.get("text", "Hello, this is a test speech.")
-            voice = params.get("voice", "Rachel")  # Default voice (capitalize for ElevenLabs)
+            voice = params.get("voice", "Rachel")  # Default voice
 
             # Truncate text for preview (faster generation)
             preview_text = text[:100] + "..." if len(text) > 100 else text
 
-            # Use correct parameter format for ElevenLabs TTS Turbo v2.5
-            input_data = {
+            # ElevenLabs Multilingual v2 parameters - focus on stability and quality
+            arguments = {
                 "text": preview_text,
                 "voice": voice,
                 "stability": params.get("stability", 0.5),
                 "similarity_boost": params.get("similarity_boost", 0.75),
-                "speed": params.get("speed", 1.0)
+                "speed": params.get("speed", 1.0),
+                "timestamps": params.get("timestamps", False)
             }
 
-            # Use fal_client for the new ElevenLabs TTS endpoint
+            # Add optional parameters for Multilingual v2
+            if params.get("style") is not None:
+                arguments["style"] = params["style"]
+            if params.get("language_code"):
+                arguments["language_code"] = params["language_code"]
+            if params.get("previous_text"):
+                arguments["previous_text"] = params["previous_text"]
+            if params.get("next_text"):
+                arguments["next_text"] = params["next_text"]
+
+            logger.info(f"TTS preview with Multilingual v2 - arguments: {arguments}")
+
+            # Use fal_client.subscribe for ElevenLabs Multilingual v2
             if hasattr(self.fal, 'subscribe'):
                 # New API
                 result = await asyncio.to_thread(
                     self.fal.subscribe,
                     self.models["tts"],
-                    {"input": input_data},
+                    arguments=arguments,
                     with_logs=True
                 )
             else:
@@ -530,29 +543,35 @@ class FalAdapter:
                 result = await asyncio.to_thread(
                     fal_client.subscribe,
                     self.models["tts"],
-                    {"input": input_data},
+                    arguments=arguments,
                     with_logs=True
                 )
 
-            logger.info(f"TTS preview result: {result}")
+            logger.info(f"TTS Multilingual v2 preview result: {result}")
 
-            # Extract audio URL from the new response format
+            # Extract audio URL from Multilingual v2 response format
             if result and "audio" in result and "url" in result["audio"]:
-                return {
+                response = {
                     "success": True,
                     "audio_url": result["audio"]["url"],
                     "text": preview_text,
                     "voice": voice,
-                    "model": "elevenlabs-tts-turbo-v2.5",
+                    "model": "elevenlabs-multilingual-v2",
                     "duration": result.get("duration", 0),
                     "preview": True
                 }
+
+                # Include timestamps if requested and available
+                if params.get("timestamps") and "timestamps" in result:
+                    response["timestamps"] = result["timestamps"]
+
+                return response
             else:
-                logger.error(f"No audio in TTS preview result: {result}")
-                raise Exception("No audio generated")
+                logger.error(f"No audio in TTS Multilingual v2 preview result: {result}")
+                raise Exception("No audio generated from Multilingual v2")
 
         except Exception as e:
-            logger.error(f"TTS preview generation failed: {e}")
+            logger.error(f"TTS Multilingual v2 preview generation failed: {e}")
             return {
                 "success": False,
                 "error": str(e),
@@ -560,36 +579,43 @@ class FalAdapter:
             }
 
     async def generate_tts_final(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate final TTS using ElevenLabs Turbo v2.5 via Fal AI."""
+        """Generate final TTS using ElevenLabs Multilingual v2 via Fal AI."""
         try:
             if not self.fal:
                 raise Exception("Fal client not initialized - check API key")
 
             text = params.get("text", "Hello, this is a test speech.")
-            voice = params.get("voice", "Rachel")  # Default voice (capitalize for ElevenLabs)
+            voice = params.get("voice", "Rachel")  # Default voice
 
-            # Use correct parameter format for ElevenLabs TTS Turbo v2.5
-            input_data = {
+            # ElevenLabs Multilingual v2 parameters - full quality settings
+            arguments = {
                 "text": text,
                 "voice": voice,
                 "stability": params.get("stability", 0.5),
                 "similarity_boost": params.get("similarity_boost", 0.75),
-                "speed": params.get("speed", 1.0)
+                "speed": params.get("speed", 1.0),
+                "timestamps": params.get("timestamps", False)
             }
 
-            # Optional parameters
+            # Add all optional parameters for Multilingual v2
             if params.get("style") is not None:
-                input_data["style"] = params["style"]
+                arguments["style"] = params["style"]
             if params.get("language_code"):
-                input_data["language_code"] = params["language_code"]
+                arguments["language_code"] = params["language_code"]
+            if params.get("previous_text"):
+                arguments["previous_text"] = params["previous_text"]
+            if params.get("next_text"):
+                arguments["next_text"] = params["next_text"]
 
-            # Use fal_client for the new ElevenLabs TTS endpoint
+            logger.info(f"TTS final with Multilingual v2 - arguments: {arguments}")
+
+            # Use fal_client.subscribe for ElevenLabs Multilingual v2
             if hasattr(self.fal, 'subscribe'):
                 # New API
                 result = await asyncio.to_thread(
                     self.fal.subscribe,
                     self.models["tts"],
-                    {"input": input_data},
+                    arguments=arguments,
                     with_logs=True
                 )
             else:
@@ -597,30 +623,36 @@ class FalAdapter:
                 result = await asyncio.to_thread(
                     fal_client.subscribe,
                     self.models["tts"],
-                    {"input": input_data},
+                    arguments=arguments,
                     with_logs=True
                 )
 
-            logger.info(f"TTS final result: {result}")
+            logger.info(f"TTS Multilingual v2 final result: {result}")
 
-            # Extract audio URL from the new response format
+            # Extract audio URL from Multilingual v2 response format
             if result and "audio" in result and "url" in result["audio"]:
-                return {
+                response = {
                     "success": True,
                     "audio_url": result["audio"]["url"],
                     "text": text,
                     "voice": voice,
-                    "model": "elevenlabs-tts-turbo-v2.5",
+                    "model": "elevenlabs-multilingual-v2",
                     "duration": result.get("duration", 0),
                     "file_size": result.get("file_size", 0),
                     "preview": False
                 }
+
+                # Include timestamps if requested and available
+                if params.get("timestamps") and "timestamps" in result:
+                    response["timestamps"] = result["timestamps"]
+
+                return response
             else:
-                logger.error(f"No audio in TTS final result: {result}")
-                raise Exception("No audio generated")
+                logger.error(f"No audio in TTS Multilingual v2 final result: {result}")
+                raise Exception("No audio generated from Multilingual v2")
 
         except Exception as e:
-            logger.error(f"TTS final generation failed: {e}")
+            logger.error(f"TTS Multilingual v2 final generation failed: {e}")
             return {
                 "success": False,
                 "error": str(e),
@@ -1382,12 +1414,12 @@ class FalAdapter:
         """Get list of available Fal AI models."""
         return [
             {
-                "id": "fal-ai/elevenlabs/tts/turbo-v2.5",
-                "name": "ElevenLabs TTS Turbo v2.5",
-                "description": "High-speed text-to-speech with low latency and superior voice quality, supports 32 languages",
+                "id": "fal-ai/elevenlabs/tts/multilingual-v2",
+                "name": "ElevenLabs TTS Multilingual v2",
+                "description": "Exceptional stability, language diversity, and accent accuracy. Supports 29 languages with high-quality, natural-sounding voices.",
                 "type": "audio",
                 "max_characters": 5000,
-                "supported_voices": ["Rachel", "Drew", "Clyde", "Paul", "Sarah", "Emily"]
+                "supported_voices": ["Rachel", "Drew", "Clyde", "Paul", "Sarah", "Emily", "Aria", "Roger", "Sarah"]
             },
             {
                 "id": "fal-ai/kling-video-v1/pro/image-to-video",
