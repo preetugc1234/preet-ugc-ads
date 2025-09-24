@@ -528,7 +528,7 @@ const TextToSpeechTool = () => {
               </div>
               <div>
                 <span className="font-medium text-gray-600">Model:</span>{" "}
-                <span className="text-gray-800 dark:text-gray-200">ElevenLabs Turbo v2.5</span>
+                <span className="text-gray-800 dark:text-gray-200">ElevenLabs Multilingual v2</span>
               </div>
               <div>
                 <span className="font-medium text-gray-600">Characters:</span>{" "}

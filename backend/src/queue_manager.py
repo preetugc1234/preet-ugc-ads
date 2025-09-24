@@ -266,39 +266,29 @@ class QueueManager:
                     raise Exception(f"Image final generation failed: {final_result.get('error', 'Unknown error')}")
 
             elif module == 'tts':
-                # Fal AI TTS
+                # Text-to-Speech using ElevenLabs Multilingual v2 - Single high-quality result
                 adapter = FalAdapter()
 
-                # Generate preview
-                preview_result = await adapter.generate_tts_preview(params)
-                if preview_result.get('success'):
-                    preview_asset = await asset_handler.handle_tts_result(
-                        preview_result, str(job_id), user_id, True
-                    )
+                logger.info(f"🎵 Generating single high-quality TTS with Multilingual v2 for job {job_id}")
+                logger.info(f"🎤 TTS params: text length={len(params.get('text', ''))}, voice={params.get('voice', 'Rachel')}")
 
-                    if preview_asset.get('success'):
-                        db.jobs.update_one(
-                            {"_id": job_id},
-                            {
-                                "$set": {
-                                    "previewUrl": preview_asset.get('urls', [''])[0] if preview_asset.get('urls') else '',
-                                    "status": "preview_ready",
-                                    "previewMeta": preview_asset.get('metadata', {}),
-                                    "updatedAt": datetime.now(timezone.utc)
-                                }
-                            }
-                        )
-                        logger.info(f"TTS preview ready for job {job_id}")
+                # Generate single high-quality TTS result (no preview needed)
+                tts_result = await adapter.generate_tts_final(params)
 
-                # Generate final
-                final_result = await adapter.generate_tts_final(params)
-                if final_result.get('success'):
-                    final_asset = await asset_handler.handle_tts_result(
-                        final_result, str(job_id), user_id, False
+                if tts_result.get('success'):
+                    # Save to Cloudinary and get downloadable URL
+                    logger.info(f"✅ TTS generated successfully, saving to Cloudinary...")
+                    tts_asset = await asset_handler.handle_tts_result(
+                        tts_result, str(job_id), user_id, False  # is_preview=False for final quality
                     )
-                    final_urls = final_asset.get('urls', []) if final_asset.get('success') else []
+                    final_urls = tts_asset.get('urls', []) if tts_asset.get('success') else []
+
+                    if not final_urls:
+                        raise Exception("Failed to save TTS audio to Cloudinary")
+
+                    logger.info(f"🎧 TTS audio ready for download: {final_urls[0]}")
                 else:
-                    raise Exception(f"TTS final generation failed: {final_result.get('error', 'Unknown error')}")
+                    raise Exception(f"TTS generation failed: {tts_result.get('error', 'Unknown error')}")
 
             elif module in ['img2vid_noaudio', 'img2vid_audio', 'audio2vid']:
                 # Fal AI Video workflows with improved async handling
