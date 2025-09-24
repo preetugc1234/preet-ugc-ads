@@ -1295,20 +1295,45 @@ class FalAdapter:
             if not self.fal:
                 raise Exception("Fal client not initialized - check API key")
 
-            status = await asyncio.to_thread(
-                self.fal.queue.status,
-                self.models["audio2vid"],
-                {"requestId": request_id, "logs": True}
-            )
+            # Try different status check methods based on fal client version
+            try:
+                if hasattr(self.fal, 'status'):
+                    # New API
+                    status = await asyncio.to_thread(
+                        self.fal.status,
+                        self.models["audio2vid"],
+                        request_id,
+                        with_logs=True
+                    )
+                else:
+                    # Legacy API
+                    status = await asyncio.to_thread(
+                        fal_client.status,
+                        self.models["audio2vid"],
+                        request_id,
+                        with_logs=True
+                    )
 
-            return {
-                "success": True,
-                "request_id": request_id,
-                "status": status.get("status", "unknown"),
-                "logs": status.get("logs", []),
-                "queue_position": status.get("queue_position"),
-                "estimated_time": status.get("estimated_time")
-            }
+                return {
+                    "success": True,
+                    "request_id": request_id,
+                    "status": status.get("status", "unknown"),
+                    "logs": status.get("logs", []),
+                    "queue_position": status.get("queue_position"),
+                    "estimated_time": status.get("estimated_time")
+                }
+
+            except Exception as status_error:
+                logger.error(f"Status check failed: {status_error}")
+                # Return a generic in_progress status to continue polling
+                return {
+                    "success": True,
+                    "request_id": request_id,
+                    "status": "in_progress",
+                    "logs": [],
+                    "queue_position": None,
+                    "estimated_time": None
+                }
 
         except Exception as e:
             logger.error(f"Failed to check Audio-to-Video status: {e}")
@@ -1324,13 +1349,32 @@ class FalAdapter:
             if not self.fal:
                 raise Exception("Fal client not initialized - check API key")
 
-            result = await asyncio.to_thread(
-                self.fal.queue.result,
-                self.models["audio2vid"],
-                {"requestId": request_id}
-            )
+            # Try different result methods based on fal client version
+            try:
+                if hasattr(self.fal, 'result'):
+                    # New API
+                    result = await asyncio.to_thread(
+                        self.fal.result,
+                        self.models["audio2vid"],
+                        request_id
+                    )
+                else:
+                    # Legacy API
+                    result = await asyncio.to_thread(
+                        fal_client.result,
+                        self.models["audio2vid"],
+                        request_id
+                    )
 
-            return self._format_audio2vid_result(result, request_id=request_id)
+                return self._format_audio2vid_result(result, request_id=request_id)
+
+            except Exception as result_error:
+                logger.error(f"Result retrieval failed: {result_error}")
+                return {
+                    "success": False,
+                    "error": str(result_error),
+                    "request_id": request_id
+                }
 
         except Exception as e:
             logger.error(f"Failed to get Audio-to-Video result: {e}")

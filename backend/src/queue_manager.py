@@ -468,6 +468,45 @@ class QueueManager:
         }
         return timeouts.get(module, 10)  # Default 10 minutes
 
+    def update_job_progress(self, job_id: str, progress: int, status: str, details: str = None):
+        """Update job progress (synchronous method for compatibility)."""
+        try:
+            db = get_db()
+
+            update_data = {
+                "progress": progress,
+                "status": status,
+                "updatedAt": datetime.now(timezone.utc)
+            }
+
+            if details:
+                update_data["statusDetails"] = details
+
+            # Convert string job_id to ObjectId if needed
+            if isinstance(job_id, str):
+                try:
+                    job_id = ObjectId(job_id)
+                except:
+                    # If it's not a valid ObjectId, treat as string job ID
+                    filter_query = {"jobId": job_id}
+                else:
+                    filter_query = {"_id": job_id}
+            else:
+                filter_query = {"_id": job_id}
+
+            result = db.jobs.update_one(filter_query, {"$set": update_data})
+
+            if result.modified_count > 0:
+                logger.debug(f"Updated job progress: {job_id} -> {progress}% ({status})")
+                return True
+            else:
+                logger.warning(f"No job found to update progress: {job_id}")
+                return False
+
+        except Exception as e:
+            logger.error(f"Failed to update job progress: {e}")
+            return False
+
     async def update_job_status(
         self,
         job_id: ObjectId,
