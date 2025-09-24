@@ -92,6 +92,13 @@ class DatabaseManager:
         deletion_queue_collection.create_index([("nextTryAt", ASCENDING)])
         deletion_queue_collection.create_index([("createdAt", DESCENDING)])
 
+        # TTS results collection (for job tracking)
+        tts_results_collection = self.database.tts_results
+        tts_results_collection.create_index([("job_id", ASCENDING)], unique=True)
+        tts_results_collection.create_index([("user_id", ASCENDING)])
+        tts_results_collection.create_index([("expires_at", ASCENDING)], expireAfterSeconds=0)  # TTL index
+        tts_results_collection.create_index([("created_at", DESCENDING)])
+
         logger.info("Collections and indexes created successfully")
 
 # Global database manager instance

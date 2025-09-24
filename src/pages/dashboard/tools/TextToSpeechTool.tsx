@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { AudioLines, Play, Pause, Download, Volume2, User } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { AudioLines, Play, Pause, Download, Volume2, User, AlertCircle, CheckCircle, Clock, Loader2 } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import ToolEditorLayout from "@/components/dashboard/ToolEditorLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,67 +9,269 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
+
+// API Types
+interface TTSRequest {
+  text: string;
+  voice: string;
+  stability: number;
+  similarity_boost: number;
+  style?: number;
+  speed: number;
+  timestamps?: boolean;
+  language_code?: string;
+}
+
+interface TTSResponse {
+  success: boolean;
+  job_id?: string;
+  audio_url?: string;
+  cloudinary_public_id?: string;
+  timestamps?: any[];
+  metadata?: any;
+  error?: string;
+  processing_time?: number;
+}
+
+interface TTSJobStatus {
+  job_id: string;
+  status: string;
+  progress: number;
+  stage: string;
+  estimated_time_remaining?: number;
+  error?: string;
+}
+
+interface VoiceInfo {
+  id: string;
+  name: string;
+  gender: string;
+  accent: string;
+  description: string;
+}
 
 const TextToSpeechTool = () => {
   const [text, setText] = useState("");
-  const [voice, setVoice] = useState("alloy");
+  const [voice, setVoice] = useState("Rachel");
+  const [stability, setStability] = useState([0.5]);
+  const [similarityBoost, setSimilarityBoost] = useState([0.75]);
+  const [style, setStyle] = useState([0]);
   const [speed, setSpeed] = useState([1.0]);
-  const [pitch, setPitch] = useState([1.0]);
+  const [timestamps, setTimestamps] = useState(false);
+  const [languageCode, setLanguageCode] = useState("");
+
+  // Generation state
   const [isGenerating, setIsGenerating] = useState(false);
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [stage, setStage] = useState("");
+  const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Audio playback state
   const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+
+  // Generated audio
   const [generatedAudio, setGeneratedAudio] = useState<{
-    id: string;
-    url: string;
+    job_id: string;
+    audio_url: string;
+    cloudinary_public_id?: string;
     text: string;
     voice: string;
-    timestamp: Date;
-    duration: number;
+    metadata: any;
+    timestamps?: any[];
+    processing_time?: number;
   } | null>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
 
-  const voices = [
-    { value: "alloy", label: "Alloy", description: "Neutral, balanced voice", gender: "Neutral" },
-    { value: "echo", label: "Echo", description: "Warm, friendly voice", gender: "Male" },
-    { value: "fable", label: "Fable", description: "Expressive storytelling voice", gender: "Female" },
-    { value: "onyx", label: "Onyx", description: "Deep, authoritative voice", gender: "Male" },
-    { value: "nova", label: "Nova", description: "Clear, professional voice", gender: "Female" },
-    { value: "shimmer", label: "Shimmer", description: "Bright, cheerful voice", gender: "Female" }
-  ];
+  // Available voices
+  const [availableVoices, setAvailableVoices] = useState<VoiceInfo[]>([]);
+
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Load available voices on component mount
+  useEffect(() => {
+    const loadVoices = async () => {
+      try {
+        const response = await fetch('/api/tts/voices');
+        if (response.ok) {
+          const voices = await response.json();
+          setAvailableVoices(voices);
+        }
+      } catch (error) {
+        console.error('Failed to load voices:', error);
+        // Fallback voices
+        setAvailableVoices([
+          { id: "Rachel", name: "Rachel", gender: "Female", accent: "American", description: "Professional, warm female voice" },
+          { id: "Drew", name: "Drew", gender: "Male", accent: "American", description: "Confident, articulate male voice" },
+          { id: "Paul", name: "Paul", gender: "Male", accent: "British", description: "Sophisticated British male voice" },
+          { id: "Sarah", name: "Sarah", gender: "Female", accent: "American", description: "Clear, professional female voice" },
+          { id: "Clyde", name: "Clyde", gender: "Male", accent: "American", description: "Friendly, approachable male voice" },
+          { id: "Emily", name: "Emily", gender: "Female", accent: "American", description: "Gentle, soothing female voice" }
+        ]);
+      }
+    };
+    loadVoices();
+  }, []);
+
+  // Progress tracking - poll job status
+  const pollJobStatus = useCallback(async (jobId: string) => {
+    try {
+      const response = await fetch(`/api/tts/job/${jobId}/status`);
+      if (response.ok) {
+        const status: TTSJobStatus = await response.json();
+        setProgress(Math.max(0, status.progress));
+        setStage(status.stage);
+        setEstimatedTimeRemaining(status.estimated_time_remaining || null);
+
+        if (status.error) {
+          setError(status.error);
+          setIsGenerating(false);
+          toast.error(status.error);
+          return false; // Stop polling
+        }
+
+        if (status.status === 'completed' || status.progress >= 100) {
+          // Fetch the result
+          const resultResponse = await fetch(`/api/tts/job/${jobId}/result`);
+          if (resultResponse.ok) {
+            const result: TTSResponse = await resultResponse.json();
+            if (result.success) {
+              setGeneratedAudio({
+                job_id: jobId,
+                audio_url: result.audio_url!,
+                cloudinary_public_id: result.cloudinary_public_id,
+                text: text,
+                voice: voice,
+                metadata: result.metadata,
+                timestamps: result.timestamps,
+                processing_time: result.processing_time
+              });
+              toast.success("TTS generation completed successfully!");
+            } else {
+              setError(result.error || "TTS generation failed");
+              toast.error(result.error || "TTS generation failed");
+            }
+          }
+          setIsGenerating(false);
+          return false; // Stop polling
+        }
+
+        return true; // Continue polling
+      }
+    } catch (error) {
+      console.error('Failed to poll job status:', error);
+      setError('Failed to track generation progress');
+      setIsGenerating(false);
+      return false; // Stop polling
+    }
+    return false;
+  }, [text, voice]);
+
+  // Start progress polling
+  const startProgressPolling = useCallback((jobId: string) => {
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+    }
+
+    progressIntervalRef.current = setInterval(async () => {
+      const shouldContinue = await pollJobStatus(jobId);
+      if (!shouldContinue && progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+    }, 2000); // Poll every 2 seconds
+  }, [pollJobStatus]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+      }
+    };
+  }, []);
 
   const textTemplates = [
     "Welcome to our platform! We're excited to have you here.",
     "Thank you for choosing our service. Your satisfaction is our priority.",
-    "Hello! This is a test of our text-to-speech capabilities.",
+    "Hello! This is a test of our text-to-speech capabilities powered by ElevenLabs.",
     "In today's rapidly evolving digital landscape, innovation drives success.",
     "Please listen carefully to the following important announcement.",
     "Once upon a time, in a land far away, there lived a wise old wizard."
   ];
 
   const handleGenerate = async () => {
-    if (!text.trim()) return;
+    if (!text.trim()) {
+      toast.error("Please enter some text to generate speech");
+      return;
+    }
 
+    if (text.length > 5000) {
+      toast.error("Text must be 5000 characters or less");
+      return;
+    }
+
+    // Reset state
     setIsGenerating(true);
+    setProgress(0);
+    setStage("initializing");
+    setError(null);
+    setCurrentJobId(null);
+    setGeneratedAudio(null);
+    setEstimatedTimeRemaining(null);
 
-    // Simulate audio generation
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      const requestData: TTSRequest = {
+        text: text.trim(),
+        voice: voice,
+        stability: stability[0],
+        similarity_boost: similarityBoost[0],
+        style: style[0] !== 0 ? style[0] : undefined,
+        speed: speed[0],
+        timestamps: timestamps,
+        language_code: languageCode || undefined
+      };
 
-    // Mock audio URL (in real app, this would be the generated audio file)
-    const mockAudioUrl = "data:audio/wav;base64,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"; // Very short base64 audio for demo
+      const response = await fetch('/api/tts/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+      });
 
-    setGeneratedAudio({
-      id: Date.now().toString(),
-      url: mockAudioUrl,
-      text: text,
-      voice: voice,
-      timestamp: new Date(),
-      duration: Math.floor(text.length / 10) // Rough estimate: ~10 characters per second
-    });
+      const result: TTSResponse = await response.json();
 
-    setIsGenerating(false);
+      if (result.success && result.job_id) {
+        setCurrentJobId(result.job_id);
+        setStage("submitted");
+        setProgress(5);
+        toast.success("TTS generation started! Tracking progress...");
+
+        // Start polling for progress
+        startProgressPolling(result.job_id);
+      } else {
+        setError(result.error || "Failed to start TTS generation");
+        setIsGenerating(false);
+        toast.error(result.error || "Failed to start TTS generation");
+      }
+    } catch (error) {
+      console.error('TTS generation failed:', error);
+      setError("Network error - please try again");
+      setIsGenerating(false);
+      toast.error("Network error - please try again");
+    }
   };
 
   const playPauseAudio = () => {
-    if (audioRef.current) {
+    if (audioRef.current && generatedAudio) {
       if (isPlaying) {
         audioRef.current.pause();
         setIsPlaying(false);
@@ -81,15 +283,57 @@ const TextToSpeechTool = () => {
   };
 
   const downloadAudio = () => {
-    if (generatedAudio) {
-      // In real implementation, this would download the actual audio file
-      console.log("Downloading audio:", generatedAudio.url);
+    if (generatedAudio?.audio_url) {
+      const link = document.createElement('a');
+      link.href = generatedAudio.audio_url;
+      link.download = `tts_${generatedAudio.voice}_${Date.now()}.mp3`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success("Audio download started!");
     }
+  };
+
+  // Audio event handlers
+  const handleAudioLoadedData = () => {
+    if (audioRef.current) {
+      setDuration(audioRef.current.duration);
+    }
+  };
+
+  const handleAudioTimeUpdate = () => {
+    if (audioRef.current) {
+      setCurrentTime(audioRef.current.currentTime);
+    }
+  };
+
+  const handleAudioEnded = () => {
+    setIsPlaying(false);
+    setCurrentTime(0);
   };
 
   const calculateWordCount = () => text.trim().split(/\s+/).filter(word => word.length > 0).length;
   const calculateCharacterCount = () => text.length;
-  const estimatedDuration = Math.max(1, Math.floor(calculateCharacterCount() / 15)); // ~15 chars per second
+  const estimatedDuration = Math.max(1, Math.floor(calculateCharacterCount() / (15 * speed[0]))); // Adjust for speed
+
+  // Get stage display text
+  const getStageDisplay = (stage: string) => {
+    const stageMap: { [key: string]: string } = {
+      'initializing': 'Initializing...',
+      'submitted': 'Request submitted',
+      'submitting_to_fal': 'Connecting to ElevenLabs...',
+      'processing_audio': 'Generating speech...',
+      'uploading_to_cloudinary': 'Saving audio file...',
+      'completed': 'Complete!'
+    };
+    return stageMap[stage] || stage;
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const previewPane = (
     <Card>
@@ -97,36 +341,62 @@ const TextToSpeechTool = () => {
         <CardTitle className="text-lg font-medium flex items-center">
           <AudioLines className="w-5 h-5 mr-2" />
           Generated Audio
-          {generatedAudio && (
+          {generatedAudio?.metadata && (
             <Badge variant="default" className="ml-2">
-              {Math.floor(generatedAudio.duration / 60)}:{(generatedAudio.duration % 60).toString().padStart(2, '0')}
+              {formatTime(generatedAudio.metadata.estimated_duration || 0)}
             </Badge>
           )}
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {!generatedAudio && !isGenerating && (
+        {/* Error State */}
+        {error && (
+          <Alert className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="text-red-600">
+              {error}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Generation Progress */}
+        {isGenerating && (
+          <div className="space-y-4">
+            <div className="text-center">
+              <div className="flex items-center justify-center space-x-2 mb-2">
+                <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                <span className="text-blue-600 font-medium">
+                  {getStageDisplay(stage)}
+                </span>
+              </div>
+              <Progress value={progress} className="w-full mb-2" />
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>{progress}% complete</span>
+                {estimatedTimeRemaining && (
+                  <span>{estimatedTimeRemaining}s remaining</span>
+                )}
+              </div>
+              {currentJobId && (
+                <p className="text-xs text-gray-400 mt-1">Job ID: {currentJobId}</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* No Audio State */}
+        {!generatedAudio && !isGenerating && !error && (
           <div className="text-center py-12">
             <AudioLines className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-500 dark:text-gray-400 mb-2">
               No audio generated yet
             </p>
             <p className="text-sm text-gray-400">
-              Enter text and click Generate to create audio
+              Enter text and click Generate to create high-quality speech
             </p>
           </div>
         )}
 
-        {isGenerating && (
-          <div className="text-center py-12">
-            <div className="inline-flex items-center space-x-2">
-              <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-              <span className="text-blue-600 font-medium">Generating audio...</span>
-            </div>
-            <p className="text-sm text-gray-500 mt-2">Creating natural speech from your text</p>
-          </div>
-        )}
-
+        {/* Generated Audio Display */}
         {generatedAudio && (
           <div className="space-y-6">
             {/* Audio Player */}
@@ -136,74 +406,103 @@ const TextToSpeechTool = () => {
                   onClick={playPauseAudio}
                   size="lg"
                   className="w-14 h-14 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                  disabled={!generatedAudio.audio_url}
                 >
                   {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
                 </Button>
+
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium">
-                      {voices.find(v => v.value === generatedAudio.voice)?.label}
+                      {availableVoices.find(v => v.id === generatedAudio.voice)?.name || generatedAudio.voice}
                     </span>
                     <span className="text-xs text-gray-500">
-                      {generatedAudio.duration}s
+                      {formatTime(duration)} / {formatTime(generatedAudio.metadata?.estimated_duration || 0)}
                     </span>
                   </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                    <div className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full w-0 transition-all duration-200"></div>
-                  </div>
+                  <Progress
+                    value={duration > 0 ? (currentTime / duration) * 100 : 0}
+                    className="h-2"
+                  />
                 </div>
               </div>
 
-              {/* Waveform Visualization (Mock) */}
+              {/* Waveform Visualization (Static) */}
               <div className="flex items-center justify-center space-x-1 h-16 mb-4">
-                {Array.from({ length: 50 }, (_, i) => (
-                  <div
-                    key={i}
-                    className="bg-gradient-to-t from-blue-400 to-purple-400 rounded-full transition-all duration-200"
-                    style={{
-                      width: '3px',
-                      height: `${Math.random() * 60 + 10}px`,
-                      opacity: isPlaying ? 0.8 : 0.4
-                    }}
-                  />
-                ))}
+                {Array.from({ length: 50 }, (_, i) => {
+                  const height = Math.sin((i / 50) * Math.PI * 4) * 30 + 35;
+                  const isActive = duration > 0 && (i / 50) <= (currentTime / duration);
+                  return (
+                    <div
+                      key={i}
+                      className={`rounded-full transition-all duration-200 ${
+                        isActive
+                          ? 'bg-gradient-to-t from-blue-500 to-purple-500'
+                          : 'bg-gray-300 dark:bg-gray-600'
+                      }`}
+                      style={{
+                        width: '3px',
+                        height: `${height}px`,
+                        opacity: isPlaying && isActive ? 1 : 0.6
+                      }}
+                    />
+                  );
+                })}
               </div>
 
-              <div className="text-center">
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-3">
+              <div className="text-center space-y-3">
+                <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-3">
                   "{generatedAudio.text.substring(0, 150)}..."
                 </p>
-                <Button onClick={downloadAudio} variant="outline">
-                  <Download className="w-4 h-4 mr-2" />
-                  Download MP3
-                </Button>
+                <div className="flex items-center justify-center space-x-2">
+                  <Button onClick={downloadAudio} variant="outline" size="sm">
+                    <Download className="w-4 h-4 mr-2" />
+                    Download MP3
+                  </Button>
+                  {generatedAudio.processing_time && (
+                    <Badge variant="secondary">
+                      {generatedAudio.processing_time}s processing time
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
 
             {/* Audio Details */}
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="font-medium">Voice:</span> {voices.find(v => v.value === generatedAudio.voice)?.label}
+                <span className="font-medium text-gray-600">Voice:</span>{" "}
+                <span className="text-gray-800 dark:text-gray-200">
+                  {availableVoices.find(v => v.id === generatedAudio.voice)?.name || generatedAudio.voice}
+                </span>
               </div>
               <div>
-                <span className="font-medium">Duration:</span> {generatedAudio.duration} seconds
+                <span className="font-medium text-gray-600">Model:</span>{" "}
+                <span className="text-gray-800 dark:text-gray-200">ElevenLabs Turbo v2.5</span>
               </div>
               <div>
-                <span className="font-medium">Characters:</span> {generatedAudio.text.length}
+                <span className="font-medium text-gray-600">Characters:</span>{" "}
+                <span className="text-gray-800 dark:text-gray-200">{generatedAudio.text.length}</span>
               </div>
               <div>
-                <span className="font-medium">Generated:</span> {generatedAudio.timestamp.toLocaleTimeString()}
+                <span className="font-medium text-gray-600">File Size:</span>{" "}
+                <span className="text-gray-800 dark:text-gray-200">
+                  {generatedAudio.cloudinary_public_id ? "Saved to cloud" : "Temporary"}
+                </span>
               </div>
             </div>
 
             {/* Hidden audio element for playback */}
             <audio
               ref={audioRef}
-              src={generatedAudio.url}
-              onEnded={() => setIsPlaying(false)}
+              src={generatedAudio.audio_url}
+              onLoadedData={handleAudioLoadedData}
+              onTimeUpdate={handleAudioTimeUpdate}
+              onEnded={handleAudioEnded}
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
               style={{ display: 'none' }}
+              preload="metadata"
             />
           </div>
         )}
@@ -216,11 +515,11 @@ const TextToSpeechTool = () => {
       <ToolEditorLayout
         toolName="Text to Speech"
         toolIcon={AudioLines}
-        credits="100 credits"
-        estimatedTime="~15s"
+        credits="50 credits"
+        estimatedTime={`~${estimatedDuration}s`}
         onGenerate={handleGenerate}
         isGenerating={isGenerating}
-        canGenerate={!!text.trim() && text.length <= 5000}
+        canGenerate={!!text.trim() && text.length <= 5000 && !isGenerating}
         previewPane={previewPane}
       >
         {/* Text Input */}
@@ -233,11 +532,12 @@ const TextToSpeechTool = () => {
               <Label htmlFor="text">Text to Convert</Label>
               <Textarea
                 id="text"
-                placeholder="Enter the text you want to convert to speech..."
+                placeholder="Enter the text you want to convert to natural speech using ElevenLabs..."
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 className="min-h-[120px]"
                 maxLength={5000}
+                disabled={isGenerating}
               />
               <div className="flex justify-between text-xs text-gray-500 mt-1">
                 <span>
@@ -266,22 +566,27 @@ const TextToSpeechTool = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label>Voice</Label>
-              <Select value={voice} onValueChange={setVoice}>
+              <Label>Voice Selection</Label>
+              <Select value={voice} onValueChange={setVoice} disabled={isGenerating}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {voices.map((v) => (
-                    <SelectItem key={v.value} value={v.value}>
+                  {availableVoices.map((v) => (
+                    <SelectItem key={v.id} value={v.id}>
                       <div className="flex justify-between w-full">
                         <div>
-                          <div className="font-medium">{v.label}</div>
+                          <div className="font-medium">{v.name}</div>
                           <div className="text-xs text-gray-500">{v.description}</div>
                         </div>
-                        <Badge variant="outline" className="text-xs ml-4">
-                          {v.gender}
-                        </Badge>
+                        <div className="flex space-x-1 ml-4">
+                          <Badge variant="outline" className="text-xs">
+                            {v.gender}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            {v.accent}
+                          </Badge>
+                        </div>
                       </div>
                     </SelectItem>
                   ))}
@@ -290,38 +595,123 @@ const TextToSpeechTool = () => {
             </div>
 
             <div>
-              <Label>Speed: {speed[0]}x</Label>
+              <Label>Voice Stability: {stability[0]}</Label>
               <Slider
-                value={speed}
-                onValueChange={setSpeed}
-                max={2}
-                min={0.25}
-                step={0.25}
+                value={stability}
+                onValueChange={setStability}
+                max={1}
+                min={0}
+                step={0.1}
                 className="mt-2"
+                disabled={isGenerating}
               />
               <p className="text-xs text-gray-500 mt-1">
-                0.25x = Very slow, 1x = Normal, 2x = Very fast
+                Higher values create more consistent voice, lower values add variation
               </p>
             </div>
 
             <div>
-              <Label>Pitch: {pitch[0]}</Label>
+              <Label>Similarity Boost: {similarityBoost[0]}</Label>
               <Slider
-                value={pitch}
-                onValueChange={setPitch}
-                max={2}
-                min={0.5}
+                value={similarityBoost}
+                onValueChange={setSimilarityBoost}
+                max={1}
+                min={0}
                 step={0.1}
                 className="mt-2"
+                disabled={isGenerating}
               />
               <p className="text-xs text-gray-500 mt-1">
-                0.5 = Lower pitch, 1.0 = Natural, 2.0 = Higher pitch
+                Enhances similarity to the original voice, may affect stability
+              </p>
+            </div>
+
+            <div>
+              <Label>Style Enhancement: {style[0]}</Label>
+              <Slider
+                value={style}
+                onValueChange={setStyle}
+                max={1}
+                min={0}
+                step={0.1}
+                className="mt-2"
+                disabled={isGenerating}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Amplifies the style of the original speaker, 0 = neutral
+              </p>
+            </div>
+
+            <div>
+              <Label>Speech Speed: {speed[0]}x</Label>
+              <Slider
+                value={speed}
+                onValueChange={setSpeed}
+                max={4}
+                min={0.25}
+                step={0.25}
+                className="mt-2"
+                disabled={isGenerating}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                0.25x = Very slow, 1x = Normal, 4x = Very fast
               </p>
             </div>
           </CardContent>
         </Card>
 
-        {/* Text Templates */}
+        {/* Advanced Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Advanced Settings</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Include Word Timestamps</Label>
+                <p className="text-xs text-gray-500 mt-1">
+                  Generate timing data for each word (useful for subtitles)
+                </p>
+              </div>
+              <Switch
+                checked={timestamps}
+                onCheckedChange={setTimestamps}
+                disabled={isGenerating}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="languageCode">Language Code (Optional)</Label>
+              <Select value={languageCode} onValueChange={setLanguageCode} disabled={isGenerating}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Auto-detect language" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Auto-detect</SelectItem>
+                  <SelectItem value="en">English</SelectItem>
+                  <SelectItem value="es">Spanish</SelectItem>
+                  <SelectItem value="fr">French</SelectItem>
+                  <SelectItem value="de">German</SelectItem>
+                  <SelectItem value="it">Italian</SelectItem>
+                  <SelectItem value="pt">Portuguese</SelectItem>
+                  <SelectItem value="pl">Polish</SelectItem>
+                  <SelectItem value="tr">Turkish</SelectItem>
+                  <SelectItem value="ru">Russian</SelectItem>
+                  <SelectItem value="nl">Dutch</SelectItem>
+                  <SelectItem value="cs">Czech</SelectItem>
+                  <SelectItem value="ar">Arabic</SelectItem>
+                  <SelectItem value="zh">Chinese</SelectItem>
+                  <SelectItem value="ja">Japanese</SelectItem>
+                  <SelectItem value="hu">Hungarian</SelectItem>
+                  <SelectItem value="ko">Korean</SelectItem>
+                  <SelectItem value="hi">Hindi</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Quick Templates */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center">
@@ -338,6 +728,7 @@ const TextToSpeechTool = () => {
                   size="sm"
                   className="justify-start text-left h-auto py-2 text-xs"
                   onClick={() => setText(template)}
+                  disabled={isGenerating}
                 >
                   {template}
                 </Button>
