@@ -1290,7 +1290,7 @@ class FalAdapter:
             }
 
     async def check_audio2vid_status(self, request_id: str) -> Dict[str, Any]:
-        """Check status of Audio-to-Video request."""
+        """Check status of Audio-to-Video request with enhanced object type handling."""
         try:
             if not self.fal:
                 raise Exception("Fal client not initialized - check API key")
@@ -1299,7 +1299,7 @@ class FalAdapter:
             try:
                 if hasattr(self.fal, 'status'):
                     # New API
-                    status = await asyncio.to_thread(
+                    status_obj = await asyncio.to_thread(
                         self.fal.status,
                         self.models["audio2vid"],
                         request_id,
@@ -1307,20 +1307,26 @@ class FalAdapter:
                     )
                 else:
                     # Legacy API
-                    status = await asyncio.to_thread(
+                    status_obj = await asyncio.to_thread(
                         fal_client.status,
                         self.models["audio2vid"],
                         request_id,
                         with_logs=True
                     )
 
+                logger.info(f"📊 Raw status object type: {type(status_obj)}")
+                logger.info(f"📊 Raw status object: {status_obj}")
+
+                # Handle different response object types
+                status_info = self._extract_status_info(status_obj)
+
                 return {
                     "success": True,
                     "request_id": request_id,
-                    "status": status.get("status", "unknown"),
-                    "logs": status.get("logs", []),
-                    "queue_position": status.get("queue_position"),
-                    "estimated_time": status.get("estimated_time")
+                    "status": status_info.get("status", "unknown"),
+                    "logs": status_info.get("logs", []),
+                    "queue_position": status_info.get("queue_position"),
+                    "estimated_time": status_info.get("estimated_time")
                 }
 
             except Exception as status_error:
@@ -1343,8 +1349,104 @@ class FalAdapter:
                 "request_id": request_id
             }
 
+    def _extract_status_info(self, status_obj) -> Dict[str, Any]:
+        """Extract status information from different FAL client response object types."""
+        try:
+            # Method 1: Dictionary-like object with .get() method
+            if hasattr(status_obj, 'get') and callable(getattr(status_obj, 'get')):
+                return {
+                    "status": status_obj.get("status", "unknown"),
+                    "logs": status_obj.get("logs", []),
+                    "queue_position": status_obj.get("queue_position"),
+                    "estimated_time": status_obj.get("estimated_time")
+                }
+
+            # Method 2: Object with direct attributes (like Completed, InProgress, etc.)
+            elif hasattr(status_obj, '__dict__'):
+                obj_dict = status_obj.__dict__
+
+                # Handle Completed object type
+                if status_obj.__class__.__name__ == 'Completed':
+                    return {
+                        "status": "completed",
+                        "logs": getattr(status_obj, 'logs', []) if hasattr(status_obj, 'logs') else obj_dict.get("logs", []),
+                        "queue_position": None,
+                        "estimated_time": None
+                    }
+
+                # Handle InProgress object type
+                elif status_obj.__class__.__name__ == 'InProgress':
+                    return {
+                        "status": "in_progress",
+                        "logs": getattr(status_obj, 'logs', []) if hasattr(status_obj, 'logs') else obj_dict.get("logs", []),
+                        "queue_position": getattr(status_obj, 'queue_position', None) if hasattr(status_obj, 'queue_position') else obj_dict.get("queue_position"),
+                        "estimated_time": getattr(status_obj, 'estimated_time', None) if hasattr(status_obj, 'estimated_time') else obj_dict.get("estimated_time")
+                    }
+
+                # Handle other object types generically
+                else:
+                    status_value = "unknown"
+                    # Try to extract status from object name or attributes
+                    if hasattr(status_obj, 'status'):
+                        status_value = getattr(status_obj, 'status')
+                    else:
+                        # Use class name as status indicator
+                        class_name = status_obj.__class__.__name__.lower()
+                        if 'completed' in class_name or 'success' in class_name:
+                            status_value = "completed"
+                        elif 'progress' in class_name or 'running' in class_name:
+                            status_value = "in_progress"
+                        elif 'queue' in class_name or 'pending' in class_name:
+                            status_value = "queued"
+                        elif 'failed' in class_name or 'error' in class_name:
+                            status_value = "failed"
+
+                    return {
+                        "status": status_value,
+                        "logs": getattr(status_obj, 'logs', []) if hasattr(status_obj, 'logs') else obj_dict.get("logs", []),
+                        "queue_position": getattr(status_obj, 'queue_position', None) if hasattr(status_obj, 'queue_position') else obj_dict.get("queue_position"),
+                        "estimated_time": getattr(status_obj, 'estimated_time', None) if hasattr(status_obj, 'estimated_time') else obj_dict.get("estimated_time")
+                    }
+
+            # Method 3: String status
+            elif isinstance(status_obj, str):
+                return {
+                    "status": status_obj.lower(),
+                    "logs": [],
+                    "queue_position": None,
+                    "estimated_time": None
+                }
+
+            # Method 4: Plain dictionary
+            elif isinstance(status_obj, dict):
+                return {
+                    "status": status_obj.get("status", "unknown"),
+                    "logs": status_obj.get("logs", []),
+                    "queue_position": status_obj.get("queue_position"),
+                    "estimated_time": status_obj.get("estimated_time")
+                }
+
+            # Fallback
+            else:
+                logger.warning(f"⚠️ Unknown status object type: {type(status_obj)}")
+                return {
+                    "status": "unknown",
+                    "logs": [],
+                    "queue_position": None,
+                    "estimated_time": None
+                }
+
+        except Exception as e:
+            logger.error(f"❌ Failed to extract status info: {e}")
+            return {
+                "status": "unknown",
+                "logs": [],
+                "queue_position": None,
+                "estimated_time": None
+            }
+
     async def get_audio2vid_result(self, request_id: str) -> Dict[str, Any]:
-        """Get result from completed Audio-to-Video request."""
+        """Get result from completed Audio-to-Video request with enhanced object handling."""
         try:
             if not self.fal:
                 raise Exception("Fal client not initialized - check API key")
@@ -1353,20 +1455,26 @@ class FalAdapter:
             try:
                 if hasattr(self.fal, 'result'):
                     # New API
-                    result = await asyncio.to_thread(
+                    result_obj = await asyncio.to_thread(
                         self.fal.result,
                         self.models["audio2vid"],
                         request_id
                     )
                 else:
                     # Legacy API
-                    result = await asyncio.to_thread(
+                    result_obj = await asyncio.to_thread(
                         fal_client.result,
                         self.models["audio2vid"],
                         request_id
                     )
 
-                return self._format_audio2vid_result(result, request_id=request_id)
+                logger.info(f"📊 Raw result object type: {type(result_obj)}")
+                logger.info(f"📊 Raw result object: {result_obj}")
+
+                # Extract result data from different object types
+                result_data = self._extract_result_data(result_obj)
+
+                return self._format_audio2vid_result(result_data, request_id=request_id)
 
             except Exception as result_error:
                 logger.error(f"Result retrieval failed: {result_error}")
@@ -1383,6 +1491,43 @@ class FalAdapter:
                 "error": str(e),
                 "request_id": request_id
             }
+
+    def _extract_result_data(self, result_obj) -> Dict[str, Any]:
+        """Extract result data from different FAL client response object types."""
+        try:
+            # Method 1: Dictionary-like object
+            if isinstance(result_obj, dict):
+                return result_obj
+
+            # Method 2: Object with .data attribute
+            elif hasattr(result_obj, 'data'):
+                data = getattr(result_obj, 'data')
+                if isinstance(data, dict):
+                    return data
+                else:
+                    return {"data": data}
+
+            # Method 3: Object with direct attributes
+            elif hasattr(result_obj, '__dict__'):
+                obj_dict = result_obj.__dict__
+
+                # Look for common video result attributes
+                if 'video' in obj_dict:
+                    return obj_dict
+                elif any(key in obj_dict for key in ['video_url', 'url', 'output']):
+                    return obj_dict
+                else:
+                    # Return the entire object dict
+                    return obj_dict
+
+            # Method 4: String or other simple types
+            else:
+                logger.warning(f"⚠️ Unexpected result object type: {type(result_obj)}")
+                return {"raw_result": str(result_obj)}
+
+        except Exception as e:
+            logger.error(f"❌ Failed to extract result data: {e}")
+            return {"error": str(e), "raw_result": str(result_obj)}
 
     def _calculate_audio2vid_processing_time(self, params: Dict[str, Any]) -> Dict[str, str]:
         """Calculate processing time for audio-to-video: 200 seconds for 30 seconds of audio."""
