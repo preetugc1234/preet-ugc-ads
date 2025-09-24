@@ -515,7 +515,7 @@ const TextToSpeechTool = () => {
       <ToolEditorLayout
         toolName="Text to Speech"
         toolIcon={AudioLines}
-        credits="50 credits"
+        credits="Free (Testing Mode)"
         estimatedTime={`~${estimatedDuration}s`}
         onGenerate={handleGenerate}
         isGenerating={isGenerating}

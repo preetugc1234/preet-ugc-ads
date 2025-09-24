@@ -113,6 +113,7 @@ async def generate_speech(
         job_id = str(uuid.uuid4())
         user_id = current_user.id if current_user else None
 
+        # Note: No credit validation during testing mode - TTS is free
         logger.info(f"TTS generation started - Job: {job_id}, User: {user_id}, Text length: {len(request.text)}")
 
         # Start TTS generation in background
@@ -376,7 +377,7 @@ async def _save_to_history(user_id: str, job_id: str, request: TTSRequest, resul
             "timestamps": result.get("timestamps"),
             "duration": result.get("metadata", {}).get("estimated_duration"),
             "processing_time": result.get("metadata", {}).get("processing_time"),
-            "creditCost": 0,  # TODO: Implement credit system
+            "creditCost": 0,  # Free during testing mode
             "createdAt": datetime.now(timezone.utc),
             "status": "completed"
         }
