@@ -15,19 +15,37 @@ import uuid
 from datetime import datetime, timezone
 
 from ..services.tts_service import TTSService
-from ..auth import get_current_user
 from ..database import get_db
+
+# Optional auth import with fallback
+try:
+    from ..auth import get_current_user
+except ImportError:
+    # Fallback for testing without auth dependencies
+    def get_current_user():
+        return None
 
 router = APIRouter(prefix="/api/tts", tags=["Text-to-Speech"])
 logger = logging.getLogger(__name__)
 
-# Initialize TTS service
-try:
-    tts_service = TTSService()
-    logger.info("TTS service initialized successfully")
-except Exception as e:
-    logger.error(f"Failed to initialize TTS service: {e}")
-    tts_service = None
+# Lazy TTS service initialization
+tts_service = None
+
+def get_tts_service():
+    """Get or initialize TTS service with proper environment loading."""
+    global tts_service
+    if tts_service is None:
+        try:
+            # Ensure environment is loaded
+            from dotenv import load_dotenv
+            load_dotenv()
+
+            tts_service = TTSService()
+            logger.info("TTS service initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize TTS service: {e}")
+            raise HTTPException(status_code=503, detail=f"TTS service not available: {str(e)}")
+    return tts_service
 
 # Request/Response Models
 class TTSRequest(BaseModel):
@@ -50,10 +68,8 @@ class TTSRequest(BaseModel):
 
     @validator('voice')
     def validate_voice(cls, v):
-        if tts_service:
-            available_voices = [voice["id"] for voice in tts_service.get_available_voices()]
-            if v not in available_voices:
-                raise ValueError(f'Invalid voice. Available: {available_voices[:10]}...')
+        # Voice validation will be done at runtime in the endpoint
+        # to avoid circular dependency issues
         return v
 
 class TTSResponse(BaseModel):
@@ -85,12 +101,12 @@ class VoiceInfo(BaseModel):
 @router.get("/voices", response_model=List[VoiceInfo])
 async def get_available_voices():
     """Get list of available TTS voices with metadata."""
-    if not tts_service:
-        raise HTTPException(status_code=503, detail="TTS service not available")
-
     try:
-        voices = tts_service.get_available_voices()
+        service = get_tts_service()
+        voices = service.get_available_voices()
         return [VoiceInfo(**voice) for voice in voices]
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to get voices: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -105,10 +121,14 @@ async def generate_speech(
     Generate speech from text with perfect error handling and Cloudinary upload.
     Returns immediately with job_id for progress tracking.
     """
-    if not tts_service:
-        raise HTTPException(status_code=503, detail="TTS service not available")
-
     try:
+        service = get_tts_service()
+
+        # Validate voice selection
+        available_voices = [voice["id"] for voice in service.get_available_voices()]
+        if request.voice not in available_voices:
+            raise HTTPException(status_code=400, detail=f"Invalid voice '{request.voice}'. Available voices: {available_voices[:10]}...")
+
         # Generate unique job ID
         job_id = str(uuid.uuid4())
         user_id = current_user.id if current_user else None
@@ -130,7 +150,7 @@ async def generate_speech(
             metadata={
                 "text_length": len(request.text),
                 "voice": request.voice,
-                "estimated_duration": tts_service._estimate_audio_duration(request.text, request.speed),
+                "estimated_duration": service._estimate_audio_duration(request.text, request.speed),
                 "submitted_at": datetime.now(timezone.utc).isoformat()
             }
         )
@@ -142,11 +162,9 @@ async def generate_speech(
 @router.get("/job/{job_id}/status", response_model=TTSJobStatus)
 async def get_job_status(job_id: str):
     """Get real-time status of TTS generation job."""
-    if not tts_service:
-        raise HTTPException(status_code=503, detail="TTS service not available")
-
     try:
-        status = tts_service.get_job_status(job_id)
+        service = get_tts_service()
+        status = service.get_job_status(job_id)
 
         if not status:
             raise HTTPException(status_code=404, detail="Job not found or expired")
@@ -215,14 +233,12 @@ async def generate_speech_sync(
     Generate speech synchronously (for testing or simple use cases).
     WARNING: This will block until completion (up to 5 minutes).
     """
-    if not tts_service:
-        raise HTTPException(status_code=503, detail="TTS service not available")
-
     try:
+        service = get_tts_service()
         user_id = current_user.id if current_user else None
         job_id = str(uuid.uuid4())
 
-        result = await tts_service.generate_tts(
+        result = await service.generate_tts(
             text=request.text,
             voice=request.voice,
             stability=request.stability,
@@ -264,16 +280,16 @@ async def generate_speech_sync(
 @router.get("/test")
 async def test_tts_service():
     """Test the TTS service with a simple request."""
-    if not tts_service:
-        raise HTTPException(status_code=503, detail="TTS service not available")
-
     try:
-        result = await tts_service.test_service()
+        service = get_tts_service()
+        result = await service.test_service()
         return {
             "service_status": "operational" if result["success"] else "error",
             "test_result": result,
-            "available_voices": len(tts_service.get_available_voices())
+            "available_voices": len(service.get_available_voices())
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"TTS service test failed: {e}")
         return {
@@ -285,8 +301,11 @@ async def test_tts_service():
 async def _process_tts_generation(job_id: str, user_id: Optional[str], request: TTSRequest):
     """Process TTS generation in background task."""
     try:
+        # Get TTS service
+        service = get_tts_service()
+
         # Generate TTS
-        result = await tts_service.generate_tts(
+        result = await service.generate_tts(
             text=request.text,
             voice=request.voice,
             stability=request.stability,
