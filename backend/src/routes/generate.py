@@ -517,9 +517,9 @@ async def submit_audio2video(request: Audio2VideoRequest, current_user = Depends
 
                 db = get_db()
 
-                # Calculate credits based on audio duration
+                # Calculate credits based on audio duration (SET TO 0 FOR TESTING)
                 duration_increments = max(1, (request.audio_duration_seconds + 29) // 30)
-                credit_cost = duration_increments * 100
+                credit_cost = 0  # Set to 0 for testing - normally would be: duration_increments * 100
 
                 generation_record = {
                     "userId": current_user.id,
@@ -625,7 +625,7 @@ async def get_available_avatars():
             "total_count": len(avatars),
             "model": "veed-avatars-audio2video",
             "pricing": {
-                "credits_per_30s": 100,
+                "credits_per_30s": 0,  # Set to 0 for testing - normally 100
                 "max_duration_seconds": 300,
                 "processing_estimate": "~200 seconds for 30s audio"
             }

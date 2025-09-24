@@ -187,11 +187,10 @@ const UGCVideoTool = () => {
 
   const calculateCost = () => {
     if (mode === "audio-to-video") {
-      // 100 credits per 30 seconds of audio (rounded up)
-      // Maximum 5 minutes (300 seconds) = 10 chunks × 100 = 1000 credits max
+      // 0 credits for testing - normally would be 100 credits per 30 seconds of audio
       const clampedDuration = Math.min(audioDuration, 300); // Ensure max 5 minutes
       const thirtySecondChunks = Math.ceil(clampedDuration / 30);
-      return thirtySecondChunks * 100;
+      return 0; // Set to 0 for testing - normally: thirtySecondChunks * 100
     } else {
       // Image to Video with Audio
       const baseCost = durations.find(d => d.value === duration)?.credits || 200;
@@ -427,7 +426,7 @@ const UGCVideoTool = () => {
       <ToolEditorLayout
         toolName="UGC Video Generator"
         toolIcon={Film}
-        credits={mode === "audio-to-video" ? `${calculateCost()}/video` : "200-400/video"}
+        credits={mode === "audio-to-video" ? "FREE FOR TESTING" : "200-400/video"}
         estimatedTime={calculateProcessingTime()}
         onGenerate={handleGenerate}
         isGenerating={isGenerating}
@@ -515,7 +514,7 @@ const UGCVideoTool = () => {
                       Upload audio file
                     </p>
                     <p className="text-xs text-gray-500 mb-3">
-                      MP3, WAV, M4A up to 5 minutes • 100 credits per 30s
+                      MP3, WAV, M4A up to 5 minutes • FREE FOR TESTING (normally 100 credits per 30s)
                     </p>
                     <Button size="sm" onClick={() => document.getElementById('audio-upload')?.click()}>
                       <Upload className="w-4 h-4 mr-1" />
@@ -657,7 +656,7 @@ const UGCVideoTool = () => {
                             ? "text-red-600 dark:text-red-300"
                             : "text-green-600 dark:text-green-300"
                         }`}>
-                          {Math.ceil(Math.min(audioDuration, 300) / 30)} × 30s chunks
+                          {Math.ceil(Math.min(audioDuration, 300) / 30)} × 30s chunks • FREE FOR TESTING
                           {audioDuration > 300 && " (max 10 chunks)"}
                         </p>
                       </div>

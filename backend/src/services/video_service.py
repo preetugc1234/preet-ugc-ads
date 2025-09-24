@@ -329,7 +329,7 @@ class VideoService:
             for avatar in avatars:
                 # Estimate processing time: ~200 seconds for 30 seconds of audio
                 avatar["processing_estimate"] = "~200 seconds for 30s audio"
-                avatar["credits_per_30s"] = 100  # 100 credits per 30-second increment
+                avatar["credits_per_30s"] = 0  # Set to 0 for testing - normally 100 credits per 30-second increment
 
                 # Add thumbnail URL (placeholder for now)
                 avatar["thumbnail_url"] = f"https://res.cloudinary.com/{self.cloudinary_cloud_name}/image/upload/v1/avatars/{avatar['id']}.jpg"
@@ -347,8 +347,8 @@ class VideoService:
             duration_increments = max(1, (audio_duration_seconds + 29) // 30)
             processing_seconds = duration_increments * 200
 
-            # Credits: 100 per 30-second increment
-            total_credits = duration_increments * 100
+            # Credits: 0 per 30-second increment (SET TO 0 FOR TESTING)
+            total_credits = duration_increments * 0  # Set to 0 for testing - normally: duration_increments * 100
 
             # Add buffer for queue and initialization
             total_seconds_with_buffer = processing_seconds + 240  # 4 minutes buffer
@@ -369,7 +369,7 @@ class VideoService:
                 "processing_seconds": processing_seconds,
                 "total_seconds_with_buffer": total_seconds_with_buffer,
                 "total_credits": total_credits,
-                "credit_breakdown": f"{duration_increments} × 30s increments × 100 credits"
+                "credit_breakdown": f"{duration_increments} × 30s increments × 0 credits (FREE FOR TESTING)"
             }
         except Exception as e:
             logger.error(f"Failed to estimate processing time: {e}")
