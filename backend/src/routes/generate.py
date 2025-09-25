@@ -213,13 +213,106 @@ async def generate_image(request: ImageGenerationRequest, current_user = Depends
             error=str(e)
         )
 
-@router.post("/image-to-video", response_model=GenerateResponse)
-async def generate_image_to_video(request: GenerateRequest):
-    """Image to video endpoint (100-200 credits) - Legacy endpoint"""
-    return GenerateResponse(
-        message="Image to video endpoint - Use /kling-avatar for AI Avatar or check other video generation endpoints",
-        status="deprecated"
-    )
+class ImageToVideoLegacyRequest(BaseModel):
+    """Legacy request model for image-to-video generation."""
+    image_url: Optional[str] = None
+    audio_url: Optional[str] = None
+    prompt: Optional[str] = ""
+    params: Optional[Dict[str, Any]] = None
+
+class ImageToVideoLegacyResponse(BaseModel):
+    """Legacy response model for image-to-video generation."""
+    success: bool
+    video_url: Optional[str] = None
+    status: str
+    processing_time: Optional[str] = None
+    model: Optional[str] = None
+    error: Optional[str] = None
+    message: Optional[str] = None
+
+@router.post("/image-to-video", response_model=ImageToVideoLegacyResponse)
+async def generate_image_to_video(request: ImageToVideoLegacyRequest):
+    """Image-to-video generation using new Kling AI Avatar backend - FREE during testing"""
+    try:
+        logger.info(f"🎬 Legacy image-to-video endpoint called")
+
+        # Extract image and audio URLs from request
+        image_url = request.image_url
+        audio_url = request.audio_url
+
+        # If params are provided, try to extract URLs from there
+        if request.params:
+            image_url = image_url or request.params.get("image_url")
+            audio_url = audio_url or request.params.get("audio_url")
+            if not request.prompt and request.params.get("prompt"):
+                request.prompt = request.params.get("prompt")
+
+        # Validate required inputs
+        if not image_url:
+            raise HTTPException(
+                status_code=400,
+                detail="Image URL is required for image-to-video generation"
+            )
+
+        if not audio_url:
+            raise HTTPException(
+                status_code=400,
+                detail="Audio URL is required for image-to-video generation with Kling AI Avatar"
+            )
+
+        # Import the new image-to-video service
+        from ..services.image_to_video_service import ImageToVideoService
+
+        img2vid_service = ImageToVideoService()
+
+        logger.info(f"🎭 Processing with Kling AI Avatar:")
+        logger.info(f"📷 Image: {image_url[:50]}...")
+        logger.info(f"🎵 Audio: {audio_url[:50]}...")
+
+        # Generate unique job ID
+        import uuid
+        job_id = str(uuid.uuid4())
+
+        # Generate video using the new service
+        result = await img2vid_service.generate_image_to_video_async(
+            image_url=image_url,
+            audio_url=audio_url,
+            prompt=request.prompt or "",
+            user_id=None,  # Legacy endpoint doesn't have user auth
+            job_id=job_id
+        )
+
+        if result["success"]:
+            logger.info(f"✅ Image-to-video completed successfully: {result.get('video_url')}")
+
+            return ImageToVideoLegacyResponse(
+                success=True,
+                video_url=result.get("video_url"),
+                status="completed",
+                processing_time=result.get("processing_time"),
+                model=result.get("model", "kling-v1-pro-ai-avatar"),
+                message="Video generated successfully with Kling AI Avatar - FREE during testing"
+            )
+        else:
+            logger.error(f"❌ Image-to-video failed: {result.get('error')}")
+
+            return ImageToVideoLegacyResponse(
+                success=False,
+                status="failed",
+                error=result.get("error"),
+                message="Image-to-video generation failed"
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Legacy image-to-video endpoint error: {e}")
+        return ImageToVideoLegacyResponse(
+            success=False,
+            status="error",
+            error=str(e),
+            message="Internal server error during image-to-video generation"
+        )
 
 @router.post("/text-to-speech", response_model=GenerateResponse)
 async def generate_text_to_speech(request: GenerateRequest):
