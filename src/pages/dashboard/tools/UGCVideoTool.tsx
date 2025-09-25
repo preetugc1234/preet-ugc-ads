@@ -174,8 +174,80 @@ const UGCVideoTool = () => {
           throw new Error(generateResult.error || 'Generation failed');
         }
       } else {
-        // Image-to-video mode (placeholder - would integrate with existing image-to-video API)
-        throw new Error('Image-to-video mode not yet implemented with new backend');
+        // Image-to-video+audio mode using our new implementation
+        if (!uploadedImage || !uploadedAudio) {
+          throw new Error('Both image and audio are required for image-to-video generation');
+        }
+
+        // Step 1: Upload image file to FAL storage
+        const imageFile = await fetch(uploadedImage!).then(r => r.blob());
+        const imageFormData = new FormData();
+        imageFormData.append('file', imageFile, 'image.jpg');
+
+        const imageUploadResponse = await fetch(`${API_BASE_URL}/api/generate/upload-file`, {
+          method: 'POST',
+          body: imageFormData,
+          credentials: 'include'
+        });
+
+        if (!imageUploadResponse.ok) {
+          throw new Error('Failed to upload image file');
+        }
+
+        const imageUploadResult = await imageUploadResponse.json();
+        const imageUrl = imageUploadResult.file_url;
+
+        // Step 2: Upload audio file to FAL storage
+        const audioFile = await fetch(uploadedAudio!).then(r => r.blob());
+        const audioFormData = new FormData();
+        audioFormData.append('file', audioFile, 'audio.mp3');
+
+        const audioUploadResponse = await fetch(`${API_BASE_URL}/api/generate/upload-file`, {
+          method: 'POST',
+          body: audioFormData,
+          credentials: 'include'
+        });
+
+        if (!audioUploadResponse.ok) {
+          throw new Error('Failed to upload audio file');
+        }
+
+        const audioUploadResult = await audioUploadResponse.json();
+        const audioUrl = audioUploadResult.file_url;
+
+        // Step 3: Submit image+audio-to-video generation using new endpoint
+        const generateResponse = await fetch(`${API_BASE_URL}/api/generate/img2vid-audio/submit`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            image_url: imageUrl,
+            audio_url: audioUrl,
+            prompt: motionPrompt || 'Professional avatar speaking with natural expressions',
+            user_id: 'anonymous'
+          }),
+          credentials: 'include'
+        });
+
+        if (!generateResponse.ok) {
+          throw new Error('Failed to submit image-to-video generation request');
+        }
+
+        const generateResult = await generateResponse.json();
+
+        if (generateResult.success) {
+          setGeneratedVideo({
+            id: generateResult.job_id || Date.now().toString(),
+            previewUrl: generateResult.video_url,
+            finalUrl: generateResult.video_url,
+            mode: mode,
+            timestamp: new Date(),
+            status: 'final'
+          });
+        } else {
+          throw new Error(generateResult.error || 'Image-to-video generation failed');
+        }
       }
     } catch (error) {
       console.error('Generation failed:', error);
