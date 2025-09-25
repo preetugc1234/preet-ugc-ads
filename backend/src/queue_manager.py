@@ -346,9 +346,13 @@ class QueueManager:
                                     logger.warning(f"🚫 PREVENTING DUPLICATE FAL API CALL - Status: {job_status}")
                                     return
 
-                            # Check if job is in a final state
-                            if existing_job.get('status') in ['completed', 'failed', 'cancelled']:
-                                logger.info(f"✅ Job {job_id} already in final state: {existing_job.get('status')}")
+                            # Check if job is in a final state (including timeout)
+                            if existing_job.get('status') in ['completed', 'failed', 'cancelled', 'timeout']:
+                                job_status = existing_job.get('status')
+                                if job_status == 'timeout':
+                                    logger.info(f"⏱️ Job {job_id} previously timed out - User must click generate again for new attempt")
+                                else:
+                                    logger.info(f"✅ Job {job_id} already in final state: {job_status}")
                                 return
 
                         # 🚨 IMMEDIATE: Mark job as submitted to prevent frontend duplicates
@@ -511,7 +515,7 @@ class QueueManager:
         timeouts = {
             "chat": 2,
             "image": 5,
-            "img2vid_noaudio": 6,  # 6 minutes for WAN 2.2 model (3 min processing + buffer)
+            "img2vid_noaudio": 8,  # 8 minutes for WAN v2.2-5B model (5-6 min processing + buffer)
             "tts": 3,
             "img2vid_audio": 12,  # 12 minutes for Kling v1 Pro AI Avatar (8 min + buffer)
             "audio2vid": 25
@@ -810,12 +814,26 @@ class QueueManager:
 
             # Only timeout if still processing
             if job.get("status") in [JobStatus.PROCESSING.value, JobStatus.PREVIEW_READY.value]:
-                await self._handle_job_failure(
-                    job_id,
-                    "Job timed out",
-                    should_retry=True
+                # 🚨 NO RETRY: Mark as timeout and stop - user must click generate again
+                logger.warning(f"❌ Job {job_id} timed out after 8 minutes - NO AUTO RETRY")
+
+                db.jobs.update_one(
+                    {"_id": job_id},
+                    {
+                        "$set": {
+                            "status": JobStatus.TIMEOUT.value,
+                            "timeoutAt": datetime.now(timezone.utc),
+                            "error": f"Video generation timed out after 8 minutes. WAN v2.2-5B normally takes 5-6 minutes.",
+                            "errorDetails": "timeout_no_retry",
+                            "updatedAt": datetime.now(timezone.utc)
+                        }
+                    }
                 )
-                logger.warning(f"Job {job_id} timed out and will be retried")
+
+                # Clean up tracking
+                self.processing_jobs.discard(str(job_id))
+
+                logger.info(f"✅ Job {job_id} marked as TIMEOUT - User must click generate again")
 
         except Exception as e:
             logger.error(f"Error handling timeout for job {job_id}: {e}")
@@ -1024,9 +1042,27 @@ class QueueManager:
                     else:
                         await asyncio.sleep(15)  # Wait before retry
 
-            # If we reach here, polling timed out
-            logger.error(f"❌ Polling timeout for job {job_id} after {max_attempts} attempts ({max_attempts * 15} seconds)")
-            await self._handle_job_failure(job_id, f"Processing timeout after {max_attempts * 15} seconds")
+            # If we reach here, polling timed out (7.5 minutes for WAN v2.2-5B)
+            logger.error(f"❌ WAN v2.2-5B polling timeout for job {job_id} after {max_attempts} attempts (7.5 minutes)")
+
+            # Mark as timeout (not failure) - NO RETRY
+            db.jobs.update_one(
+                {"_id": job_id},
+                {
+                    "$set": {
+                        "status": JobStatus.TIMEOUT.value,
+                        "timeoutAt": datetime.now(timezone.utc),
+                        "error": f"WAN v2.2-5B generation timed out after 7.5 minutes. Please try again.",
+                        "errorDetails": "polling_timeout_no_retry",
+                        "updatedAt": datetime.now(timezone.utc)
+                    }
+                }
+            )
+
+            # Clean up tracking
+            self.processing_jobs.discard(str(job_id))
+
+            logger.info(f"✅ Job {job_id} marked as TIMEOUT - User must click generate again")
 
         except Exception as e:
             logger.error(f"❌ Fatal error in polling for job {job_id}: {e}")
