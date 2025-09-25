@@ -142,18 +142,20 @@ class FalAdapter:
             }
 
             logger.info(f"🚀 Submitting to FAL AI - Model: {self.models['img2vid_noaudio']}")
-            logger.info(f"🚀 Args: {arguments}")
+            logger.info(f"🚀 Resolution: {arguments.get('resolution')} (must be 580p or 720p)")
+            logger.info(f"🚀 API Key (first 20): {self.api_key[:20]}...")
             logger.info(f"🚀 Webhook: {webhook_url}")
+            logger.info(f"🚀 Full submission URL will be: https://queue.fal.run/{self.models['img2vid_noaudio']}")
 
             # 🚨 WAN v2.2-5B: Use special submission method with FAL_KEY
             try:
                 logger.info("🚀 Using WAN v2.2-5B submission method")
 
-                # Set FAL_KEY for WAN v2.2-5B if not already set
+                # 🚨 CRITICAL: Ensure correct API key is set for WAN v2.2-5B
                 import os
-                if not os.getenv("FAL_KEY"):
-                    os.environ["FAL_KEY"] = self.api_key
-                    logger.info("✅ FAL_KEY set for WAN v2.2-5B")
+                os.environ["FAL_KEY"] = self.api_key  # Always override
+                logger.info(f"✅ FAL_KEY set for WAN v2.2-5B: {self.api_key[:20]}...")
+                logger.info(f"✅ Using model: {self.models['img2vid_noaudio']}")
 
                 # Use direct fal_client.submit for WAN v2.2-5B
                 handler = await asyncio.to_thread(
@@ -272,16 +274,21 @@ class FalAdapter:
                     logger.info(f"📦 Found stored handler for request: {request_id}")
                     try:
                         # Try handler.get() method (non-blocking)
+                        logger.info(f"🔍 Calling handler.get() for WAN v2.2-5B...")
                         result = await asyncio.to_thread(handler.get)
+                        logger.info(f"📊 Handler.get() returned: {type(result)} - {result}")
+
                         if result:
                             logger.info(f"✅ WAN v2.2-5B completed! Result: {result}")
                             # Clean up handler
                             self.active_handlers.pop(request_id, None)
                             status_result = {"status": "completed", "result": result, "success": True}
                         else:
+                            logger.info(f"⏳ Handler.get() returned None - video still processing")
                             status_result = {"status": "IN_PROGRESS", "request_id": request_id}
                     except Exception as handler_error:
-                        logger.info(f"📊 Handler not ready: {handler_error} - still processing")
+                        logger.warning(f"📊 Handler not ready: {handler_error} - still processing")
+                        logger.warning(f"📊 Error type: {type(handler_error).__name__}")
                         status_result = {"status": "IN_PROGRESS", "request_id": request_id}
                 else:
                     logger.info(f"📊 No stored handler for {request_id} - using standard polling")
