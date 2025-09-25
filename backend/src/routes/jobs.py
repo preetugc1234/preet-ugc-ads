@@ -4,7 +4,7 @@ import hashlib
 import uuid
 import time
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, List
 
 from fastapi import APIRouter, HTTPException, Path, Depends, Request, Header
@@ -45,8 +45,8 @@ MODULE_CONFIGS = {
         "name": "Image to Video (No Audio)",
         "cost": 0,  # Free for testing - uses FAL AI directly
         "provider": "fal",
-        "model": "wan-v2.2-5b",
-        "avg_time_seconds": 45
+        "model": "wan-2.5-preview",
+        "avg_time_seconds": 90
     },
     "tts": {
         "name": "Text to Speech",
@@ -219,6 +219,31 @@ async def create_job(
                 message="Job with this client_job_id already exists",
                 client_job_id=request.client_job_id
             )
+
+        # Enhanced duplicate prevention for img2vid_noaudio
+        if request.module == "img2vid_noaudio":
+            # Check for recent similar requests from same user (within 5 minutes)
+            recent_threshold = datetime.now(timezone.utc) - timedelta(minutes=5)
+            image_url = request.params.get("image_url")
+            prompt = request.params.get("prompt", "")
+
+            if image_url:
+                similar_job = db.jobs.find_one({
+                    "userId": ObjectId(current_user.id),
+                    "module": "img2vid_noaudio",
+                    "createdAt": {"$gte": recent_threshold},
+                    "params.image_url": image_url,
+                    "params.prompt": prompt,
+                    "status": {"$nin": ["failed", "cancelled"]}  # Exclude failed/cancelled jobs
+                })
+
+                if similar_job:
+                    return JobResponse(
+                        success=False,
+                        message="Duplicate request detected. Please wait before generating the same video again.",
+                        client_job_id=request.client_job_id,
+                        job_id=str(similar_job["_id"])
+                    )
 
         # Estimate cost and time
         estimated_cost = estimate_job_cost(request.module, request.params)

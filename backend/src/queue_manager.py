@@ -332,9 +332,9 @@ class QueueManager:
                             else:
                                 logger.error(f"❌ No video_url found in sync_result: {sync_result}")
 
-                            # Process sync result immediately
+                            # Process sync result immediately with optimized WAN 2.5 handler
                             # Try to upload to Cloudinary, but don't fail if it doesn't work
-                            final_asset = await asset_handler.handle_video_result(
+                            final_asset = await asset_handler.handle_img2vid_noaudio_result(
                                 sync_result, str(job_id), user_id, False
                             )
                             cloudinary_urls = final_asset.get('urls', []) if final_asset.get('success') else []
@@ -461,7 +461,7 @@ class QueueManager:
         timeouts = {
             "chat": 2,
             "image": 5,
-            "img2vid_noaudio": 10,  # 10 minutes for Kling v2.1 Pro (6 min + buffer)
+            "img2vid_noaudio": 5,  # 5 minutes for WAN 2.5 Preview (1-2 min + buffer)
             "tts": 3,
             "img2vid_audio": 12,  # 12 minutes for Kling v1 Pro AI Avatar (8 min + buffer)
             "audio2vid": 25
@@ -581,10 +581,15 @@ class QueueManager:
                     # Get the result from FAL AI
                     async_result = await adapter.get_async_result(request_id)
                     if async_result.get('success'):
-                        # Process the result
-                        final_asset = await asset_handler.handle_video_result(
-                            async_result, str(job_id), user_id, False
-                        )
+                        # Process the result with optimized WAN 2.5 handler for img2vid_noaudio
+                        if module == "img2vid_noaudio":
+                            final_asset = await asset_handler.handle_img2vid_noaudio_result(
+                                async_result, str(job_id), user_id, False
+                            )
+                        else:
+                            final_asset = await asset_handler.handle_video_result(
+                                async_result, str(job_id), user_id, False
+                            )
                         final_urls = final_asset.get('urls', []) if final_asset.get('success') else []
 
                         if final_urls:

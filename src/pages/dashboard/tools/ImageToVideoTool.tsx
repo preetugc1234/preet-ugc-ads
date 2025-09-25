@@ -18,7 +18,7 @@ const ImageToVideoTool = () => {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
   const duration = "5"; // Fixed 5 seconds
-  const [quality, setQuality] = useState("hd");
+  const [quality, setQuality] = useState("1080p");
   const [motionPrompt, setMotionPrompt] = useState("");
   const [intensity, setIntensity] = useState([0.7]);
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
@@ -35,9 +35,9 @@ const ImageToVideoTool = () => {
   const fixedDuration = { value: "5", label: "5 seconds", credits: 100 };
 
   const qualities = [
-    { value: "hd", label: "HD (720p)", description: "Good quality, faster" },
-    { value: "fhd", label: "Full HD (1080p)", description: "High quality" },
-    { value: "4k", label: "4K (2160p)", description: "Ultra quality, slower" }
+    { value: "480p", label: "HD (480p)", description: "Good quality, fastest" },
+    { value: "720p", label: "HD (720p)", description: "High quality, fast" },
+    { value: "1080p", label: "Full HD (1080p)", description: "Ultra quality" }
   ];
 
   const motionTemplates = [
@@ -94,10 +94,11 @@ const ImageToVideoTool = () => {
         module: 'img2vid_noaudio' as const,
         params: {
           image_url: uploadedImageUrl,
-          prompt: motionPrompt || "Create smooth cinematic motion with natural camera movement",
-          duration_seconds: parseInt(duration),
-          quality: quality,
-          motion_intensity: intensity[0]
+          prompt: motionPrompt || "The image stays still, eyes full of determination and strength. The camera slowly moves closer or circles around, highlighting the powerful presence and character.",
+          resolution: quality, // WAN 2.5 uses resolution instead of quality
+          negative_prompt: "low resolution, error, worst quality, low quality, defects",
+          enable_prompt_expansion: true,
+          seed: null // Allow random generation
         }
       };
 
@@ -413,27 +414,54 @@ const ImageToVideoTool = () => {
                 `🎬 DEBUG: Video section is rendering! URL: ${displayVideoUrl?.substring(0, 50)}...`
               }
             </div>
-            <div className="aspect-video bg-black rounded-lg overflow-hidden">
+            <div className="aspect-video bg-black rounded-lg overflow-hidden relative">
               <video
                 controls
+                preload="auto"
+                playsInline
+                muted={false}
                 className="w-full h-full"
                 poster={uploadedImage || undefined}
-                onLoadStart={() => console.log('🎬 Video loading started')}
-                onCanPlay={() => console.log('🎬 Video can play')}
+                onLoadStart={() => console.log('🎬 WAN 2.5 video loading started')}
+                onCanPlay={() => console.log('🎬 WAN 2.5 video can play')}
+                onLoadedData={() => console.log('🎬 WAN 2.5 video data loaded')}
                 onError={(e) => {
-                  console.error('🎬 Video error:', e);
+                  console.error('🎬 WAN 2.5 video error:', e);
                   if (emergencyShow && !finalVideoUrl) {
                     console.log('🔄 Emergency mode: Video error, trying to refresh job status...');
                     setTimeout(() => refetchJobStatus(), 2000); // Auto-retry in 2 seconds
                   }
                 }}
+                onWaiting={() => console.log('🎬 Video buffering...')}
+                onPlaying={() => console.log('🎬 Video playing smoothly')}
+                key={displayVideoUrl} // Force re-render when URL changes
+                style={{
+                  objectFit: 'contain',
+                  backgroundColor: '#000'
+                }}
               >
-                <source
-                  src={displayVideoUrl}
-                  type="video/mp4"
-                />
+                <source src={displayVideoUrl} type="video/mp4" />
+                <source src={displayVideoUrl} type="video/webm" />
                 Your browser does not support the video tag.
               </video>
+
+              {/* Perfect Download Button Overlay */}
+              <div className="absolute top-2 right-2 z-10">
+                <Button
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = displayVideoUrl!;
+                    link.download = `wan25-video-${Date.now()}.mp4`;
+                    link.target = '_blank';
+                    link.click();
+                  }}
+                  className="bg-black/70 hover:bg-black/90 text-white border-white/20"
+                  size="sm"
+                >
+                  <Download className="w-4 h-4 mr-1" />
+                  Download
+                </Button>
+              </div>
             </div>
 
             <div className="flex items-center justify-between">
@@ -498,7 +526,7 @@ const ImageToVideoTool = () => {
         toolName="Image to Video (No Audio)"
         toolIcon={Video}
         credits="100-200/video"
-        estimatedTime="~6min"
+        estimatedTime="~2min"
         onGenerate={handleGenerate}
         isGenerating={createJobMutation.isPending || isJobRunning}
         canGenerate={!!uploadedImage && !isJobRunning}

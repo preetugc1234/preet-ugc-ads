@@ -179,6 +179,81 @@ class AssetHandler:
             logger.error(f"Error handling TTS result: {e}")
             return {"success": False, "error": str(e)}
 
+    async def handle_img2vid_noaudio_result(self, result: Dict[str, Any], job_id: str, user_id: str, is_preview: bool) -> Dict[str, Any]:
+        """Handle img2vid_noaudio result optimized for WAN 2.5 Preview model."""
+        try:
+            if not result.get("success"):
+                raise Exception(result.get("error", "WAN 2.5 Preview generation failed"))
+
+            video_url = result.get("video_url")
+            if not video_url:
+                raise Exception("No video URL in WAN 2.5 Preview result")
+
+            uploaded_urls = []
+
+            # Download video with retry logic for FAL AI URLs
+            logger.info(f"📥 Downloading WAN 2.5 video from: {video_url}")
+            video_data = await self._download_file_with_retry(video_url, max_retries=3)
+
+            if video_data:
+                logger.info(f"✅ WAN 2.5 video downloaded: {len(video_data)} bytes")
+
+                # Optimized path structure for WAN 2.5
+                video_path = f"user_{user_id}/wan25_videos/job_{job_id}/{'preview' if is_preview else 'final'}_video"
+
+                logger.info(f"☁️ Uploading WAN 2.5 video to Cloudinary: {video_path}")
+                video_upload = await self._upload_to_cloudinary_optimized(
+                    video_data,
+                    video_path,
+                    resource_type="video",
+                    format="mp4",
+                    quality="auto:good"
+                )
+
+                if video_upload:
+                    logger.info(f"✅ WAN 2.5 video uploaded successfully: {video_upload['secure_url']}")
+                    uploaded_urls.append(video_upload["secure_url"])
+                else:
+                    logger.error(f"❌ Failed to upload WAN 2.5 video to Cloudinary")
+                    raise Exception("Cloudinary video upload failed")
+            else:
+                logger.error(f"❌ Failed to download WAN 2.5 video from: {video_url}")
+                raise Exception("Video download failed")
+
+            # Create asset data with WAN 2.5 specific metadata
+            asset_data = {
+                "type": "img2vid_noaudio",
+                "video_url": uploaded_urls[0],
+                "model": "wan-2.5-preview",
+                "duration": 5.0,  # Fixed 5-second duration for WAN 2.5
+                "resolution": result.get("resolution", "1080p"),
+                "seed": result.get("seed"),
+                "actual_prompt": result.get("actual_prompt"),
+                "has_audio": False,
+                "is_preview": is_preview,
+                "created_at": datetime.utcnow().isoformat(),
+                "file_urls": uploaded_urls,
+                "cloudinary_optimized": True
+            }
+
+            return {
+                "success": True,
+                "asset_data": asset_data,
+                "urls": uploaded_urls,
+                "metadata": {
+                    "type": "img2vid_noaudio",
+                    "model": "wan-2.5-preview",
+                    "duration": 5.0,
+                    "resolution": result.get("resolution", "1080p"),
+                    "file_count": len(uploaded_urls),
+                    "cloudinary_optimized": True
+                }
+            }
+
+        except Exception as e:
+            logger.error(f"Error handling WAN 2.5 img2vid_noaudio result: {e}")
+            return {"success": False, "error": str(e)}
+
     async def handle_video_result(self, result: Dict[str, Any], job_id: str, user_id: str, is_preview: bool) -> Dict[str, Any]:
         """Handle video generation result (video file with optional thumbnail)."""
         try:
@@ -398,6 +473,65 @@ class AssetHandler:
             })
 
         return metadata
+
+    async def _download_file_with_retry(self, url: str, max_retries: int = 3) -> Optional[bytes]:
+        """Download file with retry logic for FAL AI URLs."""
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"📥 Download attempt {attempt + 1}/{max_retries} for: {url}")
+
+                # Extended timeout for video downloads
+                timeout = httpx.Timeout(connect=30.0, read=180.0, write=30.0, pool=30.0)
+
+                async with httpx.AsyncClient(timeout=timeout) as client:
+                    response = await client.get(url)
+                    if response.status_code == 200:
+                        logger.info(f"✅ Download successful on attempt {attempt + 1}")
+                        return response.content
+                    else:
+                        logger.warning(f"❌ Download failed with status {response.status_code}")
+
+            except Exception as e:
+                logger.warning(f"❌ Download attempt {attempt + 1} failed: {e}")
+                if attempt < max_retries - 1:
+                    wait_time = (attempt + 1) * 2  # Progressive backoff
+                    logger.info(f"⏳ Waiting {wait_time}s before retry...")
+                    await asyncio.sleep(wait_time)
+                else:
+                    logger.error(f"❌ All download attempts failed for: {url}")
+
+        return None
+
+    async def _upload_to_cloudinary_optimized(self, file_data: bytes, public_id: str, **kwargs) -> Optional[Dict[str, Any]]:
+        """Upload to Cloudinary with optimized settings for WAN 2.5 videos."""
+        try:
+            # Enhanced upload parameters for video optimization
+            upload_params = {
+                "eager": [
+                    {"quality": "auto:good", "format": "mp4"},
+                    {"quality": "auto:low", "format": "webm", "transformation": [{"width": 854, "height": 480, "crop": "scale"}]}
+                ],
+                "eager_async": True,
+                "overwrite": True,
+                "invalidate": True,
+                **kwargs
+            }
+
+            logger.info(f"☁️ Uploading to Cloudinary with optimized settings: {public_id}")
+            result = await self._upload_to_cloudinary(file_data, public_id, **upload_params)
+
+            if result:
+                logger.info(f"✅ Optimized Cloudinary upload successful: {result['secure_url']}")
+                return result
+            else:
+                logger.error(f"❌ Optimized Cloudinary upload failed")
+                return None
+
+        except Exception as e:
+            logger.error(f"❌ Optimized Cloudinary upload error: {e}")
+            # Fallback to basic upload
+            logger.info(f"🔄 Falling back to basic Cloudinary upload...")
+            return await self._upload_to_cloudinary(file_data, public_id, **kwargs)
 
     def get_cloudinary_config(self) -> Dict[str, Any]:
         """Get Cloudinary configuration status."""

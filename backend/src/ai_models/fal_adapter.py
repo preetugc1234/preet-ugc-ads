@@ -61,7 +61,7 @@ class FalAdapter:
         self.models = {
             "tts": "fal-ai/elevenlabs/tts/multilingual-v2",  # ElevenLabs TTS Multilingual v2 (primary TTS model - stability & quality focused)
             "tts_turbo": "fal-ai/elevenlabs/tts/turbo-v2.5",  # ElevenLabs TTS Turbo v2.5 (kept for compatibility)
-            "img2vid_noaudio": "fal-ai/wan/v2.2-5b/image-to-video",  # Wan v2.2-5B Image-to-Video
+            "img2vid_noaudio": "fal-ai/wan-25-preview/image-to-video",  # WAN 2.5 Preview Image-to-Video (NEW MODEL)
             "img2vid_audio": "fal-ai/kling-video/v1/pro/ai-avatar",  # Kling v1 Pro AI Avatar
             "audio2vid": "veed/avatars/audio-to-video",  # Veed Avatars Audio-to-Video via Fal AI
             "image_generation": "fal-ai/flux/schnell"  # FLUX Schnell for image generation
@@ -95,23 +95,15 @@ class FalAdapter:
             if not image_url.startswith(('http', 'data:')):
                 raise Exception(f"Invalid image URL format: {image_url[:50]}...")
 
-            # Enhanced parameters for Kling v2.1 Pro
+            # Enhanced parameters for WAN 2.5 Preview
             arguments = {
-                "image_url": image_url,
                 "prompt": prompt,
-                "duration": str(duration),
-                "negative_prompt": params.get("negative_prompt", "blur, distort, low quality, static image, bad motion"),
-                "cfg_scale": params.get("cfg_scale", 0.5)
+                "image_url": image_url,
+                "resolution": params.get("resolution", "1080p"),  # 480p, 720p, 1080p
+                "negative_prompt": params.get("negative_prompt", "low resolution, error, worst quality, low quality, defects"),
+                "enable_prompt_expansion": params.get("enable_prompt_expansion", True),
+                "seed": params.get("seed", None)  # For reproducibility
             }
-
-            # Add motion intensity if provided
-            if params.get("motion_intensity"):
-                # Map motion_intensity (0.1-1.0) to cfg_scale for better motion control
-                motion_factor = float(params["motion_intensity"])
-                arguments["cfg_scale"] = min(max(motion_factor, 0.1), 1.0)
-
-            if params.get("tail_image_url"):
-                arguments["tail_image_url"] = params["tail_image_url"]
 
             logger.info(f"🚀 Submitting to FAL AI - Model: {self.models['img2vid_noaudio']}")
             logger.info(f"🚀 Args: {arguments}")
@@ -161,17 +153,35 @@ class FalAdapter:
                 "success": True,
                 "request_id": request_id,
                 "status": "submitted",
-                "model": "kling-v2.1-pro",
-                "estimated_processing_time": "6 minutes",
-                "quality": quality,
-                "duration": duration
+                "model": "wan-2.5-preview",
+                "estimated_processing_time": "1-2 minutes",
+                "quality": arguments.get("resolution", "1080p"),
+                "duration": 5  # Fixed 5-second duration for WAN 2.5
             }
 
         except Exception as e:
-            logger.error(f"Image-to-video async submission failed: {e}")
+            logger.error(f"WAN 2.5 Preview async submission failed: {e}")
+            logger.error(f"Error type: {type(e).__name__}")
+
+            # Enhanced error categorization
+            error_message = str(e).lower()
+            if "timeout" in error_message or "connection" in error_message:
+                error_type = "network_error"
+            elif "api key" in error_message or "unauthorized" in error_message:
+                error_type = "auth_error"
+            elif "quota" in error_message or "limit" in error_message:
+                error_type = "quota_error"
+            elif "invalid" in error_message or "format" in error_message:
+                error_type = "validation_error"
+            else:
+                error_type = "processing_error"
+
             return {
                 "success": False,
-                "error": str(e)
+                "error": str(e),
+                "error_type": error_type,
+                "model": "wan-2.5-preview",
+                "retry_recommended": error_type in ["network_error", "processing_error"]
             }
 
     async def get_async_result(self, request_id: str, model: str = None) -> Dict[str, Any]:
@@ -228,8 +238,10 @@ class FalAdapter:
                     "success": True,
                     "video_url": video_url,
                     "thumbnail_url": thumbnail_url,
-                    "duration": duration,
-                    "model": "kling-v2.1-pro",
+                    "duration": 5,  # Fixed 5-second duration for WAN 2.5
+                    "seed": result.get("seed"),
+                    "actual_prompt": result.get("actual_prompt"),
+                    "model": "wan-2.5-preview",
                     "status": "completed"
                 }
             else:
@@ -241,11 +253,24 @@ class FalAdapter:
                 }
 
         except Exception as e:
-            logger.error(f"Failed to get async result for {request_id}: {e}")
+            logger.error(f"Failed to get WAN 2.5 Preview result for {request_id}: {e}")
+
+            # Enhanced error handling for stuck jobs
+            error_message = str(e).lower()
+            if "timeout" in error_message:
+                status = "timeout"
+            elif "not found" in error_message or "invalid" in error_message:
+                status = "not_found"
+            else:
+                status = "error"
+
             return {
                 "success": False,
                 "error": str(e),
-                "status": "error"
+                "status": status,
+                "model": "wan-2.5-preview",
+                "request_id": request_id,
+                "cleanup_required": status in ["timeout", "not_found"]
             }
 
     async def upload_file_to_fal(self, file_path: str) -> str:
@@ -719,39 +744,23 @@ class FalAdapter:
             if not image_url:
                 raise Exception("Image URL is required")
 
-            logger.info(f"🎬 Starting img2vid_noaudio generation with Wan v2.2-5B")
+            logger.info(f"🎬 Starting img2vid_noaudio generation with WAN 2.5 Preview")
             logger.info(f"📷 Input: image_url length: {len(image_url)}, prompt: '{prompt}'")
 
-            # Wan v2.2-5B parameters (fixed 5 seconds)
+            # WAN 2.5 Preview parameters (fixed 5 seconds)
             arguments = {
+                "prompt": prompt if prompt else "The image stays still, eyes full of determination and strength. The camera slowly moves closer or circles around, highlighting the powerful presence and character.",
                 "image_url": image_url,
-                "prompt": prompt if prompt else "Smooth cinematic motion with natural camera movement",
-                "num_frames": 120,  # Exactly 5 seconds at 24fps (120 frames)
-                "frames_per_second": 24,
-                "resolution": "720p",
-                "aspect_ratio": "auto",
-                "num_inference_steps": 30,  # Reduced for speed
-                "enable_safety_checker": True,
-                "enable_prompt_expansion": False,
-                "guidance_scale": 3.5,
-                "shift": 5,
-                "interpolator_model": "film",
-                "num_interpolated_frames": 0,
-                "adjust_fps_for_interpolation": True,
-                "video_quality": "high",
-                "video_write_mode": "balanced"
+                "resolution": params.get("resolution", "1080p"),  # 480p, 720p, 1080p
+                "negative_prompt": params.get("negative_prompt", "low resolution, error, worst quality, low quality, defects"),
+                "enable_prompt_expansion": params.get("enable_prompt_expansion", True),
+                "seed": params.get("seed", None)
             }
-
-            # Add optional parameters if provided
-            if params.get("seed"):
-                arguments["seed"] = int(params["seed"])
-            if params.get("negative_prompt"):
-                arguments["negative_prompt"] = params["negative_prompt"]
 
             logger.info(f"🔧 FAL AI arguments: {arguments}")
 
             # ALWAYS use general FAL API key (matches working local setup)
-            logger.info(f"🔑 Using general FAL API key for Wan v2.2-5B (matching local setup)")
+            logger.info(f"🔑 Using general FAL API key for WAN 2.5 Preview (matching local setup)")
 
             # Ensure general FAL API key is set in environment
             if not self.api_key:
@@ -759,8 +768,8 @@ class FalAdapter:
 
             os.environ["FAL_KEY"] = self.api_key
 
-            # Submit async request to Wan v2.2-5B using general FAL API key
-            logger.info(f"📤 Submitting async request to Wan v2.2-5B...")
+            # Submit async request to WAN 2.5 Preview using general FAL API key
+            logger.info(f"📤 Submitting async request to WAN 2.5 Preview...")
             submit_result = await asyncio.to_thread(
                 fal_client.submit,
                 self.models["img2vid_noaudio"],
@@ -773,15 +782,15 @@ class FalAdapter:
             # Handle different response formats
             if hasattr(submit_result, 'request_id'):
                 request_id = submit_result.request_id
-                logger.info(f"✅ Wan v2.2-5B request submitted: {request_id}")
+                logger.info(f"✅ WAN 2.5 Preview request submitted: {request_id}")
                 # Wait for completion
-                logger.info(f"⏳ Waiting for Wan v2.2-5B completion...")
+                logger.info(f"⏳ Waiting for WAN 2.5 Preview completion...")
                 result = await asyncio.to_thread(submit_result.get)
             elif isinstance(submit_result, dict) and 'request_id' in submit_result:
                 request_id = submit_result['request_id']
-                logger.info(f"✅ Wan v2.2-5B request submitted (dict): {request_id}")
+                logger.info(f"✅ WAN 2.5 Preview request submitted (dict): {request_id}")
                 # Wait for completion using fal_client.result
-                logger.info(f"⏳ Waiting for Wan v2.2-5B completion...")
+                logger.info(f"⏳ Waiting for WAN 2.5 Preview completion...")
                 result = await asyncio.to_thread(
                     fal_client.result,
                     self.models["img2vid_noaudio"],
@@ -789,7 +798,7 @@ class FalAdapter:
                 )
             else:
                 # Direct result case
-                logger.info(f"✅ Wan v2.2-5B direct result received")
+                logger.info(f"✅ WAN 2.5 Preview direct result received")
                 result = submit_result
 
             logger.info(f"📊 FAL AI response: {result}")
@@ -803,25 +812,52 @@ class FalAdapter:
                 return {
                     "success": True,
                     "video_url": video_url,
-                    "duration": 5.0,  # Exactly 5 seconds (120 frames at 24fps)
-                    "aspect_ratio": "auto",
-                    "quality": "720p",
-                    "model": "wan-v2.2-5b",
+                    "duration": 5.0,  # Fixed 5-second video generation
+                    "resolution": arguments.get("resolution", "1080p"),
+                    "model": "wan-2.5-preview",
                     "has_audio": False,
                     "preview": False,
-                    "processing_time": "~90 seconds"
+                    "seed": result.get("seed"),
+                    "actual_prompt": result.get("actual_prompt"),
+                    "processing_time": "~60-120 seconds"
                 }
             else:
                 logger.error(f"❌ FAL AI response missing video: {result}")
                 raise Exception(f"FAL AI returned no video. Response: {result}")
 
         except Exception as e:
-            logger.error(f"❌ FAL AI img2vid_noaudio failed: {e}")
-            logger.error(f"❌ This indicates FAL AI service is blocked or unavailable")
+            logger.error(f"❌ WAN 2.5 Preview img2vid_noaudio failed: {e}")
+            logger.error(f"❌ Error type: {type(e).__name__}")
+
+            # Enhanced error categorization for better debugging
+            error_message = str(e).lower()
+            if "timeout" in error_message:
+                error_category = "timeout_error"
+                user_message = "Video generation timed out. Please try again."
+            elif "api key" in error_message or "unauthorized" in error_message:
+                error_category = "auth_error"
+                user_message = "Authentication failed. Please check API key configuration."
+            elif "quota" in error_message or "limit" in error_message:
+                error_category = "quota_error"
+                user_message = "Service quota exceeded. Please try again later."
+            elif "invalid" in error_message or "format" in error_message:
+                error_category = "validation_error"
+                user_message = "Invalid input parameters. Please check your image and prompt."
+            elif "connection" in error_message or "network" in error_message:
+                error_category = "network_error"
+                user_message = "Network connectivity issue. Please try again."
+            else:
+                error_category = "processing_error"
+                user_message = "Video generation failed. Please try again."
+
             return {
                 "success": False,
-                "error": f"FAL AI service error: {str(e)}",
-                "video_url": None
+                "error": user_message,
+                "error_details": str(e),
+                "error_category": error_category,
+                "model": "wan-2.5-preview",
+                "video_url": None,
+                "retry_recommended": error_category in ["timeout_error", "network_error", "processing_error"]
             }
 
     # Image-to-Video (With Audio) Methods - Using Kling v1 Pro AI Avatar
