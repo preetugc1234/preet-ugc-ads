@@ -260,70 +260,94 @@ class VideoService:
             }
 
     async def _handle_video_upload(self, video_url: str, user_id: str, job_id: str, avatar_id: str) -> Dict[str, Any]:
-        """Download video from FAL and upload to Cloudinary."""
+        """Download video from FAL and upload to Cloudinary with retry logic."""
         if not self.cloudinary_configured:
             return {"success": False, "error": "Cloudinary not configured"}
 
-        try:
-            logger.info(f"📥 Downloading video from FAL: {video_url}")
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"📥 Downloading video from FAL: {video_url} (attempt {attempt + 1})")
 
-            # Download video from FAL
-            async with httpx.AsyncClient() as client:
-                response = await client.get(video_url)
-                response.raise_for_status()
-                video_data = response.content
+                # Download video from FAL with timeout
+                timeout = httpx.Timeout(60.0, connect=30.0)  # 60s total, 30s connect timeout
+                async with httpx.AsyncClient(timeout=timeout) as client:
+                    response = await client.get(video_url)
+                    response.raise_for_status()
+                    video_data = response.content
 
-            # Generate public ID with meaningful naming
-            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-            public_id = f"ugc_videos/audio2video/{user_id or 'anonymous'}/{job_id}_{avatar_id}_{timestamp}"
+                # Generate public ID with meaningful naming
+                timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+                public_id = f"ugc_videos/audio2video/{user_id or 'anonymous'}/{job_id}_{avatar_id}_{timestamp}"
 
-            logger.info(f"☁️ Uploading to Cloudinary: {public_id}")
+                logger.info(f"☁️ Uploading to Cloudinary: {public_id} (attempt {attempt + 1})")
 
-            # Upload to Cloudinary
-            upload_result = await asyncio.to_thread(
-                cloudinary.uploader.upload,
-                video_data,
-                public_id=public_id,
-                resource_type="video",
-                folder="ugc_videos/audio2video",
-                use_filename=False,
-                unique_filename=True,
-                overwrite=False,
-                quality="auto",
-                format="mp4",
-                eager=[
-                    {"quality": "auto", "format": "mp4"},
-                    {"quality": "auto:low", "format": "mp4", "width": 720}  # Lower quality version
-                ],
-                eager_async=True,
-                tags=[f"user_{user_id}", f"job_{job_id}", f"avatar_{avatar_id}", "audio2video"]
-            )
+                # Upload to Cloudinary with proper timeout and simplified parameters
+                upload_result = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        cloudinary.uploader.upload,
+                        video_data,
+                        public_id=public_id,
+                        resource_type="video",
+                        folder="ugc_videos/audio2video",
+                        use_filename=False,
+                        unique_filename=True,
+                        overwrite=False,
+                        quality="auto",
+                        format="mp4",
+                        tags=[f"user_{user_id}", f"job_{job_id}", f"avatar_{avatar_id}", "audio2video"],
+                        # Remove eager transformations to avoid timeout issues
+                        eager_async=False,
+                        timeout=120  # 2 minutes timeout for Cloudinary upload
+                    ),
+                    timeout=150  # 2.5 minutes total timeout for the upload
+                )
 
-            cloudinary_url = upload_result.get("secure_url") or upload_result.get("url")
+                cloudinary_url = upload_result.get("secure_url") or upload_result.get("url")
 
-            if not cloudinary_url:
-                return {"success": False, "error": "No URL returned from Cloudinary"}
+                if not cloudinary_url:
+                    raise Exception("No URL returned from Cloudinary")
 
-            logger.info(f"✅ Video uploaded to Cloudinary: {public_id}")
+                logger.info(f"✅ Video uploaded to Cloudinary: {public_id}")
 
-            return {
-                "success": True,
-                "cloudinary_url": cloudinary_url,
-                "public_id": public_id,
-                "file_size": len(video_data),
-                "format": upload_result.get("format", "mp4"),
-                "duration": upload_result.get("duration"),
-                "width": upload_result.get("width"),
-                "height": upload_result.get("height")
-            }
+                return {
+                    "success": True,
+                    "cloudinary_url": cloudinary_url,
+                    "public_id": public_id,
+                    "file_size": len(video_data),
+                    "format": upload_result.get("format", "mp4"),
+                    "duration": upload_result.get("duration"),
+                    "width": upload_result.get("width"),
+                    "height": upload_result.get("height")
+                }
 
-        except httpx.HTTPError as e:
-            logger.error(f"Failed to download video from FAL: {e}")
-            return {"success": False, "error": f"Download failed: {str(e)}"}
+            except (httpx.HTTPError, httpx.TimeoutException, asyncio.TimeoutError) as e:
+                logger.warning(f"⚠️ Attempt {attempt + 1} failed with network error: {type(e).__name__}: {e}")
+                if attempt == max_retries - 1:  # Last attempt
+                    logger.error(f"❌ All {max_retries} attempts failed - network error: {e}")
+                    return {"success": False, "error": f"Network error after {max_retries} attempts: {str(e)}"}
+                # Wait before retry (exponential backoff)
+                await asyncio.sleep(2 ** attempt)
+                continue
 
-        except Exception as e:
-            logger.error(f"Cloudinary upload failed: {e}")
-            return {"success": False, "error": f"Cloudinary upload failed: {str(e)}"}
+            except Exception as e:
+                # Check if it's a connection-related error that we should retry
+                error_str = str(e).lower()
+                if any(keyword in error_str for keyword in ['connection', 'timeout', 'protocol', 'remote end closed']):
+                    logger.warning(f"⚠️ Attempt {attempt + 1} failed with connection error: {e}")
+                    if attempt == max_retries - 1:  # Last attempt
+                        logger.error(f"❌ All {max_retries} attempts failed - connection error: {e}")
+                        return {"success": False, "error": f"Connection error after {max_retries} attempts: {str(e)}"}
+                    # Wait before retry (exponential backoff)
+                    await asyncio.sleep(2 ** attempt)
+                    continue
+                else:
+                    # Non-retryable error
+                    logger.error(f"❌ Cloudinary upload failed with non-retryable error: {e}")
+                    return {"success": False, "error": f"Cloudinary upload failed: {str(e)}"}
+
+        # This should never be reached due to the retry logic, but just in case
+        return {"success": False, "error": f"Upload failed after {max_retries} attempts"}
 
     def _update_job_progress(self, job_id: str, progress: int, status: str, details: str = None):
         """Update job progress (simplified logging for audio-to-video)."""
