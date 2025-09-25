@@ -151,6 +151,11 @@ class FalAdapter:
             try:
                 logger.info("🚀 Using WAN v2.2-5B submission method")
 
+                # 🚨 CLEAN UP OLD HANDLERS to prevent interference
+                old_count = len(self.active_handlers)
+                self.active_handlers.clear()
+                logger.info(f"🧹 Cleared {old_count} old handlers to prevent interference")
+
                 # 🚨 CRITICAL: Ensure correct API key is set for WAN v2.2-5B
                 import os
                 os.environ["FAL_KEY"] = self.api_key  # Always override
@@ -158,11 +163,29 @@ class FalAdapter:
                 logger.info(f"✅ Using model: {self.models['img2vid_noaudio']}")
 
                 # Use direct fal_client.submit for WAN v2.2-5B
-                handler = await asyncio.to_thread(
-                    fal_client.submit,
-                    self.models["img2vid_noaudio"],
-                    arguments=arguments
-                )
+                logger.info(f"🚀 About to call fal_client.submit...")
+                logger.info(f"🚀 Model: {self.models['img2vid_noaudio']}")
+                logger.info(f"🚀 Arguments keys: {list(arguments.keys())}")
+
+                # Add timeout to prevent hanging
+                try:
+                    handler = await asyncio.wait_for(
+                        asyncio.to_thread(
+                            fal_client.submit,
+                            self.models["img2vid_noaudio"],
+                            arguments=arguments
+                        ),
+                        timeout=30.0  # 30 second timeout for submission
+                    )
+                except asyncio.TimeoutError:
+                    logger.error("❌ fal_client.submit timed out after 30 seconds")
+                    raise Exception("FAL submission timed out - check API key and model access")
+                except Exception as submit_exception:
+                    logger.error(f"❌ fal_client.submit failed: {submit_exception}")
+                    logger.error(f"❌ Exception type: {type(submit_exception).__name__}")
+                    raise
+
+                logger.info(f"🎉 fal_client.submit completed! Handler type: {type(handler)}")
 
                 logger.info(f"🎉 WAN v2.2-5B submission successful - Handler: {handler}")
 
