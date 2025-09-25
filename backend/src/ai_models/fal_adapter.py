@@ -298,22 +298,22 @@ class FalAdapter:
                 if parsed_status.get('status') == 'completed' or parsed_status.get('success'):
                     logger.info(f"✅ Job completed, attempting to get result...")
                     try:
-                        # 🚨 PRODUCTION: For WAN v2.2-5B, we need to use a different approach
-                        # Since the FAL client API is limited, we'll use the queue manager's
-                        # built-in result handling which should work with the handler
-                        logger.info(f"🔍 Getting WAN v2.2-5B result via queue manager")
-
-                        # Return a success indicator so queue manager can handle final result
-                        result = {
-                            "success": True,
-                            "status": "completed",
-                            "request_id": request_id,
-                            "model": "wan-v2.2-5b",
-                            "note": "Result will be retrieved by queue manager"
-                        }
-                        logger.info(f"✅ WAN v2.2-5B marked as completed for queue manager")
+                        # 🚨 FIXED: Use the actual result from handler.get() instead of placeholder
+                        if status_result.get("result"):
+                            logger.info(f"🔍 Using actual video result from handler")
+                            result = status_result["result"]
+                            logger.info(f"✅ Got actual WAN v2.2-5B result: {type(result)}")
+                        else:
+                            logger.warning(f"⚠️ No result in status_result, trying fallback")
+                            # Fallback: try to get result directly from handler
+                            handler = self.active_handlers.get(request_id)
+                            if handler:
+                                result = await asyncio.to_thread(handler.get)
+                                logger.info(f"✅ Got fallback result: {type(result)}")
+                            else:
+                                raise Exception("No result available from handler")
                     except Exception as result_error:
-                        logger.warning(f"⚠️ Result retrieval error: {result_error}")
+                        logger.error(f"❌ Result retrieval error: {result_error}")
                         result = status_result
                 else:
                     # Still processing, return the parsed status
