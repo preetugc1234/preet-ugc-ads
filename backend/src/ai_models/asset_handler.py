@@ -208,16 +208,12 @@ class AssetHandler:
                 video_path = f"user_{user_id}/wan_v22_5b_videos/job_{job_id}/{'preview' if is_preview else 'final'}_video"
 
                 logger.info(f"☁️ Uploading WAN v2.2-5B video to Cloudinary: {video_path}")
-                video_upload = await self._upload_to_cloudinary_optimized(
+                # Use basic upload method with correct parameters
+                video_upload = await self._upload_to_cloudinary(
                     video_data,
                     video_path,
                     resource_type="video",
-                    format="mp4",
-                    quality="auto:best",  # Higher quality for 5B model
-                    transformation=[
-                        {"quality": "auto:best"},
-                        {"flags": "progressive:steep"}  # Progressive loading
-                    ]
+                    format="mp4"
                 )
 
                 if video_upload:
@@ -532,7 +528,10 @@ class AssetHandler:
             }
 
             logger.info(f"☁️ Uploading to Cloudinary with optimized settings: {public_id}")
-            result = await self._upload_to_cloudinary(file_data, public_id, **upload_params)
+            # Extract only the supported parameters for the basic upload method
+            resource_type = upload_params.get('resource_type', 'video')
+            format_type = upload_params.get('format', 'mp4')
+            result = await self._upload_to_cloudinary(file_data, public_id, resource_type=resource_type, format=format_type)
 
             if result:
                 logger.info(f"✅ Optimized Cloudinary upload successful: {result['secure_url']}")
@@ -543,9 +542,11 @@ class AssetHandler:
 
         except Exception as e:
             logger.error(f"❌ Optimized Cloudinary upload error: {e}")
-            # Fallback to basic upload
+            # Fallback to basic upload - only pass supported parameters
             logger.info(f"🔄 Falling back to basic Cloudinary upload...")
-            return await self._upload_to_cloudinary(file_data, public_id, **kwargs)
+            resource_type = kwargs.get('resource_type', 'auto')
+            format_type = kwargs.get('format', None)
+            return await self._upload_to_cloudinary(file_data, public_id, resource_type=resource_type, format=format_type)
 
     def get_cloudinary_config(self) -> Dict[str, Any]:
         """Get Cloudinary configuration status."""
