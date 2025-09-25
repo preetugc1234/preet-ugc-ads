@@ -323,12 +323,49 @@ class QueueManager:
                     logger.info(f"📷 Input params: image_url length: {len(params.get('image_url', ''))}, prompt: '{params.get('prompt', '')}'")
 
                     try:
-                        # 🚨 CRITICAL: Check if job was already submitted to FAL API
+                        # 🚨 CRITICAL: Enhanced duplicate prevention for WAN v2.2-5B
                         existing_job = db.jobs.find_one({"_id": job_id})
-                        if existing_job and existing_job.get("workerMeta", {}).get("request_id"):
-                            logger.warning(f"🚫 Job {job_id} already submitted to FAL API with request_id: {existing_job['workerMeta']['request_id']}")
-                            logger.warning(f"🚫 PREVENTING DUPLICATE FAL API CALL - This would waste money!")
-                            return
+                        if existing_job:
+                            # Check if already submitted to FAL API
+                            if existing_job.get("workerMeta", {}).get("request_id"):
+                                existing_request_id = existing_job['workerMeta']['request_id']
+                                job_status = existing_job.get('status', 'unknown')
+
+                                # If job is still processing, continue monitoring instead of warning
+                                if job_status in ['processing', 'submitted']:
+                                    logger.info(f"✅ Job {job_id} already processing with request_id: {existing_request_id}")
+                                    logger.info(f"🔄 Continuing to monitor existing WAN v2.2-5B generation...")
+
+                                    # Start monitoring the existing request
+                                    asyncio.create_task(
+                                        self._poll_fal_async_result(job_id, existing_request_id, module, user_id, adapter)
+                                    )
+                                    return
+                                else:
+                                    logger.warning(f"🚫 Job {job_id} already completed/failed with request_id: {existing_request_id}")
+                                    logger.warning(f"🚫 PREVENTING DUPLICATE FAL API CALL - Status: {job_status}")
+                                    return
+
+                            # Check if job is in a final state
+                            if existing_job.get('status') in ['completed', 'failed', 'cancelled']:
+                                logger.info(f"✅ Job {job_id} already in final state: {existing_job.get('status')}")
+                                return
+
+                        # 🚨 IMMEDIATE: Mark job as submitted to prevent frontend duplicates
+                        logger.info(f"🔒 Marking job {job_id} as submitted to prevent duplicates...")
+                        db.jobs.update_one(
+                            {"_id": job_id},
+                            {
+                                "$set": {
+                                    "status": "submitted",
+                                    "submittedAt": datetime.now(timezone.utc),
+                                    "workerMeta": {
+                                        "submission_in_progress": True,
+                                        "submitted_at": datetime.now(timezone.utc).isoformat()
+                                    }
+                                }
+                            }
+                        )
 
                         # Use async submission method (non-blocking)
                         logger.info(f"📤 Submitting to FAL AI asynchronously (SINGLE CALL)...")
@@ -348,7 +385,7 @@ class QueueManager:
                                         "processingStartedAt": datetime.now(timezone.utc),
                                         "workerMeta": {
                                             "request_id": request_id,
-                                            "model": submit_result.get("model", "wan-2.2-preview"),
+                                            "model": submit_result.get("model", "wan-v2.2-5b"),
                                             "processing_started": True,
                                             "submitted_at": datetime.now(timezone.utc).isoformat()
                                         },
