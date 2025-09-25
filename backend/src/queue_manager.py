@@ -1020,11 +1020,26 @@ class QueueManager:
                     return
 
                 elif async_result.get('status') in ['queued', 'processing', 'in_progress']:
-                    # 🚨 NO RETRY - Single attempt only. If not ready, fail immediately with clear message.
-                    error_msg = f"Video generation not ready on first check. Status: {async_result.get('status')}. This prevents multiple FAL API calls that waste money. Try again in a few minutes."
-                    logger.warning(f"⚠️ Job {job_id} not ready on single attempt: {error_msg}")
-                    await self._handle_job_failure(job_id, error_msg)
-                    return
+                    # 🚨 TESTING MODE: Allow 3 attempts to see if video generation works
+                    # This is temporary for testing - will revert to single attempt after confirming credits work
+                    if not hasattr(self, '_test_attempts'):
+                        self._test_attempts = {}
+
+                    current_attempts = self._test_attempts.get(str(job_id), 0) + 1
+                    self._test_attempts[str(job_id)] = current_attempts
+
+                    if current_attempts < 3:
+                        logger.info(f"🧪 TEST MODE: Job {job_id} not ready, attempt {current_attempts}/3. Waiting 2 minutes before next check...")
+                        # Wait 2 minutes and check again
+                        await asyncio.sleep(120)
+                        # Recursive call for next attempt
+                        await self._poll_fal_async_result(job_id, request_id, module, user_id, adapter)
+                        return
+                    else:
+                        error_msg = f"Video generation not ready after 3 attempts (6 minutes). Status: {async_result.get('status')}. This may indicate an issue with the generation."
+                        logger.warning(f"⚠️ Job {job_id} failed after 3 test attempts: {error_msg}")
+                        await self._handle_job_failure(job_id, error_msg)
+                        return
 
                 else:
                     # 🚨 NO RETRY - Unknown status, fail immediately
