@@ -222,12 +222,33 @@ async def create_job(
 
         # Enhanced duplicate prevention for img2vid_noaudio
         if request.module == "img2vid_noaudio":
-            # Check for recent similar requests from same user (within 5 minutes)
-            recent_threshold = datetime.now(timezone.utc) - timedelta(minutes=5)
+            # 🚨 CRITICAL: Check for very recent duplicate requests (within 30 seconds) to prevent double-clicks
+            very_recent_threshold = datetime.now(timezone.utc) - timedelta(seconds=30)
             image_url = request.params.get("image_url")
             prompt = request.params.get("prompt", "")
 
             if image_url:
+                # Check for exact duplicates in last 30 seconds (prevents double-click)
+                very_recent_job = db.jobs.find_one({
+                    "userId": ObjectId(current_user.id),
+                    "module": "img2vid_noaudio",
+                    "createdAt": {"$gte": very_recent_threshold},
+                    "params.image_url": image_url,
+                    "params.prompt": prompt,
+                    "status": {"$nin": ["failed", "cancelled"]}  # Exclude failed/cancelled jobs
+                })
+
+                if very_recent_job:
+                    logger.warning(f"🚫 BLOCKED DUPLICATE API CALL - Job created within 30 seconds: {very_recent_job['_id']}")
+                    return JobResponse(
+                        success=False,
+                        message="⚠️ Duplicate request blocked - Please wait 30 seconds between identical requests",
+                        client_job_id=request.client_job_id,
+                        job_id=str(very_recent_job["_id"])
+                    )
+
+                # Check for similar requests from same user (within 5 minutes) for user convenience
+                recent_threshold = datetime.now(timezone.utc) - timedelta(minutes=5)
                 similar_job = db.jobs.find_one({
                     "userId": ObjectId(current_user.id),
                     "module": "img2vid_noaudio",
@@ -237,7 +258,7 @@ async def create_job(
                     "status": {"$nin": ["failed", "cancelled"]}  # Exclude failed/cancelled jobs
                 })
 
-                if similar_job:
+                if similar_job and str(similar_job["_id"]) != str(very_recent_job["_id"]):
                     return JobResponse(
                         success=False,
                         message="Duplicate request detected. Please wait before generating the same video again.",

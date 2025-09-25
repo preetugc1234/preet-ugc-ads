@@ -41,6 +41,7 @@ class QueueManager:
         self.active_workers = {}
         self.job_timeouts = {}
         self.retry_delays = [30, 120, 300, 900]  # Exponential backoff in seconds
+        self.processing_jobs = set()  # 🚨 CRITICAL: Track jobs currently being processed to prevent duplicates
 
     async def enqueue_job(
         self,
@@ -83,12 +84,29 @@ class QueueManager:
     async def _invoke_worker(self, job_id: ObjectId, module: str):
         """Invoke Supabase Edge Function worker for job processing."""
         try:
+            # 🚨 CRITICAL: Check if job is already being processed to prevent duplicates
+            job_id_str = str(job_id)
+            if job_id_str in self.processing_jobs:
+                logger.warning(f"🚫 Job {job_id} is already being processed - PREVENTING DUPLICATE INVOCATION")
+                return
+
+            # Add to processing set immediately to prevent race conditions
+            self.processing_jobs.add(job_id_str)
+            logger.info(f"🔒 Added job {job_id} to processing lock")
+
             db = get_db()
 
             # Get job details
             job = db.jobs.find_one({"_id": job_id})
             if not job:
                 logger.error(f"Job {job_id} not found for worker invocation")
+                self.processing_jobs.discard(job_id_str)  # Remove from processing set
+                return
+
+            # Check if job is already completed or processing
+            if job.get("status") in ["completed", "processing", "failed"]:
+                logger.warning(f"🚫 Job {job_id} already has status: {job.get('status')} - skipping invocation")
+                self.processing_jobs.discard(job_id_str)  # Remove from processing set
                 return
 
             # Update status to processing
@@ -115,6 +133,11 @@ class QueueManager:
 
         except Exception as e:
             logger.error(f"Failed to invoke worker for job {job_id}: {e}")
+            # Clean up processing lock on exception
+            job_id_str = str(job_id)
+            if job_id_str in self.processing_jobs:
+                self.processing_jobs.discard(job_id_str)
+                logger.info(f"🧹 Removed job {job_id} from processing lock due to exception")
             await self._handle_job_failure(job_id, f"Worker invocation failed: {str(e)}")
 
     async def _call_supabase_worker(self, job_id: ObjectId, job: dict):
@@ -639,6 +662,12 @@ class QueueManager:
     ):
         """Handle job failure with retry logic."""
         try:
+            # 🚨 CRITICAL: Clean up processing lock when job fails
+            job_id_str = str(job_id)
+            if job_id_str in self.processing_jobs:
+                self.processing_jobs.discard(job_id_str)
+                logger.info(f"🧹 Removed failed job {job_id} from processing lock")
+
             db = get_db()
 
             job = db.jobs.find_one({"_id": job_id})
@@ -913,6 +942,12 @@ class QueueManager:
                                 }
                             }
                         )
+
+                        # 🚨 CRITICAL: Clean up processing lock when job completes successfully
+                        job_id_str = str(job_id)
+                        if job_id_str in self.processing_jobs:
+                            self.processing_jobs.discard(job_id_str)
+                            logger.info(f"🧹 Removed completed job {job_id} from processing lock")
 
                         # Create generation record
                         from .database import GenerationModel

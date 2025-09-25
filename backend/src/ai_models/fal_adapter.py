@@ -240,64 +240,175 @@ class FalAdapter:
             # Use the appropriate model endpoint
             model_endpoint = model or self.models["img2vid_noaudio"]
 
-            if hasattr(self.fal, 'result'):
-                # New API
-                result = await asyncio.to_thread(
-                    self.fal.result,
-                    model_endpoint,
-                    request_id
-                )
-            else:
-                # Legacy API
-                result = await asyncio.to_thread(
-                    fal_client.result,
-                    model_endpoint,
-                    request_id
-                )
+            # Try to get the result using different methods
+            result = None
+            status_result = None
 
-            logger.info(f"Async result for {request_id}: {result}")
+            try:
+                if hasattr(self.fal, 'status'):
+                    logger.info(f"🔍 Using new FAL client API to check status...")
+                    status_result = await asyncio.to_thread(
+                        self.fal.status,
+                        model_endpoint,
+                        request_id
+                    )
+                else:
+                    logger.info(f"🔍 Using legacy FAL client API to check status...")
+                    status_result = await asyncio.to_thread(
+                        fal_client.status,
+                        model_endpoint,
+                        request_id
+                    )
+
+                logger.info(f"📊 Status result type: {type(status_result)}")
+                logger.info(f"📊 Status result content: {status_result}")
+
+                # Parse status first to determine if job is completed
+                parsed_status = self._parse_status_response(status_result, request_id)
+                logger.info(f"🔍 Parsed status: {parsed_status}")
+
+                # If status shows completed, try to get the actual result
+                if parsed_status.get('status') == 'completed' or parsed_status.get('success'):
+                    logger.info(f"✅ Job completed, attempting to get result...")
+                    try:
+                        if hasattr(self.fal, 'result'):
+                            # New API
+                            logger.info(f"🔍 Using new FAL client API to get result...")
+                            result = await asyncio.to_thread(
+                                self.fal.result,
+                                model_endpoint,
+                                request_id
+                            )
+                        else:
+                            # Legacy API
+                            logger.info(f"🔍 Using legacy FAL client API to get result...")
+                            result = await asyncio.to_thread(
+                                fal_client.result,
+                                model_endpoint,
+                                request_id
+                            )
+                        logger.info(f"✅ Got final result: {result}")
+                    except Exception as result_error:
+                        logger.warning(f"⚠️ Could not get result, but status shows completed. Using status result: {result_error}")
+                        result = status_result
+                else:
+                    # Still processing, return the parsed status
+                    logger.info(f"⏳ Job still processing, returning status info...")
+                    return parsed_status
+
+            except Exception as api_error:
+                logger.error(f"❌ FAL API error: {api_error}")
+                # Return error status
+                return {
+                    "success": False,
+                    "status": "api_error",
+                    "error": str(api_error),
+                    "request_id": request_id
+                }
+
+            logger.info(f"🎬 Processing final result for {request_id}: {result}")
 
             if result and ("video" in result or "video_url" in str(result)):
                 # Handle different response formats
-                if "video" in result and isinstance(result["video"], dict):
+                if isinstance(result, dict) and "video" in result and isinstance(result["video"], dict):
                     video_data = result["video"]
                     video_url = video_data.get("url")
                     thumbnail_url = video_data.get("thumbnail_url")
                     duration = video_data.get("duration", 5)
-                elif "video_url" in result:
+                    logger.info(f"🎬 Extracted from video dict: url={video_url}, duration={duration}")
+                elif isinstance(result, dict) and "video_url" in result:
                     video_url = result["video_url"]
                     thumbnail_url = result.get("thumbnail_url")
                     duration = result.get("duration", 5)
+                    logger.info(f"🎬 Extracted from video_url: url={video_url}, duration={duration}")
+                elif hasattr(result, 'video') and hasattr(result.video, 'url'):
+                    # Handle object with video attribute
+                    video_url = result.video.url
+                    thumbnail_url = getattr(result.video, 'thumbnail_url', None)
+                    duration = getattr(result.video, 'duration', 5)
+                    logger.info(f"🎬 Extracted from object video.url: url={video_url}, duration={duration}")
                 else:
-                    # Try to extract from nested structure
+                    # Try to extract from nested structure or convert result to dict
                     video_url = None
-                    for key, value in result.items():
-                        if isinstance(value, dict) and "url" in value:
-                            video_url = value["url"]
-                            thumbnail_url = value.get("thumbnail_url")
-                            duration = value.get("duration", 5)
-                            break
+                    thumbnail_url = None
+                    duration = 5
+
+                    logger.info(f"🔍 Attempting to extract video from complex result structure...")
+
+                    # Handle case where result might be a non-dict object
+                    if not isinstance(result, dict):
+                        try:
+                            # Convert result to dict if it has attributes
+                            if hasattr(result, '__dict__'):
+                                result = vars(result)
+                                logger.info(f"🔄 Converted object to dict: {result}")
+                            else:
+                                logger.info(f"🤔 Result is not a dict and has no __dict__: {type(result)}")
+                        except Exception as convert_error:
+                            logger.warning(f"⚠️ Could not convert result to dict: {convert_error}")
+
+                    # Search for video URL in any nested structure
+                    if isinstance(result, dict):
+                        def extract_video_url(obj, path=""):
+                            """Recursively search for video URL in nested dict/objects."""
+                            if isinstance(obj, dict):
+                                # Direct video_url key
+                                if 'video_url' in obj:
+                                    return obj['video_url'], obj.get('thumbnail_url'), obj.get('duration', 5)
+                                # url key (might be video)
+                                if 'url' in obj and isinstance(obj['url'], str) and obj['url'].startswith('http'):
+                                    return obj['url'], obj.get('thumbnail_url'), obj.get('duration', 5)
+                                # Nested search
+                                for key, value in obj.items():
+                                    if key in ['video', 'media', 'output', 'result'] and isinstance(value, dict):
+                                        nested_result = extract_video_url(value, f"{path}.{key}")
+                                        if nested_result[0]:  # Found video URL
+                                            return nested_result
+                            elif hasattr(obj, '__dict__'):
+                                return extract_video_url(vars(obj), f"{path}.__dict__")
+                            return None, None, 5
+
+                        video_url, thumbnail_url, duration = extract_video_url(result)
+                        logger.info(f"🎬 Recursive extraction result: url={video_url}, thumbnail={thumbnail_url}, duration={duration}")
 
                     if not video_url:
-                        raise Exception(f"No video URL found in result: {result}")
+                        # Last resort - log the full result structure for debugging
+                        logger.error(f"❌ No video URL found after exhaustive search")
+                        logger.error(f"📊 Full result structure: {result}")
+                        logger.error(f"📊 Result type: {type(result)}")
+                        if hasattr(result, '__dict__'):
+                            logger.error(f"📊 Result dict: {vars(result)}")
+
+                        # Try to find any URL that might be a video
+                        result_str = str(result)
+                        import re
+                        urls = re.findall(r'https?://[^\s\'"<>]+', result_str)
+                        video_urls = [url for url in urls if any(ext in url.lower() for ext in ['.mp4', '.mov', '.avi', '/video', 'video.'])]
+                        if video_urls:
+                            video_url = video_urls[0]
+                            logger.info(f"🎬 Found video URL via regex: {video_url}")
+                        else:
+                            raise Exception(f"No video URL found in result after exhaustive search. Result: {result}")
 
                 # 🚨 CRITICAL: Clean up tracking when job completes successfully
-                if request_id in self.active_submissions:
+                if hasattr(self, 'active_submissions') and request_id in self.active_submissions:
                     self.active_submissions.remove(request_id)
                     logger.info(f"🧹 Cleaned up completed request_id: {request_id}")
 
+                logger.info(f"✅ Successfully extracted video for {request_id}: {video_url}")
                 return {
                     "success": True,
                     "video_url": video_url,
                     "thumbnail_url": thumbnail_url,
-                    "duration": 5,  # Fixed 5-second duration for WAN 2.5
-                    "seed": result.get("seed"),
-                    "actual_prompt": result.get("actual_prompt"),
+                    "duration": 5,  # Fixed 5-second duration for WAN 2.2
+                    "seed": result.get("seed") if isinstance(result, dict) else None,
+                    "actual_prompt": result.get("actual_prompt") if isinstance(result, dict) else None,
                     "model": "wan-2.2-preview",
                     "status": "completed"
                 }
             else:
-                logger.error(f"No video in result for {request_id}: {result}")
+                logger.error(f"No video data found in result for {request_id}")
+                logger.error(f"📊 Result content: {result}")
                 return {
                     "success": False,
                     "status": "failed",
@@ -323,6 +434,120 @@ class FalAdapter:
                 "model": "wan-2.5-preview",
                 "request_id": request_id,
                 "cleanup_required": status in ["timeout", "not_found"]
+            }
+
+    def _parse_status_response(self, status_result, request_id: str) -> Dict[str, Any]:
+        """Parse FAL AI status response to determine job state."""
+        try:
+            logger.info(f"🔍 Parsing status response for {request_id}: {type(status_result)}")
+            logger.info(f"🔍 Full status response: {status_result}")
+
+            # Check for HTTP status codes first (common with FAL AI API)
+            http_status = None
+            if hasattr(status_result, 'status_code'):
+                http_status = status_result.status_code
+                logger.info(f"📊 HTTP Status Code: {http_status}")
+
+                # Handle HTTP 202 - Accepted (Processing)
+                if http_status == 202:
+                    logger.info(f"⏳ HTTP 202 - Job still processing: {request_id}")
+                    return {
+                        "success": False,
+                        "status": "processing",
+                        "request_id": request_id,
+                        "http_status": 202
+                    }
+                elif http_status == 200:
+                    logger.info(f"✅ HTTP 200 - Job likely completed: {request_id}")
+                    # Continue parsing to check actual content
+
+            # Handle different response formats for status
+            status_str = None
+            if hasattr(status_result, 'status'):
+                status_str = status_result.status
+                logger.info(f"📊 Status attribute: {status_str}")
+            elif isinstance(status_result, dict) and 'status' in status_result:
+                status_str = status_result['status']
+                logger.info(f"📊 Status dict key: {status_str}")
+            elif isinstance(status_result, dict) and 'state' in status_result:
+                # Some FAL models use 'state' instead of 'status'
+                status_str = status_result['state']
+                logger.info(f"📊 State dict key: {status_str}")
+            elif hasattr(status_result, 'state'):
+                status_str = status_result.state
+                logger.info(f"📊 State attribute: {status_str}")
+            else:
+                # Check if this is already a completed result with video data
+                if isinstance(status_result, dict) and ('video' in status_result or 'video_url' in status_result):
+                    logger.info(f"🎬 Response contains video data - treating as completed: {request_id}")
+                    return {
+                        "success": True,
+                        "status": "completed",
+                        "result": status_result
+                    }
+
+                # Try to infer from the response structure
+                logger.info(f"🤔 Unknown status format: {status_result}")
+                return {
+                    "success": False,
+                    "status": "unknown",
+                    "request_id": request_id,
+                    "raw_response": str(status_result)[:500]  # Limit response length
+                }
+
+            # Map different status values (more comprehensive mapping)
+            if status_str in ['completed', 'success', 'done', 'finished']:
+                logger.info(f"✅ Job completed: {request_id}")
+                return {
+                    "success": True,
+                    "status": "completed",
+                    "result": status_result
+                }
+            elif status_str in ['failed', 'error', 'cancelled', 'canceled']:
+                logger.error(f"❌ Job failed: {request_id}")
+                error_msg = 'Job failed'
+                if hasattr(status_result, 'error'):
+                    error_msg = getattr(status_result, 'error', error_msg)
+                elif isinstance(status_result, dict) and 'error' in status_result:
+                    error_msg = status_result.get('error', error_msg)
+                return {
+                    "success": False,
+                    "status": "failed",
+                    "error": error_msg,
+                    "request_id": request_id
+                }
+            elif status_str in ['queued', 'pending', 'waiting', 'submitted', 'received']:
+                logger.info(f"⏳ Job queued: {request_id}")
+                return {
+                    "success": False,
+                    "status": "queued",
+                    "request_id": request_id
+                }
+            elif status_str in ['in_progress', 'processing', 'running', 'working', 'generating']:
+                logger.info(f"🔄 Job processing: {request_id}")
+                return {
+                    "success": False,
+                    "status": "processing",
+                    "request_id": request_id
+                }
+            else:
+                logger.info(f"🤔 Unknown status '{status_str}' for {request_id} - treating as processing")
+                # Default to processing to continue polling, rather than failing
+                return {
+                    "success": False,
+                    "status": "processing",
+                    "request_id": request_id,
+                    "unknown_status": status_str
+                }
+
+        except Exception as e:
+            logger.error(f"❌ Error parsing status response: {e}")
+            logger.error(f"❌ Status result causing error: {status_result}")
+            return {
+                "success": False,
+                "status": "parse_error",
+                "error": str(e),
+                "request_id": request_id
             }
 
     async def upload_file_to_fal(self, file_path: str) -> str:
