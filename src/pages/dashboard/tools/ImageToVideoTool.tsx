@@ -27,7 +27,7 @@ const ImageToVideoTool = () => {
   const createJobMutation = useCreateJob();
   const { data: jobStatus, refetch: refetchJobStatus } = useJobStatus(currentJobId || '', {
     enabled: !!currentJobId,
-    refetchInterval: 5000, // Poll every 5 seconds for video generation (60-90s duration)
+    refetchInterval: 10000, // Poll every 10 seconds for WAN 2.2 (3-4min duration)
   });
 
 
@@ -422,11 +422,11 @@ const ImageToVideoTool = () => {
                 muted={false}
                 className="w-full h-full"
                 poster={uploadedImage || undefined}
-                onLoadStart={() => console.log('🎬 WAN 2.5 video loading started')}
-                onCanPlay={() => console.log('🎬 WAN 2.5 video can play')}
-                onLoadedData={() => console.log('🎬 WAN 2.5 video data loaded')}
+                onLoadStart={() => console.log('🎬 WAN 2.2 video loading started')}
+                onCanPlay={() => console.log('🎬 WAN 2.2 video can play')}
+                onLoadedData={() => console.log('🎬 WAN 2.2 video data loaded')}
                 onError={(e) => {
-                  console.error('🎬 WAN 2.5 video error:', e);
+                  console.error('🎬 WAN 2.2 video error:', e);
                   if (emergencyShow && !finalVideoUrl) {
                     console.log('🔄 Emergency mode: Video error, trying to refresh job status...');
                     setTimeout(() => refetchJobStatus(), 2000); // Auto-retry in 2 seconds
@@ -451,7 +451,7 @@ const ImageToVideoTool = () => {
                   onClick={() => {
                     const link = document.createElement('a');
                     link.href = displayVideoUrl!;
-                    link.download = `wan25-video-${Date.now()}.mp4`;
+                    link.download = `wan22-video-${Date.now()}.mp4`;
                     link.target = '_blank';
                     link.click();
                   }}
@@ -526,7 +526,7 @@ const ImageToVideoTool = () => {
         toolName="Image to Video (No Audio)"
         toolIcon={Video}
         credits="100-200/video"
-        estimatedTime="~2min"
+        estimatedTime="~4min"
         onGenerate={handleGenerate}
         isGenerating={createJobMutation.isPending || isJobRunning}
         canGenerate={!!uploadedImage && !isJobRunning}

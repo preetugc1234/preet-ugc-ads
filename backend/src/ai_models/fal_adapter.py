@@ -61,7 +61,7 @@ class FalAdapter:
         self.models = {
             "tts": "fal-ai/elevenlabs/tts/multilingual-v2",  # ElevenLabs TTS Multilingual v2 (primary TTS model - stability & quality focused)
             "tts_turbo": "fal-ai/elevenlabs/tts/turbo-v2.5",  # ElevenLabs TTS Turbo v2.5 (kept for compatibility)
-            "img2vid_noaudio": "fal-ai/wan-25-preview/image-to-video",  # WAN 2.5 Preview Image-to-Video (NEW MODEL)
+            "img2vid_noaudio": "fal-ai/wan-25-preview/image-to-video",  # WAN 2.2 model via WAN 25 Preview endpoint (NEW MODEL)
             "img2vid_audio": "fal-ai/kling-video/v1/pro/ai-avatar",  # Kling v1 Pro AI Avatar
             "audio2vid": "veed/avatars/audio-to-video",  # Veed Avatars Audio-to-Video via Fal AI
             "image_generation": "fal-ai/flux/schnell"  # FLUX Schnell for image generation
@@ -153,8 +153,8 @@ class FalAdapter:
                 "success": True,
                 "request_id": request_id,
                 "status": "submitted",
-                "model": "wan-2.5-preview",
-                "estimated_processing_time": "1-2 minutes",
+                "model": "wan-2.2-preview",
+                "estimated_processing_time": "3-4 minutes",
                 "quality": arguments.get("resolution", "1080p"),
                 "duration": 5  # Fixed 5-second duration for WAN 2.5
             }
@@ -744,10 +744,10 @@ class FalAdapter:
             if not image_url:
                 raise Exception("Image URL is required")
 
-            logger.info(f"🎬 Starting img2vid_noaudio generation with WAN 2.5 Preview")
+            logger.info(f"🎬 Starting img2vid_noaudio generation with WAN 2.2 Preview")
             logger.info(f"📷 Input: image_url length: {len(image_url)}, prompt: '{prompt}'")
 
-            # WAN 2.5 Preview parameters (fixed 5 seconds)
+            # WAN 2.2 Preview parameters (fixed 5 seconds)
             arguments = {
                 "prompt": prompt if prompt else "The image stays still, eyes full of determination and strength. The camera slowly moves closer or circles around, highlighting the powerful presence and character.",
                 "image_url": image_url,
@@ -760,7 +760,7 @@ class FalAdapter:
             logger.info(f"🔧 FAL AI arguments: {arguments}")
 
             # ALWAYS use general FAL API key (matches working local setup)
-            logger.info(f"🔑 Using general FAL API key for WAN 2.5 Preview (matching local setup)")
+            logger.info(f"🔑 Using general FAL API key for WAN 2.2 Preview (matching local setup)")
 
             # Ensure general FAL API key is set in environment
             if not self.api_key:
@@ -768,8 +768,8 @@ class FalAdapter:
 
             os.environ["FAL_KEY"] = self.api_key
 
-            # Submit async request to WAN 2.5 Preview using general FAL API key
-            logger.info(f"📤 Submitting async request to WAN 2.5 Preview...")
+            # Submit async request to WAN 2.2 Preview using general FAL API key
+            logger.info(f"📤 Submitting async request to WAN 2.2 Preview...")
             submit_result = await asyncio.to_thread(
                 fal_client.submit,
                 self.models["img2vid_noaudio"],
@@ -782,15 +782,15 @@ class FalAdapter:
             # Handle different response formats
             if hasattr(submit_result, 'request_id'):
                 request_id = submit_result.request_id
-                logger.info(f"✅ WAN 2.5 Preview request submitted: {request_id}")
-                # Wait for completion
-                logger.info(f"⏳ Waiting for WAN 2.5 Preview completion...")
+                logger.info(f"✅ WAN 2.2 Preview request submitted: {request_id}")
+                # Wait for completion with extended timeout for WAN 2.2
+                logger.info(f"⏳ Waiting for WAN 2.2 Preview completion (3-4 minutes)...")
                 result = await asyncio.to_thread(submit_result.get)
             elif isinstance(submit_result, dict) and 'request_id' in submit_result:
                 request_id = submit_result['request_id']
-                logger.info(f"✅ WAN 2.5 Preview request submitted (dict): {request_id}")
+                logger.info(f"✅ WAN 2.2 Preview request submitted (dict): {request_id}")
                 # Wait for completion using fal_client.result
-                logger.info(f"⏳ Waiting for WAN 2.5 Preview completion...")
+                logger.info(f"⏳ Waiting for WAN 2.2 Preview completion (3-4 minutes)...")
                 result = await asyncio.to_thread(
                     fal_client.result,
                     self.models["img2vid_noaudio"],
@@ -798,7 +798,7 @@ class FalAdapter:
                 )
             else:
                 # Direct result case
-                logger.info(f"✅ WAN 2.5 Preview direct result received")
+                logger.info(f"✅ WAN 2.2 Preview direct result received")
                 result = submit_result
 
             logger.info(f"📊 FAL AI response: {result}")
@@ -814,26 +814,26 @@ class FalAdapter:
                     "video_url": video_url,
                     "duration": 5.0,  # Fixed 5-second video generation
                     "resolution": arguments.get("resolution", "1080p"),
-                    "model": "wan-2.5-preview",
+                    "model": "wan-2.2-preview",
                     "has_audio": False,
                     "preview": False,
                     "seed": result.get("seed"),
                     "actual_prompt": result.get("actual_prompt"),
-                    "processing_time": "~60-120 seconds"
+                    "processing_time": "~3-4 minutes"
                 }
             else:
                 logger.error(f"❌ FAL AI response missing video: {result}")
                 raise Exception(f"FAL AI returned no video. Response: {result}")
 
         except Exception as e:
-            logger.error(f"❌ WAN 2.5 Preview img2vid_noaudio failed: {e}")
+            logger.error(f"❌ WAN 2.2 Preview img2vid_noaudio failed: {e}")
             logger.error(f"❌ Error type: {type(e).__name__}")
 
             # Enhanced error categorization for better debugging
             error_message = str(e).lower()
             if "timeout" in error_message:
                 error_category = "timeout_error"
-                user_message = "Video generation timed out. Please try again."
+                user_message = "Video generation timed out (WAN 2.2 needs 3+ minutes). Please try again."
             elif "api key" in error_message or "unauthorized" in error_message:
                 error_category = "auth_error"
                 user_message = "Authentication failed. Please check API key configuration."
@@ -855,7 +855,7 @@ class FalAdapter:
                 "error": user_message,
                 "error_details": str(e),
                 "error_category": error_category,
-                "model": "wan-2.5-preview",
+                "model": "wan-2.2-preview",
                 "video_url": None,
                 "retry_recommended": error_category in ["timeout_error", "network_error", "processing_error"]
             }

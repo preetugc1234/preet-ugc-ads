@@ -45,8 +45,8 @@ MODULE_CONFIGS = {
         "name": "Image to Video (No Audio)",
         "cost": 0,  # Free for testing - uses FAL AI directly
         "provider": "fal",
-        "model": "wan-2.5-preview",
-        "avg_time_seconds": 90
+        "model": "wan-2.2-preview",
+        "avg_time_seconds": 240  # 4 minutes for WAN 2.2
     },
     "tts": {
         "name": "Text to Speech",

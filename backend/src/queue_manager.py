@@ -461,7 +461,7 @@ class QueueManager:
         timeouts = {
             "chat": 2,
             "image": 5,
-            "img2vid_noaudio": 5,  # 5 minutes for WAN 2.5 Preview (1-2 min + buffer)
+            "img2vid_noaudio": 6,  # 6 minutes for WAN 2.2 model (3 min processing + buffer)
             "tts": 3,
             "img2vid_audio": 12,  # 12 minutes for Kling v1 Pro AI Avatar (8 min + buffer)
             "audio2vid": 25

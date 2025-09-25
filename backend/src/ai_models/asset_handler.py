@@ -180,28 +180,28 @@ class AssetHandler:
             return {"success": False, "error": str(e)}
 
     async def handle_img2vid_noaudio_result(self, result: Dict[str, Any], job_id: str, user_id: str, is_preview: bool) -> Dict[str, Any]:
-        """Handle img2vid_noaudio result optimized for WAN 2.5 Preview model."""
+        """Handle img2vid_noaudio result optimized for WAN 2.2 Preview model."""
         try:
             if not result.get("success"):
-                raise Exception(result.get("error", "WAN 2.5 Preview generation failed"))
+                raise Exception(result.get("error", "WAN 2.2 Preview generation failed"))
 
             video_url = result.get("video_url")
             if not video_url:
-                raise Exception("No video URL in WAN 2.5 Preview result")
+                raise Exception("No video URL in WAN 2.2 Preview result")
 
             uploaded_urls = []
 
             # Download video with retry logic for FAL AI URLs
-            logger.info(f"📥 Downloading WAN 2.5 video from: {video_url}")
+            logger.info(f"📥 Downloading WAN 2.2 video from: {video_url}")
             video_data = await self._download_file_with_retry(video_url, max_retries=3)
 
             if video_data:
-                logger.info(f"✅ WAN 2.5 video downloaded: {len(video_data)} bytes")
+                logger.info(f"✅ WAN 2.2 video downloaded: {len(video_data)} bytes")
 
-                # Optimized path structure for WAN 2.5
-                video_path = f"user_{user_id}/wan25_videos/job_{job_id}/{'preview' if is_preview else 'final'}_video"
+                # Optimized path structure for WAN 2.2
+                video_path = f"user_{user_id}/wan22_videos/job_{job_id}/{'preview' if is_preview else 'final'}_video"
 
-                logger.info(f"☁️ Uploading WAN 2.5 video to Cloudinary: {video_path}")
+                logger.info(f"☁️ Uploading WAN 2.2 video to Cloudinary: {video_path}")
                 video_upload = await self._upload_to_cloudinary_optimized(
                     video_data,
                     video_path,
@@ -211,21 +211,21 @@ class AssetHandler:
                 )
 
                 if video_upload:
-                    logger.info(f"✅ WAN 2.5 video uploaded successfully: {video_upload['secure_url']}")
+                    logger.info(f"✅ WAN 2.2 video uploaded successfully: {video_upload['secure_url']}")
                     uploaded_urls.append(video_upload["secure_url"])
                 else:
-                    logger.error(f"❌ Failed to upload WAN 2.5 video to Cloudinary")
+                    logger.error(f"❌ Failed to upload WAN 2.2 video to Cloudinary")
                     raise Exception("Cloudinary video upload failed")
             else:
-                logger.error(f"❌ Failed to download WAN 2.5 video from: {video_url}")
+                logger.error(f"❌ Failed to download WAN 2.2 video from: {video_url}")
                 raise Exception("Video download failed")
 
-            # Create asset data with WAN 2.5 specific metadata
+            # Create asset data with WAN 2.2 specific metadata
             asset_data = {
                 "type": "img2vid_noaudio",
                 "video_url": uploaded_urls[0],
-                "model": "wan-2.5-preview",
-                "duration": 5.0,  # Fixed 5-second duration for WAN 2.5
+                "model": "wan-2.2-preview",
+                "duration": 5.0,  # Fixed 5-second duration for WAN 2.2
                 "resolution": result.get("resolution", "1080p"),
                 "seed": result.get("seed"),
                 "actual_prompt": result.get("actual_prompt"),
@@ -242,7 +242,7 @@ class AssetHandler:
                 "urls": uploaded_urls,
                 "metadata": {
                     "type": "img2vid_noaudio",
-                    "model": "wan-2.5-preview",
+                    "model": "wan-2.2-preview",
                     "duration": 5.0,
                     "resolution": result.get("resolution", "1080p"),
                     "file_count": len(uploaded_urls),
@@ -251,7 +251,7 @@ class AssetHandler:
             }
 
         except Exception as e:
-            logger.error(f"Error handling WAN 2.5 img2vid_noaudio result: {e}")
+            logger.error(f"Error handling WAN 2.2 img2vid_noaudio result: {e}")
             return {"success": False, "error": str(e)}
 
     async def handle_video_result(self, result: Dict[str, Any], job_id: str, user_id: str, is_preview: bool) -> Dict[str, Any]:
