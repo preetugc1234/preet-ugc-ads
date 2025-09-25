@@ -65,7 +65,7 @@ class FalAdapter:
         self.models = {
             "tts": "fal-ai/elevenlabs/tts/multilingual-v2",  # ElevenLabs TTS Multilingual v2 (primary TTS model - stability & quality focused)
             "tts_turbo": "fal-ai/elevenlabs/tts/turbo-v2.5",  # ElevenLabs TTS Turbo v2.5 (kept for compatibility)
-            "img2vid_noaudio": "fal-ai/wan-25-preview/image-to-video",  # WAN 2.2 model via WAN 25 Preview endpoint (NEW MODEL)
+            "img2vid_noaudio": "fal-ai/wan/v2.2-5b/image-to-video",  # WAN v2.2-5B model (OFFICIAL 5B PARAMETER MODEL)
             "img2vid_audio": "fal-ai/kling-video/v1/pro/ai-avatar",  # Kling v1 Pro AI Avatar
             "audio2vid": "veed/avatars/audio-to-video",  # Veed Avatars Audio-to-Video via Fal AI
             "image_generation": "fal-ai/flux/schnell"  # FLUX Schnell for image generation
@@ -118,14 +118,26 @@ class FalAdapter:
             self.submission_hashes.add(submission_hash)
             logger.info(f"🔒 Tracking submission hash: {submission_hash[:8]}...")
 
-            # Enhanced parameters for WAN 2.2 Preview
+            # Enhanced parameters for WAN v2.2-5B model
             arguments = {
                 "prompt": prompt,
                 "image_url": image_url,
-                "resolution": params.get("resolution", "1080p"),  # 480p, 720p, 1080p
-                "negative_prompt": params.get("negative_prompt", "low resolution, error, worst quality, low quality, defects"),
-                "enable_prompt_expansion": params.get("enable_prompt_expansion", True),
-                "seed": params.get("seed", None)  # For reproducibility
+                "num_frames": params.get("num_frames", 81),  # 17-161 frames
+                "frames_per_second": params.get("frames_per_second", 24),  # 4-60 FPS
+                "negative_prompt": params.get("negative_prompt", ""),
+                "seed": params.get("seed", None),
+                "resolution": params.get("resolution", "720p"),  # 580p or 720p
+                "aspect_ratio": params.get("aspect_ratio", "auto"),  # auto, 16:9, 9:16, 1:1
+                "num_inference_steps": params.get("num_inference_steps", 40),
+                "enable_safety_checker": params.get("enable_safety_checker", True),
+                "enable_prompt_expansion": params.get("enable_prompt_expansion", False),
+                "guidance_scale": params.get("guidance_scale", 3.5),
+                "shift": params.get("shift", 5),
+                "interpolator_model": params.get("interpolator_model", "film"),  # none, film, rife
+                "num_interpolated_frames": params.get("num_interpolated_frames", 0),  # 0-4
+                "adjust_fps_for_interpolation": params.get("adjust_fps_for_interpolation", True),
+                "video_quality": params.get("video_quality", "high"),  # low, medium, high, maximum
+                "video_write_mode": params.get("video_write_mode", "balanced")  # fast, balanced, small
             }
 
             logger.info(f"🚀 Submitting to FAL AI - Model: {self.models['img2vid_noaudio']}")
@@ -246,34 +258,34 @@ class FalAdapter:
             status_result = None
 
             try:
+                # 🚨 ENHANCED: Use proper FAL client method for WAN v2.2-5B status checking
+                logger.info(f"🔍 Checking status for WAN v2.2-5B request {request_id}")
+
+                # Use the proper FAL client instance method for WAN v2.2-5B
                 if hasattr(self.fal, 'status'):
-                    logger.info(f"🔍 Using new FAL client API to check status...")
+                    logger.info(f"🔍 Using self.fal.status() for WAN v2.2-5B")
                     status_result = await asyncio.to_thread(
                         self.fal.status,
                         model_endpoint,
-                        request_id
-                    )
-                elif hasattr(fal_client, 'status'):
-                    logger.info(f"🔍 Using legacy FAL client API to check status...")
-                    status_result = await asyncio.to_thread(
-                        fal_client.status,
-                        model_endpoint,
-                        request_id
+                        request_id,
+                        with_logs=True
                     )
                 else:
-                    # Try using requests directly to the FAL API queue (from production logs format)
-                    logger.info(f"🔍 Using direct HTTP request to check status...")
-                    queue_url = f"https://queue.fal.run/{model_endpoint}/requests/{request_id}/status?logs=false"
-                    async with httpx.AsyncClient() as client:
-                        response = await client.get(
-                            queue_url,
-                            headers={"Authorization": f"Key {self.api_key}"}
+                    # Use subscribe method which can handle status checking
+                    logger.info(f"🔍 Using subscribe method for WAN v2.2-5B status")
+                    try:
+                        # Try to get status via subscribe (non-blocking check)
+                        import time
+                        status_result = await asyncio.to_thread(
+                            fal_client.subscribe,
+                            model_endpoint,
+                            arguments={"request_id": request_id},
+                            timeout=1  # Very short timeout for status check
                         )
-                        # Accept both 200 and 202 status codes
-                        if response.status_code in [200, 202]:
-                            status_result = response.json() if response.content else {"status": "queued"}
-                        else:
-                            raise Exception(f"HTTP {response.status_code}: {response.text}")
+                    except Exception as subscribe_error:
+                        # If subscribe fails, return processing status to continue polling
+                        logger.info(f"📊 Subscribe check: {subscribe_error} - job still processing")
+                        status_result = {"status": "IN_PROGRESS"}
 
                 logger.info(f"📊 Status result type: {type(status_result)}")
                 logger.info(f"📊 Status result content: {status_result}")
@@ -286,23 +298,14 @@ class FalAdapter:
                 if parsed_status.get('status') == 'completed' or parsed_status.get('success'):
                     logger.info(f"✅ Job completed, attempting to get result...")
                     try:
-                        if hasattr(self.fal, 'result'):
-                            # New API
-                            logger.info(f"🔍 Using new FAL client API to get result...")
-                            result = await asyncio.to_thread(
-                                self.fal.result,
-                                model_endpoint,
-                                request_id
-                            )
-                        else:
-                            # Legacy API
-                            logger.info(f"🔍 Using legacy FAL client API to get result...")
-                            result = await asyncio.to_thread(
-                                fal_client.result,
-                                model_endpoint,
-                                request_id
-                            )
-                        logger.info(f"✅ Got final result: {result}")
+                        # Use official fal_client.result for WAN v2.2-5B
+                        logger.info(f"🔍 Using fal_client.result() for WAN v2.2-5B")
+                        result = await asyncio.to_thread(
+                            fal_client.result,
+                            model_endpoint,
+                            request_id
+                        )
+                        logger.info(f"✅ Got WAN v2.2-5B result: {result}")
                     except Exception as result_error:
                         logger.warning(f"⚠️ Could not get result, but status shows completed. Using status result: {result_error}")
                         result = status_result
