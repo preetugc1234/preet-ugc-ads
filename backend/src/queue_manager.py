@@ -944,22 +944,16 @@ class QueueManager:
             from .ai_models.asset_handler import AssetHandler
             asset_handler = AssetHandler()
 
-            # 🚨 SIMPLE: WAN v2.2-5B takes 5-6 minutes - simple polling
-            max_attempts = 25  # 25 attempts * 15s = 6.25 minutes (perfect for 5-6 min generation)
-            attempt = 0
+            # 🚨 SINGLE ATTEMPT ONLY - NO RETRY, NO INFINITE LOOPS, NO MONEY WASTE
+            # WAN v2.2-5B should complete via webhook - if it doesn't work, fail immediately
+            logger.info(f"🔄 SINGLE ATTEMPT check for job {job_id} with request_id: {request_id}")
 
-            logger.info(f"🔄 Starting polling for job {job_id} with request_id: {request_id}")
+            try:
+                # Get result from FAL AI - SINGLE ATTEMPT ONLY
+                async_result = await adapter.get_async_result(request_id)
+                logger.info(f"📊 Single attempt result for job {job_id}: {async_result}")
 
-            while attempt < max_attempts:
-                attempt += 1
-                logger.info(f"🔄 Polling attempt {attempt}/{max_attempts} for job {job_id}")
-
-                try:
-                    # Get result from FAL AI
-                    async_result = await adapter.get_async_result(request_id)
-                    logger.info(f"📊 Async result for job {job_id}: {async_result}")
-
-                    if async_result.get('success'):
+                if async_result.get('success'):
                         logger.info(f"✅ FAL AI processing completed for job {job_id}")
 
                         # Process result and upload to Cloudinary
@@ -1026,43 +1020,25 @@ class QueueManager:
                         return
 
                     elif async_result.get('status') in ['queued', 'processing', 'in_progress']:
-                        logger.info(f"⏳ Job {job_id} still processing (status: {async_result.get('status')})")
-                        # Continue polling
-                        await asyncio.sleep(15)  # Wait 15 seconds before next check
-
-                    else:
-                        logger.info(f"🤔 Status: {async_result.get('status')} for job {job_id}, continuing to poll...")
-                        await asyncio.sleep(15)
-
-                except Exception as poll_error:
-                    logger.error(f"❌ Polling error for job {job_id}, attempt {attempt}: {poll_error}")
-                    if attempt >= max_attempts:
-                        await self._handle_job_failure(job_id, f"Polling failed after {max_attempts} attempts: {str(poll_error)}")
+                        # 🚨 NO RETRY - Single attempt only. If not ready, fail immediately with clear message.
+                        error_msg = f"Video generation not ready on first check. Status: {async_result.get('status')}. This prevents multiple FAL API calls that waste money. Try again in a few minutes."
+                        logger.warning(f"⚠️ Job {job_id} not ready on single attempt: {error_msg}")
+                        await self._handle_job_failure(job_id, error_msg)
                         return
+
                     else:
-                        await asyncio.sleep(15)  # Wait before retry
+                        # 🚨 NO RETRY - Unknown status, fail immediately
+                        error_msg = f"Unexpected status: {async_result.get('status')}. Single attempt only to prevent money waste."
+                        logger.warning(f"🤔 Job {job_id} unexpected status: {error_msg}")
+                        await self._handle_job_failure(job_id, error_msg)
+                        return
 
-            # If we reach here, polling timed out (7.5 minutes for WAN v2.2-5B)
-            logger.error(f"❌ WAN v2.2-5B polling timeout for job {job_id} after {max_attempts} attempts (7.5 minutes)")
-
-            # Mark as timeout (not failure) - NO RETRY
-            db.jobs.update_one(
-                {"_id": job_id},
-                {
-                    "$set": {
-                        "status": JobStatus.TIMEOUT.value,
-                        "timeoutAt": datetime.now(timezone.utc),
-                        "error": f"WAN v2.2-5B generation timed out after 7.5 minutes. Please try again.",
-                        "errorDetails": "polling_timeout_no_retry",
-                        "updatedAt": datetime.now(timezone.utc)
-                    }
-                }
-            )
-
-            # Clean up tracking
-            self.processing_jobs.discard(str(job_id))
-
-            logger.info(f"✅ Job {job_id} marked as TIMEOUT - User must click generate again")
+            except Exception as poll_error:
+                # 🚨 NO RETRY - Single attempt failed, show clear error
+                error_msg = f"Single attempt check failed: {str(poll_error)}. No retry to prevent money waste. Please try again."
+                logger.error(f"❌ Single attempt error for job {job_id}: {error_msg}")
+                await self._handle_job_failure(job_id, error_msg)
+                return
 
         except Exception as e:
             logger.error(f"❌ Fatal error in polling for job {job_id}: {e}")
