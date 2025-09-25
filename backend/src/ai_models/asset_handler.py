@@ -256,7 +256,7 @@ class AssetHandler:
                 "urls": uploaded_urls,
                 "metadata": {
                     "type": "img2vid_noaudio",
-                    "model": "wan-2.2-preview",
+                    "model": "wan-v2.2-5b",
                     "duration": 5.0,
                     "resolution": result.get("resolution", "1080p"),
                     "file_count": len(uploaded_urls),

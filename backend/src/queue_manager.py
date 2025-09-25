@@ -944,8 +944,8 @@ class QueueManager:
             from .ai_models.asset_handler import AssetHandler
             asset_handler = AssetHandler()
 
-            # 🚨 WAN v2.2-5B: Optimized timing for 5-6 minute generation
-            max_attempts = 30  # 30 attempts * 15s = 7.5 minutes max (perfect for WAN v2.2-5B)
+            # 🚨 SIMPLE: WAN v2.2-5B takes 5-6 minutes - simple polling
+            max_attempts = 25  # 25 attempts * 15s = 6.25 minutes (perfect for 5-6 min generation)
             attempt = 0
 
             logger.info(f"🔄 Starting polling for job {job_id} with request_id: {request_id}")
@@ -991,7 +991,7 @@ class QueueManager:
                                     "workerMeta": {
                                         "video_url": async_result.get('video_url'),
                                         "processing_complete": True,
-                                        "model": async_result.get("model", "wan-2.2-preview"),
+                                        "model": async_result.get("model", "wan-v2.2-5b"),
                                         "completed_at": datetime.now(timezone.utc).isoformat()
                                     },
                                     "updatedAt": datetime.now(timezone.utc)

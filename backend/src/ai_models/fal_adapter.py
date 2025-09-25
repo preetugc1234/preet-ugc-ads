@@ -195,7 +195,7 @@ class FalAdapter:
                 "success": True,
                 "request_id": request_id,
                 "status": "submitted",
-                "model": "wan-2.2-preview",
+                "model": "wan-v2.2-5b",
                 "estimated_processing_time": "3-4 minutes",
                 "quality": arguments.get("resolution", "1080p"),
                 "duration": 5,  # Fixed 5-second duration for WAN 2.5
@@ -234,7 +234,7 @@ class FalAdapter:
                 "success": False,
                 "error": str(e),
                 "error_type": error_type,
-                "model": "wan-2.2-preview",
+                "model": "wan-v2.2-5b",
                 "retry_recommended": error_type in ["network_error", "processing_error"],
                 "debug_info": {
                     "error_class": type(e).__name__,
@@ -427,7 +427,7 @@ class FalAdapter:
                     "duration": 5,  # Fixed 5-second duration for WAN 2.2
                     "seed": result.get("seed") if isinstance(result, dict) else None,
                     "actual_prompt": result.get("actual_prompt") if isinstance(result, dict) else None,
-                    "model": "wan-2.2-preview",
+                    "model": "wan-v2.2-5b",
                     "status": "completed"
                 }
             else:
@@ -455,7 +455,7 @@ class FalAdapter:
                 "success": False,
                 "error": str(e),
                 "status": status,
-                "model": "wan-2.5-preview",
+                "model": "wan-v2.2-5b",
                 "request_id": request_id,
                 "cleanup_required": status in ["timeout", "not_found"]
             }
@@ -1131,7 +1131,7 @@ class FalAdapter:
                     "success": True,
                     "request_id": request_id,
                     "status": "processing",
-                    "model": "wan-2.2-preview",
+                    "model": "wan-v2.2-5b",
                     "processing_started": True,
                     "estimated_completion": "3-4 minutes"
                 }
@@ -1146,7 +1146,7 @@ class FalAdapter:
                     "success": True,
                     "request_id": request_id,
                     "status": "processing",
-                    "model": "wan-2.2-preview",
+                    "model": "wan-v2.2-5b",
                     "processing_started": True,
                     "estimated_completion": "3-4 minutes"
                 }
@@ -1169,7 +1169,7 @@ class FalAdapter:
                     "video_url": video_url,
                     "duration": 5.0,  # Fixed 5-second video generation
                     "resolution": arguments.get("resolution", "1080p"),
-                    "model": "wan-2.2-preview",
+                    "model": "wan-v2.2-5b",
                     "has_audio": False,
                     "preview": False,
                     "seed": result.get("seed"),
@@ -1210,7 +1210,7 @@ class FalAdapter:
                 "error": user_message,
                 "error_details": str(e),
                 "error_category": error_category,
-                "model": "wan-2.2-preview",
+                "model": "wan-v2.2-5b",
                 "video_url": None,
                 "retry_recommended": error_category in ["timeout_error", "network_error", "processing_error"]
             }
