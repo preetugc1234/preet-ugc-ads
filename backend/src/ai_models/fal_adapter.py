@@ -272,7 +272,7 @@ class FalAdapter:
                     logger.info(f"📦 Found stored handler for request: {request_id}")
                     try:
                         # Try handler.get() method (non-blocking)
-                        result = await asyncio.to_thread(handler.get, timeout=0)
+                        result = await asyncio.to_thread(handler.get)
                         if result:
                             logger.info(f"✅ WAN v2.2-5B completed! Result: {result}")
                             # Clean up handler
