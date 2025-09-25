@@ -160,28 +160,39 @@ class FalAdapter:
             }
 
         except Exception as e:
-            logger.error(f"WAN 2.5 Preview async submission failed: {e}")
-            logger.error(f"Error type: {type(e).__name__}")
+            logger.error(f"🚨 CRITICAL: WAN 2.2 async submission failed: {e}")
+            logger.error(f"🔍 Error type: {type(e).__name__}")
+            logger.error(f"🔍 Error details: {str(e)}")
 
-            # Enhanced error categorization
+            # Enhanced error categorization with detailed logging
             error_message = str(e).lower()
             if "timeout" in error_message or "connection" in error_message:
                 error_type = "network_error"
+                logger.error(f"🌐 Network error: FAL API unreachable - Check internet/firewall")
             elif "api key" in error_message or "unauthorized" in error_message:
                 error_type = "auth_error"
+                logger.error(f"🔑 Auth error: FAL_API_KEY invalid or missing")
             elif "quota" in error_message or "limit" in error_message:
                 error_type = "quota_error"
+                logger.error(f"💰 Quota error: FAL API credits exhausted or rate limited")
             elif "invalid" in error_message or "format" in error_message:
                 error_type = "validation_error"
+                logger.error(f"❌ Validation error: Check image_url format and parameters")
             else:
                 error_type = "processing_error"
+                logger.error(f"⚙️ Processing error: Unknown FAL API issue")
 
             return {
                 "success": False,
                 "error": str(e),
                 "error_type": error_type,
-                "model": "wan-2.5-preview",
-                "retry_recommended": error_type in ["network_error", "processing_error"]
+                "model": "wan-2.2-preview",
+                "retry_recommended": error_type in ["network_error", "processing_error"],
+                "debug_info": {
+                    "error_class": type(e).__name__,
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "model_endpoint": self.models["img2vid_noaudio"]
+                }
             }
 
     async def get_async_result(self, request_id: str, model: str = None) -> Dict[str, Any]:
@@ -779,25 +790,39 @@ class FalAdapter:
             logger.info(f"🔍 Submit result type: {type(submit_result)}")
             logger.info(f"🔍 Submit result content: {submit_result}")
 
-            # Handle different response formats
+            # Handle different response formats - DO NOT WAIT, RETURN REQUEST ID
             if hasattr(submit_result, 'request_id'):
                 request_id = submit_result.request_id
                 logger.info(f"✅ WAN 2.2 Preview request submitted: {request_id}")
-                # Wait for completion with extended timeout for WAN 2.2
-                logger.info(f"⏳ Waiting for WAN 2.2 Preview completion (3-4 minutes)...")
-                result = await asyncio.to_thread(submit_result.get)
+                logger.info(f"🔄 Returning request_id for async processing (queue will handle completion)")
+
+                # RETURN IMMEDIATELY - DO NOT BLOCK
+                return {
+                    "success": True,
+                    "request_id": request_id,
+                    "status": "processing",
+                    "model": "wan-2.2-preview",
+                    "processing_started": True,
+                    "estimated_completion": "3-4 minutes"
+                }
+
             elif isinstance(submit_result, dict) and 'request_id' in submit_result:
                 request_id = submit_result['request_id']
                 logger.info(f"✅ WAN 2.2 Preview request submitted (dict): {request_id}")
-                # Wait for completion using fal_client.result
-                logger.info(f"⏳ Waiting for WAN 2.2 Preview completion (3-4 minutes)...")
-                result = await asyncio.to_thread(
-                    fal_client.result,
-                    self.models["img2vid_noaudio"],
-                    request_id
-                )
+                logger.info(f"🔄 Returning request_id for async processing (queue will handle completion)")
+
+                # RETURN IMMEDIATELY - DO NOT BLOCK
+                return {
+                    "success": True,
+                    "request_id": request_id,
+                    "status": "processing",
+                    "model": "wan-2.2-preview",
+                    "processing_started": True,
+                    "estimated_completion": "3-4 minutes"
+                }
+
             else:
-                # Direct result case
+                # Direct result case (shouldn't happen with async)
                 logger.info(f"✅ WAN 2.2 Preview direct result received")
                 result = submit_result
 

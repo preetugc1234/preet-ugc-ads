@@ -294,73 +294,56 @@ class QueueManager:
                 # Fal AI Video workflows with improved async handling
                 adapter = FalAdapter()
 
-                # For img2vid_noaudio, use DIRECT sync processing for reliability
+                # For img2vid_noaudio, use ASYNC submission to prevent blocking
                 if module == 'img2vid_noaudio':
-                    logger.info(f"🎬 Starting img2vid_noaudio DIRECT processing for job {job_id}")
+                    logger.info(f"🎬 Starting img2vid_noaudio ASYNC submission for job {job_id}")
                     logger.info(f"📷 Input params: image_url length: {len(params.get('image_url', ''))}, prompt: '{params.get('prompt', '')}'")
 
                     try:
-                        # Use direct sync processing instead of async for immediate results
-                        logger.info(f"🔄 Using direct FAL AI processing for reliability...")
-                        sync_result = await adapter.generate_img2vid_noaudio_final(params)
-                        logger.info(f"🎯 FAL AI direct result: {sync_result}")
+                        # Use async submission method (non-blocking)
+                        logger.info(f"📤 Submitting to FAL AI asynchronously...")
+                        submit_result = await adapter.submit_img2vid_noaudio_async(params)
+                        logger.info(f"📊 FAL AI submit result: {submit_result}")
 
-                        if sync_result.get('success'):
-                            # IMMEDIATE UPDATE: Store video URL in worker_meta first
-                            video_url = sync_result.get('video_url')
-                            logger.info(f"🔍 DEBUG: sync_result keys: {list(sync_result.keys())}")
-                            logger.info(f"🔍 DEBUG: video_url from sync_result: {video_url}")
+                        if submit_result.get('success') and submit_result.get('request_id'):
+                            request_id = submit_result.get('request_id')
+                            logger.info(f"✅ FAL AI submission successful: {request_id}")
 
-                            if video_url:
-                                logger.info(f"🚀 IMMEDIATE UPDATE: Storing video URL in worker_meta for job {job_id}")
-                                update_result = db.jobs.update_one(
-                                    {"_id": job_id},
-                                    {
-                                        "$set": {
-                                            "workerMeta": {
-                                                "video_url": video_url,
-                                                "final_url": video_url,
-                                                "processing_complete": True,
-                                                "stored_at": datetime.now(timezone.utc).isoformat()
-                                            },
-                                            "updatedAt": datetime.now(timezone.utc)
-                                        }
+                            # Update job with request_id and processing status
+                            db.jobs.update_one(
+                                {"_id": job_id},
+                                {
+                                    "$set": {
+                                        "status": JobStatus.PROCESSING.value,
+                                        "processingStartedAt": datetime.now(timezone.utc),
+                                        "workerMeta": {
+                                            "request_id": request_id,
+                                            "model": submit_result.get("model", "wan-2.2-preview"),
+                                            "processing_started": True,
+                                            "submitted_at": datetime.now(timezone.utc).isoformat()
+                                        },
+                                        "updatedAt": datetime.now(timezone.utc)
                                     }
-                                )
-                                logger.info(f"✅ Video URL stored in worker_meta: {video_url}")
-                                logger.info(f"🔍 Update result: matched={update_result.matched_count}, modified={update_result.modified_count}")
-                            else:
-                                logger.error(f"❌ No video_url found in sync_result: {sync_result}")
-
-                            # Process sync result immediately with optimized WAN 2.5 handler
-                            # Try to upload to Cloudinary, but don't fail if it doesn't work
-                            final_asset = await asset_handler.handle_img2vid_noaudio_result(
-                                sync_result, str(job_id), user_id, False
+                                }
                             )
-                            cloudinary_urls = final_asset.get('urls', []) if final_asset.get('success') else []
 
-                            # FALLBACK: Use original FAL AI URL if Cloudinary upload fails
-                            if cloudinary_urls:
-                                final_urls = cloudinary_urls
-                                logger.info(f"✅ Cloudinary upload successful for job {job_id}: {final_urls}")
-                            else:
-                                # Use FAL AI URL directly as fallback
-                                fal_video_url = sync_result.get('video_url')
-                                if fal_video_url:
-                                    final_urls = [fal_video_url]
-                                    logger.info(f"⚠️ Cloudinary upload failed, using FAL AI URL for job {job_id}: {final_urls}")
-                                else:
-                                    logger.error(f"❌ No video URL available for job {job_id}")
-                                    raise Exception("No video URL available")
+                            # Start background polling task (non-blocking)
+                            logger.info(f"🔄 Starting background polling for request_id: {request_id}")
+                            asyncio.create_task(
+                                self._poll_fal_async_result(job_id, request_id, module, user_id, adapter)
+                            )
+
+                            return  # Job is now processing asynchronously
+
                         else:
-                            error_msg = sync_result.get('error', 'Unknown FAL AI error')
-                            logger.error(f"❌ FAL AI direct processing failed: {error_msg}")
-                            raise Exception(f"FAL AI processing failed: {error_msg}")
+                            error_msg = submit_result.get('error', 'Failed to submit to FAL AI')
+                            logger.error(f"❌ FAL AI submission failed: {error_msg}")
+                            raise Exception(f"FAL AI submission failed: {error_msg}")
 
                     except Exception as processing_error:
-                        logger.error(f"❌ img2vid_noaudio processing failed for job {job_id}: {processing_error}")
+                        logger.error(f"❌ img2vid_noaudio submission failed for job {job_id}: {processing_error}")
                         # Mark job as failed and exit
-                        await self._handle_job_failure(job_id, f"Processing failed: {str(processing_error)}")
+                        await self._handle_job_failure(job_id, f"Submission failed: {str(processing_error)}")
                         return
 
                 else:
@@ -862,6 +845,112 @@ class QueueManager:
         except Exception as e:
             logger.error(f"Error cancelling job {job_id}: {e}")
             return False
+
+    async def _poll_fal_async_result(self, job_id: ObjectId, request_id: str, module: str, user_id: str, adapter):
+        """Poll FAL AI async result and handle completion."""
+        try:
+            db = get_db()
+            from .ai_models.asset_handler import AssetHandler
+            asset_handler = AssetHandler()
+
+            max_attempts = 40  # 40 attempts * 15s = 10 minutes max
+            attempt = 0
+
+            logger.info(f"🔄 Starting polling for job {job_id} with request_id: {request_id}")
+
+            while attempt < max_attempts:
+                attempt += 1
+                logger.info(f"🔄 Polling attempt {attempt}/{max_attempts} for job {job_id}")
+
+                try:
+                    # Get result from FAL AI
+                    async_result = await adapter.get_async_result(request_id)
+                    logger.info(f"📊 Async result for job {job_id}: {async_result}")
+
+                    if async_result.get('success'):
+                        logger.info(f"✅ FAL AI processing completed for job {job_id}")
+
+                        # Process result and upload to Cloudinary
+                        final_asset = await asset_handler.handle_img2vid_noaudio_result(
+                            async_result, str(job_id), user_id, False
+                        )
+                        cloudinary_urls = final_asset.get('urls', []) if final_asset.get('success') else []
+
+                        # Use Cloudinary URLs if available, otherwise fallback to FAL AI URL
+                        if cloudinary_urls:
+                            final_urls = cloudinary_urls
+                            logger.info(f"✅ Using Cloudinary URLs for job {job_id}: {final_urls}")
+                        else:
+                            fal_video_url = async_result.get('video_url')
+                            if fal_video_url:
+                                final_urls = [fal_video_url]
+                                logger.info(f"⚠️ Using FAL AI URL for job {job_id}: {final_urls}")
+                            else:
+                                raise Exception("No video URL available")
+
+                        # Update job as completed
+                        db.jobs.update_one(
+                            {"_id": job_id},
+                            {
+                                "$set": {
+                                    "status": JobStatus.COMPLETED.value,
+                                    "completedAt": datetime.now(timezone.utc),
+                                    "finalUrls": final_urls,
+                                    "workerMeta": {
+                                        "video_url": async_result.get('video_url'),
+                                        "processing_complete": True,
+                                        "model": async_result.get("model", "wan-2.2-preview"),
+                                        "completed_at": datetime.now(timezone.utc).isoformat()
+                                    },
+                                    "updatedAt": datetime.now(timezone.utc)
+                                }
+                            }
+                        )
+
+                        # Create generation record
+                        from .database import GenerationModel
+                        generation_doc = GenerationModel.create_generation(
+                            user_id=ObjectId(user_id),
+                            job_id=job_id,
+                            generation_type="img2vid_noaudio",
+                            preview_url="",
+                            final_urls=final_urls,
+                            size_bytes=sum([1024 for _ in final_urls])
+                        )
+
+                        logger.info(f"🎉 Job {job_id} completed successfully with URLs: {final_urls}")
+                        return
+
+                    elif async_result.get('status') == 'failed':
+                        error_msg = async_result.get('error', 'FAL AI processing failed')
+                        logger.error(f"❌ FAL AI processing failed for job {job_id}: {error_msg}")
+                        await self._handle_job_failure(job_id, f"FAL AI processing failed: {error_msg}")
+                        return
+
+                    elif async_result.get('status') in ['queued', 'processing', 'in_progress']:
+                        logger.info(f"⏳ Job {job_id} still processing (status: {async_result.get('status')})")
+                        # Continue polling
+                        await asyncio.sleep(15)  # Wait 15 seconds before next check
+
+                    else:
+                        logger.info(f"🤔 Status: {async_result.get('status')} for job {job_id}, continuing to poll...")
+                        await asyncio.sleep(15)
+
+                except Exception as poll_error:
+                    logger.error(f"❌ Polling error for job {job_id}, attempt {attempt}: {poll_error}")
+                    if attempt >= max_attempts:
+                        await self._handle_job_failure(job_id, f"Polling failed after {max_attempts} attempts: {str(poll_error)}")
+                        return
+                    else:
+                        await asyncio.sleep(15)  # Wait before retry
+
+            # If we reach here, polling timed out
+            logger.error(f"❌ Polling timeout for job {job_id} after {max_attempts} attempts ({max_attempts * 15} seconds)")
+            await self._handle_job_failure(job_id, f"Processing timeout after {max_attempts * 15} seconds")
+
+        except Exception as e:
+            logger.error(f"❌ Fatal error in polling for job {job_id}: {e}")
+            await self._handle_job_failure(job_id, f"Fatal polling error: {str(e)}")
 
 # Global queue manager instance
 queue_manager = QueueManager()
