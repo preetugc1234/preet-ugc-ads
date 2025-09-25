@@ -22,6 +22,7 @@ const ImageToVideoTool = () => {
   const [motionPrompt, setMotionPrompt] = useState("");
   const [intensity, setIntensity] = useState([0.7]);
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false); // Prevent double clicks
 
   // Job management hooks
   const createJobMutation = useCreateJob();
@@ -80,12 +81,23 @@ const ImageToVideoTool = () => {
   };
 
   const handleGenerate = async () => {
+    // 🚨 CRITICAL: Prevent double API calls that waste money
+    if (isSubmitting || createJobMutation.isPending) {
+      console.warn('🚫 Generation already in progress - preventing double API call');
+      return;
+    }
+
     if (!uploadedImageUrl || !isAuthenticated) {
       alert('Please sign in and upload an image');
       return;
     }
 
+    // Set submitting state immediately to prevent multiple clicks
+    setIsSubmitting(true);
+
     try {
+      console.log('🎬 Starting SINGLE generation request...');
+
       // Create job for image-to-video generation
       const clientJobId = apiHelpers.generateClientJobId();
 
@@ -150,6 +162,10 @@ const ImageToVideoTool = () => {
       }
 
       alert(`Failed to start video generation: ${errorMessage}`);
+    } finally {
+      // 🚨 CRITICAL: Reset submitting state to allow future generations
+      console.log('🔄 Resetting submitting state...');
+      setIsSubmitting(false);
     }
   };
 
@@ -168,10 +184,11 @@ const ImageToVideoTool = () => {
     total: calculateCost()
   };
 
-  // Helper functions for job status
+  // Helper functions for job status - Enhanced with submitting state
   const isJobRunning = jobStatus?.status === 'queued' || jobStatus?.status === 'processing';
   const isJobCompleted = jobStatus?.status === 'completed';
   const isJobFailed = jobStatus?.status === 'failed';
+  const isGenerating = isSubmitting || createJobMutation.isPending || isJobRunning;
 
   // Check if we have video URLs available (more flexible) - prioritize finalUrls over preview_url
   const workerVideoUrl = jobStatus?.worker_meta?.video_url || jobStatus?.worker_meta?.final_url;
@@ -528,8 +545,8 @@ const ImageToVideoTool = () => {
         credits="100-200/video"
         estimatedTime="~4min"
         onGenerate={handleGenerate}
-        isGenerating={createJobMutation.isPending || isJobRunning}
-        canGenerate={!!uploadedImage && !isJobRunning}
+        isGenerating={isGenerating}
+        canGenerate={!!uploadedImage && !isGenerating}
         costBreakdown={costBreakdown}
         previewPane={previewPane}
       >

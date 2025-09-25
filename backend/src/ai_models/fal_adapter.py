@@ -31,6 +31,10 @@ class FalAdapter:
         self.img2vid_api_key = os.getenv("FAL_IMG2VID_API_KEY")  # Specific key for img2vid
         self.base_url = "https://fal.run"
 
+        # 🚨 CRITICAL: Track active submissions to prevent money-wasting duplicates
+        self.active_submissions = set()  # Track request IDs to prevent loops
+        self.submission_hashes = set()  # Track parameter hashes to prevent duplicates
+
         # Initialize fal client - always use general FAL API key
         try:
             if not fal_client:
@@ -95,7 +99,26 @@ class FalAdapter:
             if not image_url.startswith(('http', 'data:')):
                 raise Exception(f"Invalid image URL format: {image_url[:50]}...")
 
-            # Enhanced parameters for WAN 2.5 Preview
+            # 🚨 CRITICAL: Create submission hash to prevent identical requests
+            import hashlib
+            submission_data = f"{image_url}|{prompt}|{params.get('resolution', '1080p')}"
+            submission_hash = hashlib.md5(submission_data.encode()).hexdigest()
+
+            if submission_hash in self.submission_hashes:
+                logger.warning(f"🚫 DUPLICATE SUBMISSION DETECTED: {submission_hash[:8]}...")
+                logger.warning(f"🚫 PREVENTING MONEY-WASTING DUPLICATE FAL API CALL!")
+                return {
+                    "success": False,
+                    "error": "Duplicate submission detected - preventing money waste",
+                    "error_type": "duplicate_submission",
+                    "submission_hash": submission_hash[:8]
+                }
+
+            # Add to tracking sets
+            self.submission_hashes.add(submission_hash)
+            logger.info(f"🔒 Tracking submission hash: {submission_hash[:8]}...")
+
+            # Enhanced parameters for WAN 2.2 Preview
             arguments = {
                 "prompt": prompt,
                 "image_url": image_url,
@@ -147,6 +170,10 @@ class FalAdapter:
             else:
                 request_id = str(handler)
 
+            # Track the request_id to prevent polling loops
+            self.active_submissions.add(request_id)
+            logger.info(f"🔒 Tracking active request_id: {request_id}")
+
             logger.info(f"Image-to-video job submitted successfully: {request_id}")
 
             return {
@@ -156,7 +183,8 @@ class FalAdapter:
                 "model": "wan-2.2-preview",
                 "estimated_processing_time": "3-4 minutes",
                 "quality": arguments.get("resolution", "1080p"),
-                "duration": 5  # Fixed 5-second duration for WAN 2.5
+                "duration": 5,  # Fixed 5-second duration for WAN 2.5
+                "submission_hash": submission_hash[:8]  # For debugging
             }
 
         except Exception as e:
@@ -182,6 +210,11 @@ class FalAdapter:
                 error_type = "processing_error"
                 logger.error(f"⚙️ Processing error: Unknown FAL API issue")
 
+            # Clean up tracking on error to prevent permanent blocks
+            if 'submission_hash' in locals():
+                self.submission_hashes.discard(submission_hash)
+                logger.info(f"🧹 Cleaned up failed submission hash: {submission_hash[:8]}...")
+
             return {
                 "success": False,
                 "error": str(e),
@@ -200,6 +233,9 @@ class FalAdapter:
         try:
             if not self.fal:
                 raise Exception("Fal client not initialized - check API key")
+
+            # 🚨 CRITICAL: Track polling to prevent infinite loops
+            logger.info(f"🔍 Polling FAL AI for request_id: {request_id}")
 
             # Use the appropriate model endpoint
             model_endpoint = model or self.models["img2vid_noaudio"]
@@ -245,6 +281,11 @@ class FalAdapter:
                     if not video_url:
                         raise Exception(f"No video URL found in result: {result}")
 
+                # 🚨 CRITICAL: Clean up tracking when job completes successfully
+                if request_id in self.active_submissions:
+                    self.active_submissions.remove(request_id)
+                    logger.info(f"🧹 Cleaned up completed request_id: {request_id}")
+
                 return {
                     "success": True,
                     "video_url": video_url,
@@ -252,7 +293,7 @@ class FalAdapter:
                     "duration": 5,  # Fixed 5-second duration for WAN 2.5
                     "seed": result.get("seed"),
                     "actual_prompt": result.get("actual_prompt"),
-                    "model": "wan-2.5-preview",
+                    "model": "wan-2.2-preview",
                     "status": "completed"
                 }
             else:

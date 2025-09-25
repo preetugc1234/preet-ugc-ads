@@ -300,8 +300,15 @@ class QueueManager:
                     logger.info(f"📷 Input params: image_url length: {len(params.get('image_url', ''))}, prompt: '{params.get('prompt', '')}'")
 
                     try:
+                        # 🚨 CRITICAL: Check if job was already submitted to FAL API
+                        existing_job = db.jobs.find_one({"_id": job_id})
+                        if existing_job and existing_job.get("workerMeta", {}).get("request_id"):
+                            logger.warning(f"🚫 Job {job_id} already submitted to FAL API with request_id: {existing_job['workerMeta']['request_id']}")
+                            logger.warning(f"🚫 PREVENTING DUPLICATE FAL API CALL - This would waste money!")
+                            return
+
                         # Use async submission method (non-blocking)
-                        logger.info(f"📤 Submitting to FAL AI asynchronously...")
+                        logger.info(f"📤 Submitting to FAL AI asynchronously (SINGLE CALL)...")
                         submit_result = await adapter.submit_img2vid_noaudio_async(params)
                         logger.info(f"📊 FAL AI submit result: {submit_result}")
 
