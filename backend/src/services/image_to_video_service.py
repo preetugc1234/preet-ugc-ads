@@ -363,36 +363,49 @@ class ImageToVideoService:
         except Exception as e:
             logger.warning(f"Failed to log job progress: {e}")
 
-    async def estimate_processing_time(self, has_audio: bool = True) -> Dict[str, Any]:
-        """Calculate processing time and cost estimates for Kling Avatar."""
+    async def estimate_processing_time(self, audio_duration_seconds: int = None) -> Dict[str, Any]:
+        """Calculate processing time and cost estimates for Kling Avatar based on audio duration."""
         try:
-            # Kling Avatar processing: ~7-8 minutes for image+audio to video
-            processing_seconds = 450  # 7.5 minutes average
+            # Base processing time for Kling Avatar: ~7-8 minutes regardless of audio length
+            # Kling Avatar automatically matches video duration to audio length
+            base_processing_seconds = 450  # 7.5 minutes average
 
-            # Credits: 0 for testing (normally would be based on model)
-            total_credits = 0  # Set to 0 for testing
+            # Credits: Set to 0 for testing purposes
+            total_credits = 0  # FREE FOR TESTING
 
             # Add buffer for queue and initialization
-            total_seconds_with_buffer = processing_seconds + 300  # 5 minutes buffer
+            total_seconds_with_buffer = base_processing_seconds + 300  # 5 minutes buffer
 
             # Format display time
-            if processing_seconds < 60:
-                processing_time = f"{processing_seconds} seconds"
+            if base_processing_seconds < 60:
+                processing_time = f"{base_processing_seconds} seconds"
             else:
-                minutes = processing_seconds // 60
-                seconds = processing_seconds % 60
+                minutes = base_processing_seconds // 60
+                seconds = base_processing_seconds % 60
                 processing_time = f"{minutes}m {seconds}s" if seconds > 0 else f"{minutes}m"
+
+            # Audio duration info
+            audio_info = ""
+            if audio_duration_seconds:
+                if audio_duration_seconds < 60:
+                    audio_info = f"{audio_duration_seconds} seconds"
+                else:
+                    audio_minutes = audio_duration_seconds // 60
+                    audio_secs = audio_duration_seconds % 60
+                    audio_info = f"{audio_minutes}m {audio_secs}s" if audio_secs > 0 else f"{audio_minutes}m"
 
             return {
                 "success": True,
                 "processing_time": processing_time,
-                "processing_seconds": processing_seconds,
+                "processing_seconds": base_processing_seconds,
                 "total_seconds_with_buffer": total_seconds_with_buffer,
                 "total_credits": total_credits,
-                "credit_breakdown": "FREE FOR TESTING - normally based on video length and quality",
+                "credit_breakdown": "FREE FOR TESTING - No credits required during testing phase",
                 "model": "kling-v1-pro-ai-avatar",
-                "has_audio": has_audio,
-                "quality": "pro"
+                "has_audio": True,
+                "quality": "pro",
+                "video_duration": "Auto-matches audio length" + (f" (~{audio_info})" if audio_info else ""),
+                "duration_policy": "Video duration automatically matches the provided audio duration"
             }
         except Exception as e:
             logger.error(f"Failed to estimate processing time: {e}")
@@ -455,16 +468,30 @@ class ImageToVideoService:
                     "image_formats": ["jpg", "jpeg", "png", "webp"],
                     "audio_formats": ["mp3", "wav", "m4a", "aac"],
                     "max_image_size": "2048x2048",
-                    "max_audio_duration": 300  # 5 minutes
+                    "max_audio_duration": 600,  # 10 minutes max for Kling Avatar
+                    "audio_duration_policy": "Video duration automatically matches audio length"
                 },
                 "output": {
                     "video_format": "mp4",
                     "quality": "pro",
                     "has_audio": True,
                     "audio_synced": True,
-                    "typical_duration": "matches_audio_length"
+                    "duration_policy": "Automatically matches input audio duration",
+                    "lip_sync": True,
+                    "expression_sync": True
+                },
+                "pricing": {
+                    "credits_required": 0,
+                    "pricing_policy": "FREE FOR TESTING - No credits charged during testing phase"
                 },
                 "model": "kling-v1-pro-ai-avatar",
-                "processing_time": "7-8 minutes"
+                "processing_time": "7-8 minutes (regardless of audio length)",
+                "features": [
+                    "Professional quality video output",
+                    "Perfect lip synchronization",
+                    "Natural facial expressions",
+                    "Audio-video length matching",
+                    "High-resolution output"
+                ]
             }
         ]

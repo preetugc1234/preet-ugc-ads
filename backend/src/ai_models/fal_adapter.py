@@ -926,7 +926,12 @@ class FalAdapter:
 
     # New Kling AI Avatar methods using modern fal client
     async def submit_kling_avatar_async(self, params: Dict[str, Any], webhook_url: str = None) -> Dict[str, Any]:
-        """Submit Kling AI Avatar request asynchronously using fal-ai/kling-video/v1/pro/ai-avatar."""
+        """
+        Submit Kling AI Avatar request asynchronously using fal-ai/kling-video/v1/pro/ai-avatar.
+
+        The model automatically generates video with duration matching the input audio.
+        No manual duration selection needed - video length is determined by audio length.
+        """
         try:
             if not self.fal:
                 raise Exception("Fal client not initialized - check API key")

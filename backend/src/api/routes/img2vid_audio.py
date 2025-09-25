@@ -24,7 +24,7 @@ img2vid_service = ImageToVideoService()
 class ImageToVideoRequest(BaseModel):
     """Request model for image+audio to video generation."""
     image_url: HttpUrl = Field(..., description="URL of the input image")
-    audio_url: HttpUrl = Field(..., description="URL of the input audio file")
+    audio_url: HttpUrl = Field(..., description="URL of the input audio file (video duration auto-matches audio length)")
     prompt: Optional[str] = Field("", description="Optional prompt to guide the video generation")
     user_id: Optional[str] = Field(None, description="Optional user identifier")
 
@@ -40,7 +40,7 @@ class ImageToVideoRequest(BaseModel):
 
 class EstimateRequest(BaseModel):
     """Request model for processing time estimation."""
-    has_audio: bool = Field(True, description="Whether the video will include audio")
+    audio_duration_seconds: Optional[int] = Field(None, description="Optional audio duration in seconds (for estimate only)")
 
 # Response Models
 class ImageToVideoResponse(BaseModel):
@@ -69,6 +69,8 @@ class EstimateResponse(BaseModel):
     model: Optional[str] = None
     has_audio: Optional[bool] = None
     quality: Optional[str] = None
+    video_duration: Optional[str] = None
+    duration_policy: Optional[str] = None
     error: Optional[str] = None
 
 @router.post("/submit", response_model=ImageToVideoResponse)
@@ -79,10 +81,12 @@ async def submit_image_to_video(request: ImageToVideoRequest):
     Uses Kling AI Avatar model (fal-ai/kling-video/v1/pro/ai-avatar) to:
     - Take an input image and audio file
     - Generate a high-quality video where the person in the image speaks the audio
+    - Automatically match video duration to audio length (no manual selection needed)
     - Sync lip movements and expressions with the audio
     - Return a professional MP4 video with audio
 
-    Processing time: ~7-8 minutes
+    Processing time: ~7-8 minutes (regardless of audio duration)
+    Credits: FREE during testing phase
     """
     try:
         logger.info(f"🎬 Image+Audio to Video submission received")
@@ -166,7 +170,12 @@ async def upload_and_submit_image_to_video(
 
     Supported formats:
     - Images: JPG, PNG, WEBP (max 2048x2048)
-    - Audio: MP3, WAV, M4A, AAC (max 5 minutes)
+    - Audio: MP3, WAV, M4A, AAC (max 10 minutes)
+
+    Video duration automatically matches the uploaded audio length.
+    No manual duration selection needed - the system handles it automatically.
+
+    Credits: FREE during testing phase.
     """
     try:
         logger.info(f"📁 File upload and submit received")
@@ -196,12 +205,12 @@ async def upload_and_submit_image_to_video(
         image_data = await image_file.read()
         audio_data = await audio_file.read()
 
-        # Validate file sizes (10MB for image, 50MB for audio)
+        # Validate file sizes (10MB for image, 100MB for audio to support longer audio files)
         if len(image_data) > 10 * 1024 * 1024:  # 10MB
             raise HTTPException(status_code=400, detail="Image file too large (max 10MB)")
 
-        if len(audio_data) > 50 * 1024 * 1024:  # 50MB
-            raise HTTPException(status_code=400, detail="Audio file too large (max 50MB)")
+        if len(audio_data) > 100 * 1024 * 1024:  # 100MB (increased for longer audio files)
+            raise HTTPException(status_code=400, detail="Audio file too large (max 100MB)")
 
         logger.info(f"📤 Uploading files to FAL storage...")
 
@@ -272,14 +281,15 @@ async def estimate_processing_time(request: EstimateRequest):
     Estimate processing time and costs for image+audio to video generation.
 
     Returns:
-    - Estimated processing time (~7-8 minutes for Kling Avatar)
-    - Credit costs (currently free for testing)
+    - Estimated processing time (~7-8 minutes regardless of audio length)
+    - Credit costs (FREE during testing phase)
     - Model information
+    - Duration policy (video automatically matches audio length)
     """
     try:
         logger.info(f"📊 Processing estimate requested")
 
-        result = await img2vid_service.estimate_processing_time(request.has_audio)
+        result = await img2vid_service.estimate_processing_time(request.audio_duration_seconds)
 
         if result["success"]:
             return EstimateResponse(
@@ -290,7 +300,9 @@ async def estimate_processing_time(request: EstimateRequest):
                 credit_breakdown=result.get("credit_breakdown"),
                 model=result.get("model"),
                 has_audio=result.get("has_audio"),
-                quality=result.get("quality")
+                quality=result.get("quality"),
+                video_duration=result.get("video_duration"),
+                duration_policy=result.get("duration_policy")
             )
         else:
             raise HTTPException(
