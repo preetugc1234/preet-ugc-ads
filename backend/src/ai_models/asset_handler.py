@@ -180,55 +180,69 @@ class AssetHandler:
             return {"success": False, "error": str(e)}
 
     async def handle_img2vid_noaudio_result(self, result: Dict[str, Any], job_id: str, user_id: str, is_preview: bool) -> Dict[str, Any]:
-        """Handle img2vid_noaudio result optimized for WAN 2.2 Preview model."""
+        """Handle img2vid_noaudio result optimized for WAN v2.2-5B model."""
         try:
             if not result.get("success"):
-                raise Exception(result.get("error", "WAN 2.2 Preview generation failed"))
+                raise Exception(result.get("error", "WAN v2.2-5B generation failed"))
 
-            video_url = result.get("video_url")
+            # Handle different WAN v2.2-5B result formats
+            video_url = None
+            if "video" in result and isinstance(result["video"], dict):
+                video_url = result["video"].get("url")
+            elif "video_url" in result:
+                video_url = result["video_url"]
+
             if not video_url:
-                raise Exception("No video URL in WAN 2.2 Preview result")
+                raise Exception("No video URL in WAN v2.2-5B result")
 
             uploaded_urls = []
 
             # Download video with retry logic for FAL AI URLs
-            logger.info(f"📥 Downloading WAN 2.2 video from: {video_url}")
+            logger.info(f"📥 Downloading WAN v2.2-5B video from: {video_url}")
             video_data = await self._download_file_with_retry(video_url, max_retries=3)
 
             if video_data:
-                logger.info(f"✅ WAN 2.2 video downloaded: {len(video_data)} bytes")
+                logger.info(f"✅ WAN v2.2-5B video downloaded: {len(video_data)} bytes")
 
-                # Optimized path structure for WAN 2.2
-                video_path = f"user_{user_id}/wan22_videos/job_{job_id}/{'preview' if is_preview else 'final'}_video"
+                # Optimized path structure for WAN v2.2-5B
+                video_path = f"user_{user_id}/wan_v22_5b_videos/job_{job_id}/{'preview' if is_preview else 'final'}_video"
 
-                logger.info(f"☁️ Uploading WAN 2.2 video to Cloudinary: {video_path}")
+                logger.info(f"☁️ Uploading WAN v2.2-5B video to Cloudinary: {video_path}")
                 video_upload = await self._upload_to_cloudinary_optimized(
                     video_data,
                     video_path,
                     resource_type="video",
                     format="mp4",
-                    quality="auto:good"
+                    quality="auto:best",  # Higher quality for 5B model
+                    transformation=[
+                        {"quality": "auto:best"},
+                        {"flags": "progressive:steep"}  # Progressive loading
+                    ]
                 )
 
                 if video_upload:
-                    logger.info(f"✅ WAN 2.2 video uploaded successfully: {video_upload['secure_url']}")
+                    logger.info(f"✅ WAN v2.2-5B video uploaded successfully: {video_upload['secure_url']}")
                     uploaded_urls.append(video_upload["secure_url"])
                 else:
-                    logger.error(f"❌ Failed to upload WAN 2.2 video to Cloudinary")
+                    logger.error(f"❌ Failed to upload WAN v2.2-5B video to Cloudinary")
                     raise Exception("Cloudinary video upload failed")
             else:
-                logger.error(f"❌ Failed to download WAN 2.2 video from: {video_url}")
+                logger.error(f"❌ Failed to download WAN v2.2-5B video from: {video_url}")
                 raise Exception("Video download failed")
 
-            # Create asset data with WAN 2.2 specific metadata
+            # Create asset data with WAN v2.2-5B specific metadata
             asset_data = {
                 "type": "img2vid_noaudio",
                 "video_url": uploaded_urls[0],
-                "model": "wan-2.2-preview",
-                "duration": 5.0,  # Fixed 5-second duration for WAN 2.2
-                "resolution": result.get("resolution", "1080p"),
+                "model": "wan-v2.2-5b",
+                "duration": 81 / 24,  # 81 frames at 24fps = 3.375 seconds
+                "frames": 81,
+                "fps": 24,
+                "resolution": "720p",
+                "interpolation": "film",
+                "quality": "high",
                 "seed": result.get("seed"),
-                "actual_prompt": result.get("actual_prompt"),
+                "prompt": result.get("prompt"),
                 "has_audio": False,
                 "is_preview": is_preview,
                 "created_at": datetime.utcnow().isoformat(),

@@ -33,7 +33,8 @@
       "WebFetch(domain:preet-ugc-ads.lovable.app)",
       "Bash(npm run lint:*)",
       "WebSearch",
-      "WebFetch(domain:fal.ai)"
+      "WebFetch(domain:fal.ai)",
+      "Read(//c/Users/mt/Downloads/**)"
     ],
     "deny": [],
     "ask": []

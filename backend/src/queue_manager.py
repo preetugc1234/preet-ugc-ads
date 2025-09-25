@@ -889,7 +889,8 @@ class QueueManager:
             from .ai_models.asset_handler import AssetHandler
             asset_handler = AssetHandler()
 
-            max_attempts = 40  # 40 attempts * 15s = 10 minutes max
+            # 🚨 WAN v2.2-5B: Optimized timing for 5-6 minute generation
+            max_attempts = 30  # 30 attempts * 15s = 7.5 minutes max (perfect for WAN v2.2-5B)
             attempt = 0
 
             logger.info(f"🔄 Starting polling for job {job_id} with request_id: {request_id}")
