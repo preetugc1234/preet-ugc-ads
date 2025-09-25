@@ -48,6 +48,7 @@ from src.routes.webhooks import router as webhooks_router
 from src.routes.generate import router as generate_router
 from src.routes.payments import router as payments_router
 from src.routes.tts import router as tts_router
+from src.api.routes.img2vid_audio import router as img2vid_audio_router
 
 # Import error handlers
 from src.middleware.error_handler import (
@@ -70,6 +71,7 @@ app.include_router(webhooks_router, prefix="/api/webhooks", tags=["webhooks"])
 app.include_router(generate_router, prefix="/api/generate", tags=["generation"])
 app.include_router(payments_router)  # Already has prefix in router
 app.include_router(tts_router)  # Already has prefix in router
+app.include_router(img2vid_audio_router)  # Already has prefix in router
 
 # Add error handlers
 app.add_exception_handler(HTTPException, http_exception_handler)

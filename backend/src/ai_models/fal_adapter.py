@@ -926,7 +926,7 @@ class FalAdapter:
 
     # New Kling AI Avatar methods using modern fal client
     async def submit_kling_avatar_async(self, params: Dict[str, Any], webhook_url: str = None) -> Dict[str, Any]:
-        """Submit Kling AI Avatar request asynchronously with 12-minute timeout support."""
+        """Submit Kling AI Avatar request asynchronously using fal-ai/kling-video/v1/pro/ai-avatar."""
         try:
             if not self.fal:
                 raise Exception("Fal client not initialized - check API key")
@@ -940,38 +940,69 @@ class FalAdapter:
             if not audio_url:
                 raise Exception("Audio URL is required")
 
+            # Validate URLs
+            if not image_url.startswith(('http://', 'https://')):
+                raise Exception(f"Invalid image URL format: {image_url}")
+            if not audio_url.startswith(('http://', 'https://')):
+                raise Exception(f"Invalid audio URL format: {audio_url}")
+
             input_data = {
                 "image_url": image_url,
                 "audio_url": audio_url
             }
 
-            if prompt:
+            if prompt.strip():
                 input_data["prompt"] = prompt
 
-            # Submit with logs and queue handling for long-running request
-            result = await asyncio.to_thread(
-                self.fal.subscribe,
-                self.models["img2vid_audio"],
-                {
-                    "input": input_data,
-                    "logs": True,
-                    "onQueueUpdate": self._queue_update_handler if not webhook_url else None
-                }
-            )
+            logger.info(f"🎭 Submitting Kling AI Avatar with image: {image_url[:50]}...")
+            logger.info(f"🎵 Audio: {audio_url[:50]}...")
 
-            if hasattr(result, 'requestId'):
-                return {
-                    "success": True,
-                    "request_id": result.requestId,
-                    "status": "submitted",
-                    "model": "kling-v1-pro-ai-avatar",
-                    "estimated_processing_time": "7-8 minutes",
-                    "timeout_buffer": "4 minutes",
-                    "total_timeout": "12 minutes"
-                }
+            # Submit for async processing using the modern API
+            try:
+                if hasattr(self.fal, 'submit'):
+                    # New API with proper queue management
+                    handler = await asyncio.to_thread(
+                        self.fal.submit,
+                        self.models["img2vid_audio"],
+                        input_data,
+                        webhook_url=webhook_url
+                    )
+                else:
+                    # Legacy API
+                    handler = await asyncio.to_thread(
+                        fal_client.submit,
+                        self.models["img2vid_audio"],
+                        arguments=input_data,
+                        webhook_url=webhook_url
+                    )
+
+                logger.info(f"🎉 Kling Avatar submission successful - Handler: {handler}")
+
+            except Exception as submit_error:
+                logger.error(f"❌ Kling Avatar submission failed: {submit_error}")
+                raise submit_error
+
+            # Handle different response formats for request_id
+            if hasattr(handler, 'request_id'):
+                request_id = handler.request_id
+            elif isinstance(handler, dict) and 'request_id' in handler:
+                request_id = handler['request_id']
+            elif isinstance(handler, dict) and 'requestId' in handler:
+                request_id = handler['requestId']
             else:
-                # Immediate result case
-                return self._format_avatar_result(result, is_async=False)
+                request_id = str(handler)
+
+            logger.info(f"✅ Kling Avatar job submitted successfully: {request_id}")
+
+            return {
+                "success": True,
+                "request_id": request_id,
+                "status": "submitted",
+                "model": "kling-v1-pro-ai-avatar",
+                "estimated_processing_time": "7-8 minutes",
+                "timeout_buffer": "4 minutes",
+                "total_timeout": "12 minutes"
+            }
 
         except Exception as e:
             logger.error(f"Kling Avatar async submission failed: {e}")
@@ -981,25 +1012,56 @@ class FalAdapter:
             }
 
     async def check_kling_avatar_status(self, request_id: str) -> Dict[str, Any]:
-        """Check status of Kling AI Avatar request."""
+        """Check status of Kling AI Avatar request using the same pattern as audio2vid."""
         try:
             if not self.fal:
                 raise Exception("Fal client not initialized - check API key")
 
-            status = await asyncio.to_thread(
-                self.fal.queue.status,
-                self.models["img2vid_audio"],
-                {"requestId": request_id, "logs": True}
-            )
+            # Try different status check methods based on fal client version
+            try:
+                if hasattr(self.fal, 'status'):
+                    # New API
+                    status_obj = await asyncio.to_thread(
+                        self.fal.status,
+                        self.models["img2vid_audio"],
+                        request_id,
+                        with_logs=True
+                    )
+                else:
+                    # Legacy API
+                    status_obj = await asyncio.to_thread(
+                        fal_client.status,
+                        self.models["img2vid_audio"],
+                        request_id,
+                        with_logs=True
+                    )
 
-            return {
-                "success": True,
-                "request_id": request_id,
-                "status": status.get("status", "unknown"),
-                "logs": status.get("logs", []),
-                "queue_position": status.get("queue_position"),
-                "estimated_time": status.get("estimated_time")
-            }
+                logger.info(f"📊 Kling Avatar status object type: {type(status_obj)}")
+                logger.info(f"📊 Kling Avatar status object: {status_obj}")
+
+                # Handle different response object types (reuse audio2vid logic)
+                status_info = self._extract_status_info(status_obj)
+
+                return {
+                    "success": True,
+                    "request_id": request_id,
+                    "status": status_info.get("status", "unknown"),
+                    "logs": status_info.get("logs", []),
+                    "queue_position": status_info.get("queue_position"),
+                    "estimated_time": status_info.get("estimated_time")
+                }
+
+            except Exception as status_error:
+                logger.error(f"Kling Avatar status check failed: {status_error}")
+                # Return a generic in_progress status to continue polling
+                return {
+                    "success": True,
+                    "request_id": request_id,
+                    "status": "in_progress",
+                    "logs": [],
+                    "queue_position": None,
+                    "estimated_time": None
+                }
 
         except Exception as e:
             logger.error(f"Failed to check Kling Avatar status: {e}")
@@ -1015,13 +1077,38 @@ class FalAdapter:
             if not self.fal:
                 raise Exception("Fal client not initialized - check API key")
 
-            result = await asyncio.to_thread(
-                self.fal.queue.result,
-                self.models["img2vid_audio"],
-                {"requestId": request_id}
-            )
+            # Try different result methods based on fal client version
+            try:
+                if hasattr(self.fal, 'result'):
+                    # New API
+                    result_obj = await asyncio.to_thread(
+                        self.fal.result,
+                        self.models["img2vid_audio"],
+                        request_id
+                    )
+                else:
+                    # Legacy API
+                    result_obj = await asyncio.to_thread(
+                        fal_client.result,
+                        self.models["img2vid_audio"],
+                        request_id
+                    )
 
-            return self._format_avatar_result(result, request_id=request_id)
+                logger.info(f"📊 Kling Avatar result object type: {type(result_obj)}")
+                logger.info(f"📊 Kling Avatar result object: {result_obj}")
+
+                # Extract result data from different object types (reuse audio2vid logic)
+                result_data = self._extract_result_data(result_obj)
+
+                return self._format_kling_avatar_result(result_data, request_id=request_id)
+
+            except Exception as result_error:
+                logger.error(f"Kling Avatar result retrieval failed: {result_error}")
+                return {
+                    "success": False,
+                    "error": str(result_error),
+                    "request_id": request_id
+                }
 
         except Exception as e:
             logger.error(f"Failed to get Kling Avatar result: {e}")
@@ -1066,21 +1153,72 @@ class FalAdapter:
                 if "message" in log:
                     logger.info(f"Kling Avatar Progress: {log['message']}")
 
-    def _format_avatar_result(self, result, request_id=None, is_async=True):
-        """Format Kling AI Avatar result response."""
+    def _format_kling_avatar_result(self, result, request_id=None, is_async=True):
+        """Format Kling AI Avatar result response with enhanced data extraction."""
         try:
-            if result and hasattr(result, 'data') and "video" in result.data:
-                video_data = result.data["video"]
-                duration = result.data.get("duration", 0)
+            logger.info(f"📊 Formatting Kling Avatar result: {type(result)} - {result}")
+
+            # Handle different response formats from fal-ai/kling-video/v1/pro/ai-avatar
+            video_url = None
+            duration = 0
+            content_type = "video/mp4"
+
+            if result:
+                # Method 1: Direct video object
+                if "video" in result:
+                    video_data = result["video"]
+                    if isinstance(video_data, dict):
+                        video_url = video_data.get("url")
+                        duration = video_data.get("duration", 0)
+                        content_type = video_data.get("content_type", "video/mp4")
+                    elif isinstance(video_data, str):
+                        video_url = video_data
+
+                # Method 2: Result has data attribute
+                elif hasattr(result, 'data') and "video" in result.data:
+                    video_data = result.data["video"]
+                    if isinstance(video_data, dict):
+                        video_url = video_data.get("url")
+                        duration = video_data.get("duration", 0)
+                        content_type = video_data.get("content_type", "video/mp4")
+                    else:
+                        video_url = video_data
+
+                    # Also check for duration at the root level
+                    if hasattr(result.data, 'duration'):
+                        duration = result.data.duration
+
+                # Method 3: Direct URL in result
+                elif isinstance(result, dict):
+                    # Look for URL patterns in the result
+                    for key, value in result.items():
+                        if key in ['url', 'video_url', 'output_url'] and isinstance(value, str):
+                            video_url = value
+                            break
+                        elif isinstance(value, dict) and 'url' in value:
+                            video_url = value['url']
+                            duration = value.get('duration', 0)
+                            content_type = value.get('content_type', 'video/mp4')
+                            break
+
+                    # Look for duration
+                    if 'duration' in result and isinstance(result['duration'], (int, float)):
+                        duration = result['duration']
+
+            if video_url:
+                logger.info(f"✅ Successfully extracted Kling Avatar video URL: {video_url}")
 
                 response = {
                     "success": True,
-                    "video_url": video_data.get("url"),
+                    "video_url": video_url,
                     "duration": duration,
+                    "content_type": content_type,
                     "model": "kling-v1-pro-ai-avatar",
                     "has_audio": True,
                     "audio_synced": True,
-                    "processing_completed": True
+                    "processing_completed": True,
+                    "format": "mp4",
+                    "quality": "pro"
                 }
 
                 if request_id:
@@ -1090,19 +1228,25 @@ class FalAdapter:
 
                 return response
             else:
+                logger.error(f"❌ No video URL found in Kling Avatar result: {result}")
                 return {
                     "success": False,
-                    "error": "No video generated",
-                    "request_id": request_id
+                    "error": "No video generated - missing video URL in response",
+                    "request_id": request_id,
+                    "raw_result": str(result)[:200]  # First 200 chars for debugging
                 }
 
         except Exception as e:
-            logger.error(f"Failed to format avatar result: {e}")
+            logger.error(f"❌ Failed to format Kling Avatar result: {e}")
             return {
                 "success": False,
                 "error": str(e),
                 "request_id": request_id
             }
+
+    def _format_avatar_result(self, result, request_id=None, is_async=True):
+        """Legacy format method - redirects to new Kling Avatar formatter."""
+        return self._format_kling_avatar_result(result, request_id, is_async)
 
     # Audio-to-Video using Veed Avatars via Fal AI
     async def generate_audio2vid_preview(self, params: Dict[str, Any]) -> Dict[str, Any]:
