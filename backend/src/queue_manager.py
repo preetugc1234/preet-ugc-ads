@@ -954,84 +954,84 @@ class QueueManager:
                 logger.info(f"📊 Single attempt result for job {job_id}: {async_result}")
 
                 if async_result.get('success'):
-                        logger.info(f"✅ FAL AI processing completed for job {job_id}")
+                    logger.info(f"✅ FAL AI processing completed for job {job_id}")
 
-                        # Process result and upload to Cloudinary
-                        final_asset = await asset_handler.handle_img2vid_noaudio_result(
-                            async_result, str(job_id), user_id, False
-                        )
-                        cloudinary_urls = final_asset.get('urls', []) if final_asset.get('success') else []
+                    # Process result and upload to Cloudinary
+                    final_asset = await asset_handler.handle_img2vid_noaudio_result(
+                        async_result, str(job_id), user_id, False
+                    )
+                    cloudinary_urls = final_asset.get('urls', []) if final_asset.get('success') else []
 
-                        # Use Cloudinary URLs if available, otherwise fallback to FAL AI URL
-                        if cloudinary_urls:
-                            final_urls = cloudinary_urls
-                            logger.info(f"✅ Using Cloudinary URLs for job {job_id}: {final_urls}")
-                        else:
-                            fal_video_url = async_result.get('video_url')
-                            if fal_video_url:
-                                final_urls = [fal_video_url]
-                                logger.info(f"⚠️ Using FAL AI URL for job {job_id}: {final_urls}")
-                            else:
-                                raise Exception("No video URL available")
-
-                        # Update job as completed
-                        db.jobs.update_one(
-                            {"_id": job_id},
-                            {
-                                "$set": {
-                                    "status": JobStatus.COMPLETED.value,
-                                    "completedAt": datetime.now(timezone.utc),
-                                    "finalUrls": final_urls,
-                                    "workerMeta": {
-                                        "video_url": async_result.get('video_url'),
-                                        "processing_complete": True,
-                                        "model": async_result.get("model", "wan-v2.2-5b"),
-                                        "completed_at": datetime.now(timezone.utc).isoformat()
-                                    },
-                                    "updatedAt": datetime.now(timezone.utc)
-                                }
-                            }
-                        )
-
-                        # 🚨 CRITICAL: Clean up processing lock when job completes successfully
-                        job_id_str = str(job_id)
-                        if job_id_str in self.processing_jobs:
-                            self.processing_jobs.discard(job_id_str)
-                            logger.info(f"🧹 Removed completed job {job_id} from processing lock")
-
-                        # Create generation record
-                        from .database import GenerationModel
-                        generation_doc = GenerationModel.create_generation(
-                            user_id=ObjectId(user_id),
-                            job_id=job_id,
-                            generation_type="img2vid_noaudio",
-                            preview_url="",
-                            final_urls=final_urls,
-                            size_bytes=sum([1024 for _ in final_urls])
-                        )
-
-                        logger.info(f"🎉 Job {job_id} completed successfully with URLs: {final_urls}")
-                        return
-
-                    elif async_result.get('status') == 'failed':
-                        error_msg = async_result.get('error', 'FAL AI processing failed')
-                        logger.error(f"❌ FAL AI processing failed for job {job_id}: {error_msg}")
-                        await self._handle_job_failure(job_id, f"FAL AI processing failed: {error_msg}")
-                        return
-
-                    elif async_result.get('status') in ['queued', 'processing', 'in_progress']:
-                        # 🚨 NO RETRY - Single attempt only. If not ready, fail immediately with clear message.
-                        error_msg = f"Video generation not ready on first check. Status: {async_result.get('status')}. This prevents multiple FAL API calls that waste money. Try again in a few minutes."
-                        logger.warning(f"⚠️ Job {job_id} not ready on single attempt: {error_msg}")
-                        await self._handle_job_failure(job_id, error_msg)
-                        return
-
+                    # Use Cloudinary URLs if available, otherwise fallback to FAL AI URL
+                    if cloudinary_urls:
+                        final_urls = cloudinary_urls
+                        logger.info(f"✅ Using Cloudinary URLs for job {job_id}: {final_urls}")
                     else:
-                        # 🚨 NO RETRY - Unknown status, fail immediately
-                        error_msg = f"Unexpected status: {async_result.get('status')}. Single attempt only to prevent money waste."
-                        logger.warning(f"🤔 Job {job_id} unexpected status: {error_msg}")
-                        await self._handle_job_failure(job_id, error_msg)
-                        return
+                        fal_video_url = async_result.get('video_url')
+                        if fal_video_url:
+                            final_urls = [fal_video_url]
+                            logger.info(f"⚠️ Using FAL AI URL for job {job_id}: {final_urls}")
+                        else:
+                            raise Exception("No video URL available")
+
+                    # Update job as completed
+                    db.jobs.update_one(
+                        {"_id": job_id},
+                        {
+                            "$set": {
+                                "status": JobStatus.COMPLETED.value,
+                                "completedAt": datetime.now(timezone.utc),
+                                "finalUrls": final_urls,
+                                "workerMeta": {
+                                    "video_url": async_result.get('video_url'),
+                                    "processing_complete": True,
+                                    "model": async_result.get("model", "wan-v2.2-5b"),
+                                    "completed_at": datetime.now(timezone.utc).isoformat()
+                                },
+                                "updatedAt": datetime.now(timezone.utc)
+                            }
+                        }
+                    )
+
+                    # 🚨 CRITICAL: Clean up processing lock when job completes successfully
+                    job_id_str = str(job_id)
+                    if job_id_str in self.processing_jobs:
+                        self.processing_jobs.discard(job_id_str)
+                        logger.info(f"🧹 Removed completed job {job_id} from processing lock")
+
+                    # Create generation record
+                    from .database import GenerationModel
+                    generation_doc = GenerationModel.create_generation(
+                        user_id=ObjectId(user_id),
+                        job_id=job_id,
+                        generation_type="img2vid_noaudio",
+                        preview_url="",
+                        final_urls=final_urls,
+                        size_bytes=sum([1024 for _ in final_urls])
+                    )
+
+                    logger.info(f"🎉 Job {job_id} completed successfully with URLs: {final_urls}")
+                    return
+
+                elif async_result.get('status') == 'failed':
+                    error_msg = async_result.get('error', 'FAL AI processing failed')
+                    logger.error(f"❌ FAL AI processing failed for job {job_id}: {error_msg}")
+                    await self._handle_job_failure(job_id, f"FAL AI processing failed: {error_msg}")
+                    return
+
+                elif async_result.get('status') in ['queued', 'processing', 'in_progress']:
+                    # 🚨 NO RETRY - Single attempt only. If not ready, fail immediately with clear message.
+                    error_msg = f"Video generation not ready on first check. Status: {async_result.get('status')}. This prevents multiple FAL API calls that waste money. Try again in a few minutes."
+                    logger.warning(f"⚠️ Job {job_id} not ready on single attempt: {error_msg}")
+                    await self._handle_job_failure(job_id, error_msg)
+                    return
+
+                else:
+                    # 🚨 NO RETRY - Unknown status, fail immediately
+                    error_msg = f"Unexpected status: {async_result.get('status')}. Single attempt only to prevent money waste."
+                    logger.warning(f"🤔 Job {job_id} unexpected status: {error_msg}")
+                    await self._handle_job_failure(job_id, error_msg)
+                    return
 
             except Exception as poll_error:
                 # 🚨 NO RETRY - Single attempt failed, show clear error
