@@ -162,26 +162,64 @@ class FalAdapter:
                 logger.info(f"✅ FAL_KEY set for WAN v2.2-5B: {self.api_key[:20]}...")
                 logger.info(f"✅ Using model: {self.models['img2vid_noaudio']}")
 
-                # Use direct fal_client.submit for WAN v2.2-5B
-                logger.info(f"🚀 About to call fal_client.submit...")
+                # 🚨 FIXED: Use direct HTTP API call to ensure correct endpoint
+                logger.info(f"🚀 Using direct HTTP API to ensure correct WAN v2.2-5B endpoint...")
                 logger.info(f"🚀 Model: {self.models['img2vid_noaudio']}")
                 logger.info(f"🚀 Arguments keys: {list(arguments.keys())}")
 
-                # Add timeout to prevent hanging
+                # Use direct HTTP call to the correct endpoint
+                import httpx
+                import json
+
+                # Construct the correct API URL
+                api_url = f"https://queue.fal.run/{self.models['img2vid_noaudio']}"
+                logger.info(f"🚀 Direct API URL: {api_url}")
+
+                # Prepare headers with your API key
+                headers = {
+                    "Authorization": f"Key {self.api_key}",
+                    "Content-Type": "application/json"
+                }
+
                 try:
-                    handler = await asyncio.wait_for(
-                        asyncio.to_thread(
-                            fal_client.submit,
-                            self.models["img2vid_noaudio"],
-                            arguments=arguments
-                        ),
-                        timeout=30.0  # 30 second timeout for submission
-                    )
+                    # Make direct HTTP POST request
+                    async with httpx.AsyncClient(timeout=30.0) as client:
+                        response = await client.post(
+                            api_url,
+                            headers=headers,
+                            json=arguments
+                        )
+
+                    logger.info(f"🔍 Direct API response status: {response.status_code}")
+
+                    if response.status_code == 200:
+                        result = response.json()
+                        logger.info(f"✅ Direct API submission successful!")
+
+                        # Create a mock handler with the request_id
+                        class DirectRequestHandle:
+                            def __init__(self, request_id, api_key, model):
+                                self.request_id = request_id
+                                self._api_key = api_key
+                                self._model = model
+
+                            def get(self):
+                                # This will be used later for status checking
+                                return None  # Will be handled by our direct API status check
+
+                        request_id = result.get("request_id")
+                        handler = DirectRequestHandle(request_id, self.api_key, self.models["img2vid_noaudio"])
+
+                    else:
+                        logger.error(f"❌ Direct API submission failed: {response.status_code}")
+                        logger.error(f"❌ Response: {response.text}")
+                        raise Exception(f"Direct API submission failed: {response.status_code} - {response.text}")
+
                 except asyncio.TimeoutError:
-                    logger.error("❌ fal_client.submit timed out after 30 seconds")
-                    raise Exception("FAL submission timed out - check API key and model access")
+                    logger.error("❌ Direct API call timed out after 30 seconds")
+                    raise Exception("Direct API submission timed out - check API key and model access")
                 except Exception as submit_exception:
-                    logger.error(f"❌ fal_client.submit failed: {submit_exception}")
+                    logger.error(f"❌ Direct API submission failed: {submit_exception}")
                     logger.error(f"❌ Exception type: {type(submit_exception).__name__}")
                     raise
 
@@ -296,22 +334,57 @@ class FalAdapter:
                 if handler:
                     logger.info(f"📦 Found stored handler for request: {request_id}")
                     try:
-                        # Try handler.get() method (non-blocking)
-                        logger.info(f"🔍 Calling handler.get() for WAN v2.2-5B...")
-                        result = await asyncio.to_thread(handler.get)
-                        logger.info(f"📊 Handler.get() returned: {type(result)} - {result}")
+                        # 🚨 FIXED: Use direct API status check to correct endpoint
+                        logger.info(f"🔍 Using direct API status check for WAN v2.2-5B...")
 
-                        if result:
-                            logger.info(f"✅ WAN v2.2-5B completed! Result: {result}")
-                            # Clean up handler
-                            self.active_handlers.pop(request_id, None)
-                            status_result = {"status": "completed", "result": result, "success": True}
-                        else:
-                            logger.info(f"⏳ Handler.get() returned None - video still processing")
+                        # Construct correct status URL
+                        status_url = f"https://queue.fal.run/{self.models['img2vid_noaudio']}/requests/{request_id}/status"
+                        logger.info(f"🔍 Direct status URL: {status_url}")
+
+                        headers = {
+                            "Authorization": f"Key {self.api_key}",
+                            "Content-Type": "application/json"
+                        }
+
+                        import httpx
+                        async with httpx.AsyncClient(timeout=10.0) as client:
+                            status_response = await client.get(status_url, headers=headers)
+
+                        logger.info(f"🔍 Direct status response: {status_response.status_code}")
+
+                        if status_response.status_code == 200:
+                            status_data = status_response.json()
+                            logger.info(f"📊 Direct status data: {status_data}")
+
+                            # Check if completed
+                            if status_data.get("status") == "COMPLETED" or status_data.get("completed_at"):
+                                logger.info(f"✅ WAN v2.2-5B completed via direct API!")
+                                # Get the actual result
+                                result_url = f"https://queue.fal.run/{self.models['img2vid_noaudio']}/requests/{request_id}"
+                                result_response = await client.get(result_url, headers=headers)
+
+                                if result_response.status_code == 200:
+                                    result = result_response.json()
+                                    logger.info(f"✅ Got final result: {result}")
+                                    self.active_handlers.pop(request_id, None)
+                                    status_result = {"status": "completed", "result": result, "success": True}
+                                else:
+                                    logger.warning(f"⚠️ Could not get final result: {result_response.status_code}")
+                                    status_result = {"status": "completed", "success": True, "note": "Direct API completed but result fetch failed"}
+                            else:
+                                logger.info(f"⏳ Video still processing via direct API - Status: {status_data.get('status')}")
+                                status_result = {"status": "IN_PROGRESS", "request_id": request_id}
+
+                        elif status_response.status_code == 202:
+                            logger.info(f"⏳ Direct API returned 202 - video still processing")
                             status_result = {"status": "IN_PROGRESS", "request_id": request_id}
-                    except Exception as handler_error:
-                        logger.warning(f"📊 Handler not ready: {handler_error} - still processing")
-                        logger.warning(f"📊 Error type: {type(handler_error).__name__}")
+                        else:
+                            logger.warning(f"⚠️ Direct status check failed: {status_response.status_code}")
+                            status_result = {"status": "IN_PROGRESS", "request_id": request_id}
+
+                    except Exception as status_error:
+                        logger.warning(f"📊 Direct status check error: {status_error}")
+                        logger.warning(f"📊 Error type: {type(status_error).__name__}")
                         status_result = {"status": "IN_PROGRESS", "request_id": request_id}
                 else:
                     logger.info(f"📊 No stored handler for {request_id} - using standard polling")
