@@ -102,7 +102,7 @@ class FalAdapter:
 
             # 🚨 CRITICAL: Create submission hash to prevent identical requests
             import hashlib
-            submission_data = f"{image_url}|{prompt}|{params.get('resolution', '1080p')}"
+            submission_data = f"{image_url}|{prompt}|{params.get('resolution', '720p')}"
             submission_hash = hashlib.md5(submission_data.encode()).hexdigest()
 
             if submission_hash in self.submission_hashes:
@@ -197,7 +197,7 @@ class FalAdapter:
                 "status": "submitted",
                 "model": "wan-v2.2-5b",
                 "estimated_processing_time": "3-4 minutes",
-                "quality": arguments.get("resolution", "1080p"),
+                "quality": arguments.get("resolution", "720p"),
                 "duration": 5,  # Fixed 5-second duration for WAN 2.5
                 "submission_hash": submission_hash[:8]  # For debugging
             }
@@ -1092,7 +1092,7 @@ class FalAdapter:
             arguments = {
                 "prompt": prompt if prompt else "The image stays still, eyes full of determination and strength. The camera slowly moves closer or circles around, highlighting the powerful presence and character.",
                 "image_url": image_url,
-                "resolution": params.get("resolution", "1080p"),  # 480p, 720p, 1080p
+                "resolution": params.get("resolution", "720p"),  # 580p, 720p for WAN v2.2-5B
                 "negative_prompt": params.get("negative_prompt", "low resolution, error, worst quality, low quality, defects"),
                 "enable_prompt_expansion": params.get("enable_prompt_expansion", True),
                 "seed": params.get("seed", None)
@@ -1168,7 +1168,7 @@ class FalAdapter:
                     "success": True,
                     "video_url": video_url,
                     "duration": 5.0,  # Fixed 5-second video generation
-                    "resolution": arguments.get("resolution", "1080p"),
+                    "resolution": arguments.get("resolution", "720p"),
                     "model": "wan-v2.2-5b",
                     "has_audio": False,
                     "preview": False,

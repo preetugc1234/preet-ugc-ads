@@ -18,7 +18,7 @@ const ImageToVideoTool = () => {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
   const duration = "5"; // Fixed 5 seconds
-  const [quality, setQuality] = useState("1080p");
+  const [quality, setQuality] = useState("720p");
   const [motionPrompt, setMotionPrompt] = useState("");
   const [intensity, setIntensity] = useState([0.7]);
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
@@ -36,9 +36,8 @@ const ImageToVideoTool = () => {
   const fixedDuration = { value: "5", label: "5 seconds", credits: 100 };
 
   const qualities = [
-    { value: "480p", label: "HD (480p)", description: "Good quality, fastest" },
-    { value: "720p", label: "HD (720p)", description: "High quality, fast" },
-    { value: "1080p", label: "Full HD (1080p)", description: "Ultra quality" }
+    { value: "580p", label: "Standard (580p)", description: "Good quality, fastest" },
+    { value: "720p", label: "HD (720p)", description: "High quality, recommended" }
   ];
 
   const motionTemplates = [

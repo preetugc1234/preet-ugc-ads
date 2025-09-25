@@ -258,7 +258,7 @@ class AssetHandler:
                     "type": "img2vid_noaudio",
                     "model": "wan-v2.2-5b",
                     "duration": 5.0,
-                    "resolution": result.get("resolution", "1080p"),
+                    "resolution": result.get("resolution", "720p"),
                     "file_count": len(uploaded_urls),
                     "cloudinary_optimized": True
                 }
