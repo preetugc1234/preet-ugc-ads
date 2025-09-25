@@ -135,13 +135,14 @@ class FalAdapter:
             # Submit request for async processing using the modern API
             try:
                 if hasattr(self.fal, 'submit'):
-                    # New API
+                    # New API - doesn't support webhook_url parameter
                     logger.info("Using new FAL client API")
+                    if webhook_url:
+                        logger.warning("⚠️ Webhook URL specified but not supported by new FAL client API")
                     handler = await asyncio.to_thread(
                         self.fal.submit,
                         self.models["img2vid_noaudio"],
-                        arguments,
-                        webhook_url=webhook_url
+                        arguments
                     )
                 else:
                     # Legacy API
@@ -252,13 +253,27 @@ class FalAdapter:
                         model_endpoint,
                         request_id
                     )
-                else:
+                elif hasattr(fal_client, 'status'):
                     logger.info(f"🔍 Using legacy FAL client API to check status...")
                     status_result = await asyncio.to_thread(
                         fal_client.status,
                         model_endpoint,
                         request_id
                     )
+                else:
+                    # Try using requests directly to the FAL API queue (from production logs format)
+                    logger.info(f"🔍 Using direct HTTP request to check status...")
+                    queue_url = f"https://queue.fal.run/{model_endpoint}/requests/{request_id}/status?logs=false"
+                    async with httpx.AsyncClient() as client:
+                        response = await client.get(
+                            queue_url,
+                            headers={"Authorization": f"Key {self.api_key}"}
+                        )
+                        # Accept both 200 and 202 status codes
+                        if response.status_code in [200, 202]:
+                            status_result = response.json() if response.content else {"status": "queued"}
+                        else:
+                            raise Exception(f"HTTP {response.status_code}: {response.text}")
 
                 logger.info(f"📊 Status result type: {type(status_result)}")
                 logger.info(f"📊 Status result content: {status_result}")
@@ -463,6 +478,46 @@ class FalAdapter:
 
             # Handle different response formats for status
             status_str = None
+
+            # 🚨 CRITICAL FIX: Handle FAL client objects directly
+            # Check for fal_client specific objects first
+            if hasattr(status_result, '__class__'):
+                class_name = status_result.__class__.__name__
+                logger.info(f"📊 FAL object type: {class_name}")
+
+                if class_name == 'Queued':
+                    # Handle fal_client.client.Queued object
+                    position = getattr(status_result, 'position', 0)
+                    logger.info(f"⏳ Job in queue at position: {position}")
+                    return {
+                        "success": False,
+                        "status": "queued",
+                        "request_id": request_id,
+                        "queue_position": position
+                    }
+                elif class_name == 'InProgress':
+                    # Handle fal_client.client.InProgress object
+                    logger.info(f"🔄 Job in progress")
+                    return {
+                        "success": False,
+                        "status": "processing",
+                        "request_id": request_id
+                    }
+                elif class_name == 'Completed':
+                    # Handle fal_client.client.Completed object
+                    logger.info(f"✅ Job completed via Completed object")
+                    # The Completed object might have the result data, try to extract it
+                    result_data = status_result
+                    if hasattr(status_result, 'data'):
+                        result_data = status_result.data
+                        logger.info(f"📊 Found data attribute in Completed object")
+                    return {
+                        "success": True,
+                        "status": "completed",
+                        "result": result_data
+                    }
+
+            # Handle traditional status formats
             if hasattr(status_result, 'status'):
                 status_str = status_result.status
                 logger.info(f"📊 Status attribute: {status_str}")
