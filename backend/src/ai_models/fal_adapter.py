@@ -334,56 +334,25 @@ class FalAdapter:
                 if handler:
                     logger.info(f"📦 Found stored handler for request: {request_id}")
                     try:
-                        # 🚨 FIXED: Use direct API status check to correct endpoint
-                        logger.info(f"🔍 Using direct API status check for WAN v2.2-5B...")
+                        # 🚨 FIXED: Use proper fal_client.status method for WAN v2.2-5B
+                        logger.info(f"🔍 Using fal_client.status for WAN v2.2-5B...")
 
-                        # Construct correct status URL
-                        status_url = f"https://queue.fal.run/{self.models['img2vid_noaudio']}/requests/{request_id}/status"
-                        logger.info(f"🔍 Direct status URL: {status_url}")
+                        # Use the proper FAL client status method
+                        status_obj = await asyncio.to_thread(
+                            fal_client.status,
+                            self.models["img2vid_noaudio"],
+                            request_id,
+                            with_logs=True
+                        )
 
-                        headers = {
-                            "Authorization": f"Key {self.api_key}",
-                            "Content-Type": "application/json"
-                        }
+                        logger.info(f"📊 FAL client status response: {status_obj}")
+                        logger.info(f"📊 Status object type: {type(status_obj)}")
 
-                        import httpx
-                        async with httpx.AsyncClient(timeout=10.0) as client:
-                            status_response = await client.get(status_url, headers=headers)
-
-                        logger.info(f"🔍 Direct status response: {status_response.status_code}")
-
-                        if status_response.status_code == 200:
-                            status_data = status_response.json()
-                            logger.info(f"📊 Direct status data: {status_data}")
-
-                            # Check if completed
-                            if status_data.get("status") == "COMPLETED" or status_data.get("completed_at"):
-                                logger.info(f"✅ WAN v2.2-5B completed via direct API!")
-                                # Get the actual result
-                                result_url = f"https://queue.fal.run/{self.models['img2vid_noaudio']}/requests/{request_id}"
-                                result_response = await client.get(result_url, headers=headers)
-
-                                if result_response.status_code == 200:
-                                    result = result_response.json()
-                                    logger.info(f"✅ Got final result: {result}")
-                                    self.active_handlers.pop(request_id, None)
-                                    status_result = {"status": "completed", "result": result, "success": True}
-                                else:
-                                    logger.warning(f"⚠️ Could not get final result: {result_response.status_code}")
-                                    status_result = {"status": "completed", "success": True, "note": "Direct API completed but result fetch failed"}
-                            else:
-                                logger.info(f"⏳ Video still processing via direct API - Status: {status_data.get('status')}")
-                                status_result = {"status": "IN_PROGRESS", "request_id": request_id}
-
-                        elif status_response.status_code == 202:
-                            logger.info(f"⏳ Direct API returned 202 - video still processing")
-                            status_result = {"status": "IN_PROGRESS", "request_id": request_id}
-                        else:
-                            logger.warning(f"⚠️ Direct status check failed: {status_response.status_code}")
-                            status_result = {"status": "IN_PROGRESS", "request_id": request_id}
+                        # Use the status object directly for parsing
+                        status_result = status_obj
 
                     except Exception as status_error:
-                        logger.warning(f"📊 Direct status check error: {status_error}")
+                        logger.warning(f"📊 FAL client status check error: {status_error}")
                         logger.warning(f"📊 Error type: {type(status_error).__name__}")
                         status_result = {"status": "IN_PROGRESS", "request_id": request_id}
                 else:
@@ -663,14 +632,14 @@ class FalAdapter:
                 }
 
             # Map different status values (more comprehensive mapping)
-            if status_str in ['completed', 'success', 'done', 'finished']:
+            if status_str.lower() in ['completed', 'success', 'done', 'finished']:
                 logger.info(f"✅ Job completed: {request_id}")
                 return {
                     "success": True,
                     "status": "completed",
                     "result": status_result
                 }
-            elif status_str in ['failed', 'error', 'cancelled', 'canceled']:
+            elif status_str.lower() in ['failed', 'error', 'cancelled', 'canceled']:
                 logger.error(f"❌ Job failed: {request_id}")
                 error_msg = 'Job failed'
                 if hasattr(status_result, 'error'):
@@ -683,14 +652,14 @@ class FalAdapter:
                     "error": error_msg,
                     "request_id": request_id
                 }
-            elif status_str in ['queued', 'pending', 'waiting', 'submitted', 'received']:
+            elif status_str.lower() in ['queued', 'pending', 'waiting', 'submitted', 'received']:
                 logger.info(f"⏳ Job queued: {request_id}")
                 return {
                     "success": False,
                     "status": "queued",
                     "request_id": request_id
                 }
-            elif status_str in ['in_progress', 'processing', 'running', 'working', 'generating']:
+            elif status_str.lower() in ['in_progress', 'processing', 'running', 'working', 'generating']:
                 logger.info(f"🔄 Job processing: {request_id}")
                 return {
                     "success": False,
