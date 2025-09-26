@@ -356,8 +356,20 @@ class FalAdapter:
                         logger.warning(f"📊 Error type: {type(status_error).__name__}")
                         status_result = {"status": "IN_PROGRESS", "request_id": request_id}
                 else:
-                    logger.info(f"📊 No stored handler for {request_id} - using standard polling")
-                    status_result = {"status": "IN_PROGRESS", "request_id": request_id}
+                    logger.info(f"📊 No stored handler for {request_id} - using direct FAL status check")
+                    # Even without handler, we can still check status via fal_client.status
+                    try:
+                        status_obj = await asyncio.to_thread(
+                            fal_client.status,
+                            self.models["img2vid_noaudio"],
+                            request_id,
+                            with_logs=True
+                        )
+                        logger.info(f"📊 Direct FAL status check result: {status_obj}")
+                        status_result = status_obj
+                    except Exception as fallback_error:
+                        logger.warning(f"⚠️ Direct status check failed: {fallback_error}")
+                        status_result = {"status": "IN_PROGRESS", "request_id": request_id}
 
                 logger.info(f"📊 Status result type: {type(status_result)}")
                 logger.info(f"📊 Status result content: {status_result}")
@@ -373,14 +385,24 @@ class FalAdapter:
                         # 🚨 FIXED: Handle Completed object properly
                         if hasattr(status_result, '__class__') and status_result.__class__.__name__ == 'Completed':
                             logger.info(f"🔍 Using Completed object directly as result")
-                            # For Completed objects, get the result directly from handler
+                            # For Completed objects, get the result directly from handler OR fallback
                             handler = self.active_handlers.get(request_id)
                             if handler:
                                 result = await asyncio.to_thread(handler.get)
                                 logger.info(f"✅ Got result from Completed handler: {type(result)}")
                             else:
-                                logger.warning(f"⚠️ No handler for completed job, using status_result")
-                                result = status_result
+                                logger.warning(f"⚠️ No handler for completed job, using direct FAL result fetch")
+                                # Fallback: use fal_client.result to get completed result without handler
+                                try:
+                                    result = await asyncio.to_thread(
+                                        fal_client.result,
+                                        self.models["img2vid_noaudio"],
+                                        request_id
+                                    )
+                                    logger.info(f"✅ Got result via direct FAL result fetch: {type(result)}")
+                                except Exception as result_fetch_error:
+                                    logger.error(f"❌ Direct result fetch failed: {result_fetch_error}")
+                                    result = status_result
                         elif isinstance(status_result, dict) and status_result.get("result"):
                             logger.info(f"🔍 Using result from status_result dict")
                             result = status_result["result"]
