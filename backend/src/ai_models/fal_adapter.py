@@ -123,7 +123,7 @@ class FalAdapter:
             arguments = {
                 "prompt": prompt,
                 "image_url": image_url,
-                "num_frames": params.get("num_frames", 81),  # 17-161 frames
+                "num_frames": params.get("num_frames", 96),  # 96 frames = 4 seconds at 24fps
                 "frames_per_second": params.get("frames_per_second", 24),  # 4-60 FPS
                 "negative_prompt": params.get("negative_prompt", ""),
                 "seed": params.get("seed", None),
@@ -261,7 +261,7 @@ class FalAdapter:
                 "model": "wan-v2.2-5b",
                 "estimated_processing_time": "3-4 minutes",
                 "quality": arguments.get("resolution", "720p"),
-                "duration": 5,  # Fixed 5-second duration for WAN 2.5
+                "duration": 4,  # Fixed 4-second duration for WAN v2.2-5B
                 "submission_hash": submission_hash[:8]  # For debugging
             }
 
@@ -436,24 +436,24 @@ class FalAdapter:
                     video_data = result["video"]
                     video_url = video_data.get("url")
                     thumbnail_url = video_data.get("thumbnail_url")
-                    duration = video_data.get("duration", 5)
+                    duration = video_data.get("duration", 4)
                     logger.info(f"🎬 Extracted from video dict: url={video_url}, duration={duration}")
                 elif isinstance(result, dict) and "video_url" in result:
                     video_url = result["video_url"]
                     thumbnail_url = result.get("thumbnail_url")
-                    duration = result.get("duration", 5)
+                    duration = result.get("duration", 4)
                     logger.info(f"🎬 Extracted from video_url: url={video_url}, duration={duration}")
                 elif hasattr(result, 'video') and hasattr(result.video, 'url'):
                     # Handle object with video attribute
                     video_url = result.video.url
                     thumbnail_url = getattr(result.video, 'thumbnail_url', None)
-                    duration = getattr(result.video, 'duration', 5)
+                    duration = getattr(result.video, 'duration', 4)
                     logger.info(f"🎬 Extracted from object video.url: url={video_url}, duration={duration}")
                 else:
                     # Try to extract from nested structure or convert result to dict
                     video_url = None
                     thumbnail_url = None
-                    duration = 5
+                    duration = 4
 
                     logger.info(f"🔍 Attempting to extract video from complex result structure...")
 
@@ -476,10 +476,10 @@ class FalAdapter:
                             if isinstance(obj, dict):
                                 # Direct video_url key
                                 if 'video_url' in obj:
-                                    return obj['video_url'], obj.get('thumbnail_url'), obj.get('duration', 5)
+                                    return obj['video_url'], obj.get('thumbnail_url'), obj.get('duration', 4)
                                 # url key (might be video)
                                 if 'url' in obj and isinstance(obj['url'], str) and obj['url'].startswith('http'):
-                                    return obj['url'], obj.get('thumbnail_url'), obj.get('duration', 5)
+                                    return obj['url'], obj.get('thumbnail_url'), obj.get('duration', 4)
                                 # Nested search
                                 for key, value in obj.items():
                                     if key in ['video', 'media', 'output', 'result'] and isinstance(value, dict):
@@ -522,7 +522,7 @@ class FalAdapter:
                     "success": True,
                     "video_url": video_url,
                     "thumbnail_url": thumbnail_url,
-                    "duration": 5,  # Fixed 5-second duration for WAN 2.2
+                    "duration": 4,  # Fixed 4-second duration for WAN v2.2-5B
                     "seed": result.get("seed") if isinstance(result, dict) else None,
                     "actual_prompt": result.get("actual_prompt") if isinstance(result, dict) else None,
                     "model": "wan-v2.2-5b",

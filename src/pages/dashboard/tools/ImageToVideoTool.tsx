@@ -17,7 +17,7 @@ const ImageToVideoTool = () => {
   const { isAuthenticated } = useAuth();
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
-  const duration = "5"; // Fixed 5 seconds
+  const duration = "4"; // Fixed 4 seconds
   const [quality, setQuality] = useState("720p");
   const [motionPrompt, setMotionPrompt] = useState("");
   const [intensity, setIntensity] = useState([0.7]);
@@ -32,8 +32,8 @@ const ImageToVideoTool = () => {
   });
 
 
-  // Fixed 5 seconds duration - no user selection needed
-  const fixedDuration = { value: "5", label: "5 seconds", credits: 100 };
+  // Fixed 4 seconds duration - no user selection needed
+  const fixedDuration = { value: "4", label: "4 seconds", credits: 100 };
 
   const qualities = [
     { value: "580p", label: "Standard (580p)", description: "Good quality, fastest" },
@@ -396,7 +396,7 @@ const ImageToVideoTool = () => {
                 </div>
                 <div className="space-y-1">
                   <p className="text-xs text-gray-500">
-                    This usually takes 90-180 seconds using FAL AI Wan v2.2-5B (5 seconds video)
+                    This usually takes 90-180 seconds using FAL AI Wan v2.2-5B (4 seconds video)
                   </p>
                   <p className="text-xs text-blue-600">
                     ⏱️ Please wait - video is being generated and will appear once complete
@@ -482,7 +482,7 @@ const ImageToVideoTool = () => {
 
             <div className="flex items-center justify-between">
               <div className="text-sm text-gray-600 dark:text-gray-400">
-                <p><strong>Duration:</strong> 5 seconds (fixed)</p>
+                <p><strong>Duration:</strong> 4 seconds (fixed)</p>
                 <p><strong>Quality:</strong> {qualities.find(q => q.value === quality)?.label}</p>
                 <p><strong>Model:</strong> FAL AI Wan v2.2-5B</p>
                 <p><strong>Status:</strong> {jobStatus?.status}</p>
@@ -615,14 +615,14 @@ const ImageToVideoTool = () => {
             <CardTitle className="text-base">Video Settings</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Fixed 5 seconds duration - no user selection */}
+            {/* Fixed 4 seconds duration - no user selection */}
             <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium text-blue-900 dark:text-blue-100">Video Duration</p>
-                  <p className="text-sm text-blue-700 dark:text-blue-300">Fixed at 5 seconds for optimal quality</p>
+                  <p className="text-sm text-blue-700 dark:text-blue-300">Fixed at 4 seconds for optimal quality</p>
                 </div>
-                <Badge variant="secondary">5s</Badge>
+                <Badge variant="secondary">4s</Badge>
               </div>
             </div>
 

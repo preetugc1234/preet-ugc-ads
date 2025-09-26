@@ -231,8 +231,8 @@ class AssetHandler:
                 "type": "img2vid_noaudio",
                 "video_url": uploaded_urls[0],
                 "model": "wan-v2.2-5b",
-                "duration": 81 / 24,  # 81 frames at 24fps = 3.375 seconds
-                "frames": 81,
+                "duration": 96 / 24,  # 96 frames at 24fps = 4.0 seconds
+                "frames": 96,
                 "fps": 24,
                 "resolution": "720p",
                 "interpolation": "film",
@@ -253,7 +253,7 @@ class AssetHandler:
                 "metadata": {
                     "type": "img2vid_noaudio",
                     "model": "wan-v2.2-5b",
-                    "duration": 5.0,
+                    "duration": 4.0,
                     "resolution": result.get("resolution", "720p"),
                     "file_count": len(uploaded_urls),
                     "cloudinary_optimized": True
