@@ -54,28 +54,27 @@ export default function FeaturesSection() {
   ];
 
   return (
-    <section
-      className="relative py-24 lg:py-32 min-h-screen"
-      style={{
-        backgroundImage: 'url(/assets/features-background.jpg)',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat'
-      }}
-    >
-      {/* Background overlay */}
-      <div className="absolute inset-0 bg-white/85"></div>
-
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="text-center mb-16">
-          <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 mb-4">
-            Our <span className="text-blue-600">features</span>
-          </h2>
-          <p className="text-xl text-gray-600 max-w-4xl mx-auto">
-            From concept to finished ad. Make UGC helps you ad creation process in one streamlined flow.
-          </p>
-        </div>
+    <section className="relative py-24 lg:py-32 bg-white">
+      <div className="max-w-7xl mx-auto px-8 sm:px-12 lg:px-16">
+        <div
+          className="relative rounded-3xl p-8 lg:p-12 min-h-screen"
+          style={{
+            backgroundImage: 'url(/assets/features-background-aesthetic.jpg)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat'
+          }}
+        >
+          <div className="relative z-10">
+            {/* Header */}
+            <div className="text-center mb-16">
+              <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-4">
+                Our <span className="text-blue-300">features</span>
+              </h2>
+              <p className="text-xl text-white/90 max-w-4xl mx-auto">
+                From concept to finished ad. Make UGC helps you ad creation process in one streamlined flow.
+              </p>
+            </div>
 
         {/* Features Grid */}
         <div className="space-y-8 mb-16">
@@ -184,14 +183,16 @@ export default function FeaturesSection() {
           </div>
         </div>
 
-        {/* CTA Button */}
-        <div className="text-center">
-          <Button
-            size="lg"
-            className="bg-blue-600 text-white hover:bg-blue-700 font-semibold px-12 py-4 h-auto text-lg rounded-full"
-          >
-            Try MakeUGC Now
-          </Button>
+            {/* CTA Button */}
+            <div className="text-center">
+              <Button
+                size="lg"
+                className="bg-blue-600 text-white hover:bg-blue-700 font-semibold px-12 py-4 h-auto text-lg rounded-full"
+              >
+                Try MakeUGC Now
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </section>
