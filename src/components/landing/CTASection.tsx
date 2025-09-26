@@ -8,10 +8,7 @@ export default function CTASection() {
       <div
         className="absolute inset-0"
         style={{
-          backgroundImage: 'url(/assets/background-rotated.jpg)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
+          background: 'linear-gradient(135deg, #e0f2fe 0%, #81d4fa 25%, #42a5f5 50%, #1976d2 75%, #0d47a1 100%)',
           filter: 'blur(2px)'
         }}
       ></div>
