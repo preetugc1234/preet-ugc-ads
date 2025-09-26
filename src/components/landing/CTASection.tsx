@@ -35,76 +35,76 @@ export default function CTASection() {
           </p>
 
           {/* Comparison Grid */}
-          <div className="grid lg:grid-cols-2 gap-8 max-w-6xl mx-auto mb-12">
+          <div className="grid lg:grid-cols-2 gap-6 max-w-4xl mx-auto mb-12 px-8">
             {/* MakeUGC Side */}
-            <div className="bg-gradient-to-br from-blue-900 via-blue-700 to-black rounded-3xl p-8 text-white">
-              <div className="flex items-center mb-8">
-                <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center mr-4">
-                  <span className="text-blue-600 font-bold text-lg">M</span>
+            <div className="bg-gradient-to-br from-blue-900 via-blue-700 to-black rounded-2xl p-6 text-white">
+              <div className="flex items-center mb-6">
+                <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center mr-3">
+                  <span className="text-blue-600 font-bold text-base">M</span>
                 </div>
-                <span className="text-2xl font-bold">makeugc</span>
+                <span className="text-xl font-bold">makeugc</span>
               </div>
 
-              <div className="space-y-4 text-left">
-                <div className="flex items-start space-x-3">
-                  <Check className="w-6 h-6 text-white mt-0.5 flex-shrink-0" />
-                  <span className="text-lg">Prompt → talking product-in-hand video</span>
+              <div className="space-y-3 text-left">
+                <div className="flex items-start space-x-2">
+                  <Check className="w-5 h-5 text-white mt-0.5 flex-shrink-0" />
+                  <span className="text-base">Prompt → talking product-in-hand video</span>
                 </div>
-                <div className="flex items-start space-x-3">
-                  <Check className="w-6 h-6 text-white mt-0.5 flex-shrink-0" />
-                  <span className="text-lg">AI writes hooks, CTAs, and full scripts</span>
+                <div className="flex items-start space-x-2">
+                  <Check className="w-5 h-5 text-white mt-0.5 flex-shrink-0" />
+                  <span className="text-base">AI writes hooks, CTAs, and full scripts</span>
                 </div>
-                <div className="flex items-start space-x-3">
-                  <Check className="w-6 h-6 text-white mt-0.5 flex-shrink-0" />
-                  <span className="text-lg">300+ avatars with speech-to-speech in 35+ languages</span>
+                <div className="flex items-start space-x-2">
+                  <Check className="w-5 h-5 text-white mt-0.5 flex-shrink-0" />
+                  <span className="text-base">300+ avatars with speech-to-speech in 35+ languages</span>
                 </div>
-                <div className="flex items-start space-x-3">
-                  <Check className="w-6 h-6 text-white mt-0.5 flex-shrink-0" />
-                  <span className="text-lg">All UGC for under $6/video</span>
+                <div className="flex items-start space-x-2">
+                  <Check className="w-5 h-5 text-white mt-0.5 flex-shrink-0" />
+                  <span className="text-base">All UGC for under $6/video</span>
                 </div>
-                <div className="flex items-start space-x-3">
-                  <Check className="w-6 h-6 text-white mt-0.5 flex-shrink-0" />
-                  <span className="text-lg">Bulk variation engine (100+ per input)</span>
+                <div className="flex items-start space-x-2">
+                  <Check className="w-5 h-5 text-white mt-0.5 flex-shrink-0" />
+                  <span className="text-base">Bulk variation engine (100+ per input)</span>
                 </div>
-                <div className="flex items-start space-x-3">
-                  <Check className="w-6 h-6 text-white mt-0.5 flex-shrink-0" />
-                  <span className="text-lg">Consistent, high-performing results</span>
+                <div className="flex items-start space-x-2">
+                  <Check className="w-5 h-5 text-white mt-0.5 flex-shrink-0" />
+                  <span className="text-base">Consistent, high-performing results</span>
                 </div>
-                <div className="flex items-start space-x-3">
-                  <Check className="w-6 h-6 text-white mt-0.5 flex-shrink-0" />
-                  <span className="text-lg">Rapid A-B testing</span>
+                <div className="flex items-start space-x-2">
+                  <Check className="w-5 h-5 text-white mt-0.5 flex-shrink-0" />
+                  <span className="text-base">Rapid A-B testing</span>
                 </div>
               </div>
             </div>
 
             {/* Others Side */}
-            <div className="bg-white border border-gray-200 rounded-3xl p-8">
-              <h3 className="text-3xl font-bold text-gray-900 mb-8">Others</h3>
+            <div className="bg-white border border-gray-200 rounded-2xl p-6">
+              <h3 className="text-2xl font-bold text-gray-900 mb-6">Others</h3>
 
-              <div className="space-y-4 text-left">
-                <div className="flex items-start space-x-3">
-                  <X className="w-6 h-6 text-gray-400 mt-0.5 flex-shrink-0" />
-                  <span className="text-lg text-gray-700">Expensive freelancers, creators & editors</span>
+              <div className="space-y-3 text-left">
+                <div className="flex items-start space-x-2">
+                  <X className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <span className="text-base text-gray-700">Expensive freelancers, creators & editors</span>
                 </div>
-                <div className="flex items-start space-x-3">
-                  <X className="w-6 h-6 text-gray-400 mt-0.5 flex-shrink-0" />
-                  <span className="text-lg text-gray-700">Slow shoots, edits, and approvals</span>
+                <div className="flex items-start space-x-2">
+                  <X className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <span className="text-base text-gray-700">Slow shoots, edits, and approvals</span>
                 </div>
-                <div className="flex items-start space-x-3">
-                  <X className="w-6 h-6 text-gray-400 mt-0.5 flex-shrink-0" />
-                  <span className="text-lg text-gray-700">Inconsistent tone & quality</span>
+                <div className="flex items-start space-x-2">
+                  <X className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <span className="text-base text-gray-700">Inconsistent tone & quality</span>
                 </div>
-                <div className="flex items-start space-x-3">
-                  <X className="w-6 h-6 text-gray-400 mt-0.5 flex-shrink-0" />
-                  <span className="text-lg text-gray-700">$300+ per UGC video</span>
+                <div className="flex items-start space-x-2">
+                  <X className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <span className="text-base text-gray-700">$300+ per UGC video</span>
                 </div>
-                <div className="flex items-start space-x-3">
-                  <X className="w-6 h-6 text-gray-400 mt-0.5 flex-shrink-0" />
-                  <span className="text-lg text-gray-700">Manual content splicing</span>
+                <div className="flex items-start space-x-2">
+                  <X className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <span className="text-base text-gray-700">Manual content splicing</span>
                 </div>
-                <div className="flex items-start space-x-3">
-                  <X className="w-6 h-6 text-gray-400 mt-0.5 flex-shrink-0" />
-                  <span className="text-lg text-gray-700">Guesswork, delays, and fatigue</span>
+                <div className="flex items-start space-x-2">
+                  <X className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <span className="text-base text-gray-700">Guesswork, delays, and fatigue</span>
                 </div>
               </div>
             </div>
