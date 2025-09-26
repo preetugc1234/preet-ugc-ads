@@ -202,7 +202,14 @@ export default function TestimonialsSection() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[600px]">
           {testimonials.map((column, columnIndex) => (
             <div key={columnIndex} className="relative overflow-hidden h-full">
-              <div className={`testimonial-column-${columnIndex + 1} flex flex-col space-y-4`}>
+              <div
+                className="flex flex-col space-y-4"
+                style={{
+                  animation: `scrollUp 15s linear infinite`,
+                  animationDelay: `${columnIndex * -5}s`,
+                  willChange: 'transform'
+                }}
+              >
                 {/* Duplicate testimonials for seamless loop */}
                 {[...column, ...column].map((testimonial, index) => (
                   <div
