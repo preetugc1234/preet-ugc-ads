@@ -5,6 +5,7 @@ import VideoCreationProcess from "@/components/landing/VideoCreationProcess";
 import FeaturesSection from "@/components/landing/FeaturesSection";
 import TestimonialsSection from "@/components/landing/TestimonialsSection";
 import Pricing from "@/components/landing/Pricing";
+import CTASection from "@/components/landing/CTASection";
 import Footer from "@/components/landing/Footer";
 
 const Index = () => {
@@ -17,6 +18,7 @@ const Index = () => {
       <FeaturesSection />
       <TestimonialsSection />
       <Pricing />
+      <CTASection />
       <Footer />
     </div>
   );
