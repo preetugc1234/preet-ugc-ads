@@ -201,15 +201,10 @@ export default function TestimonialsSection() {
         {/* Testimonials Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[600px] overflow-hidden">
           {testimonials.map((column, columnIndex) => (
-            <div key={columnIndex} className="relative">
-              <div
-                className={`flex flex-col space-y-4 animate-scroll-vertical-${columnIndex + 1}`}
-                style={{
-                  animationDelay: `${columnIndex * 2}s`
-                }}
-              >
-                {/* Duplicate testimonials for seamless loop */}
-                {[...column, ...column].map((testimonial, index) => (
+            <div key={columnIndex} className="relative overflow-hidden">
+              <div className={`flex flex-col space-y-4 animate-scroll-vertical-${columnIndex + 1}`}>
+                {/* Triple testimonials for seamless infinite loop */}
+                {[...column, ...column, ...column].map((testimonial, index) => (
                   <div
                     key={`${testimonial.id}-${index}`}
                     className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 flex-shrink-0"
@@ -247,8 +242,8 @@ export default function TestimonialsSection() {
                       </div>
                     </div>
 
-                    {/* Image placeholder if needed */}
-                    {index % 3 === 0 && (
+                    {/* Image placeholder for some cards */}
+                    {(index % 9 === 0 || index % 9 === 3 || index % 9 === 7) && (
                       <div className="mt-4 bg-gray-100 rounded-lg h-32 flex items-center justify-center">
                         <span className="text-gray-400">Image Placeholder</span>
                       </div>
