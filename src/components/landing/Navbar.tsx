@@ -13,7 +13,7 @@ import { Menu, Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "react-router-dom";
 
-const productItems = [
+const featuresItems = [
   { title: "AI Chat", href: "/products/chat", description: "Intelligent conversation AI" },
   { title: "Image Generation", href: "/products/image-generation", description: "Create stunning visuals" },
   { title: "Image to Video", href: "/products/image-to-video", description: "Animate your images" },
@@ -22,14 +22,13 @@ const productItems = [
   { title: "Audio to Video", href: "/products/audio-to-video", description: "Visual audio content" },
 ];
 
-const resourceItems = [
-  { title: "Documentation", href: "/resources/documentation", description: "Complete guides and tutorials" },
-  { title: "API Reference", href: "/resources/api-reference", description: "Developer documentation" },
-  { title: "Video Tutorials", href: "/resources/tutorials", description: "Step-by-step video guides" },
-  { title: "Community", href: "/resources/community", description: "Connect with other creators" },
-  { title: "Support", href: "/resources/support", description: "Get help when you need it" },
-  { title: "Privacy Policy", href: "/resources/privacy-policy", description: "Your privacy and data protection" },
-  { title: "Terms & Conditions", href: "/resources/terms-conditions", description: "Terms of service and usage" },
+const languageItems = [
+  { title: "English", href: "#", description: "Default language" },
+  { title: "Spanish", href: "#", description: "Español" },
+  { title: "French", href: "#", description: "Français" },
+  { title: "German", href: "#", description: "Deutsch" },
+  { title: "Italian", href: "#", description: "Italiano" },
+  { title: "Portuguese", href: "#", description: "Português" },
 ];
 
 export default function Navbar() {
@@ -53,16 +52,16 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="fixed top-0 w-full z-50 bg-[var(--glass-bg)] backdrop-blur-glass border-b border-[var(--glass-border)] shadow-glass">
+    <nav className="fixed top-0 w-full z-50 bg-white backdrop-blur-lg border-b border-gray-200/20 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">AI</span>
+          <Link to="/" className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-lg">M</span>
             </div>
-            <span className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              AdMax
+            <span className="text-xl font-semibold text-gray-900">
+              makeugc
             </span>
           </Link>
 
@@ -71,12 +70,12 @@ export default function Navbar() {
             <NavigationMenu>
               <NavigationMenuList>
                 <NavigationMenuItem>
-                  <NavigationMenuTrigger className="bg-transparent hover:bg-white/10 data-[state=open]:bg-white/10">
-                    Products
+                  <NavigationMenuTrigger className="bg-transparent hover:bg-gray-50 data-[state=open]:bg-gray-50 text-gray-700">
+                    Features
                   </NavigationMenuTrigger>
                   <NavigationMenuContent>
                     <div className="grid w-[600px] gap-3 p-4 grid-cols-2">
-                      {productItems.map((item) => (
+                      {featuresItems.map((item) => (
                         <Link
                           key={item.title}
                           to={item.href}
@@ -93,85 +92,67 @@ export default function Navbar() {
                     </div>
                   </NavigationMenuContent>
                 </NavigationMenuItem>
+              </NavigationMenuList>
+            </NavigationMenu>
 
+            <Link
+              to="/affiliate"
+              className="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors cursor-pointer"
+            >
+              Affiliate
+            </Link>
+
+            <Link
+              to="/pricing"
+              className="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors cursor-pointer"
+            >
+              Pricing
+            </Link>
+
+            <NavigationMenu>
+              <NavigationMenuList>
                 <NavigationMenuItem>
-                  <NavigationMenuTrigger className="bg-transparent hover:bg-white/10 data-[state=open]:bg-white/10">
-                    Resources
+                  <NavigationMenuTrigger className="bg-transparent hover:bg-gray-50 data-[state=open]:bg-gray-50 text-gray-700">
+                    Languages
                   </NavigationMenuTrigger>
                   <NavigationMenuContent>
-                    <div className="w-[500px] p-4">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-3">
-                          {resourceItems.slice(0, 4).map((item) => (
-                            <Link
-                              key={item.title}
-                              to={item.href}
-                              className={cn(
-                                "block select-none space-y-1 rounded-lg p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
-                              )}
-                            >
-                              <div className="text-sm font-medium leading-none">{item.title}</div>
-                              <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
-                                {item.description}
-                              </p>
-                            </Link>
-                          ))}
-                        </div>
-                        <div className="space-y-3">
-                          {resourceItems.slice(4, 7).map((item) => (
-                            <Link
-                              key={item.title}
-                              to={item.href}
-                              className={cn(
-                                "block select-none space-y-1 rounded-lg p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
-                              )}
-                            >
-                              <div className="text-sm font-medium leading-none">{item.title}</div>
-                              <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
-                                {item.description}
-                              </p>
-                            </Link>
-                          ))}
-                        </div>
+                    <div className="w-[300px] p-4">
+                      <div className="grid grid-cols-1 gap-3">
+                        {languageItems.map((item) => (
+                          <Link
+                            key={item.title}
+                            to={item.href}
+                            className={cn(
+                              "block select-none space-y-1 rounded-lg p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                            )}
+                          >
+                            <div className="text-sm font-medium leading-none">{item.title}</div>
+                            <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+                              {item.description}
+                            </p>
+                          </Link>
+                        ))}
                       </div>
                     </div>
                   </NavigationMenuContent>
                 </NavigationMenuItem>
               </NavigationMenuList>
             </NavigationMenu>
-
-            <Link
-              to="/pricing"
-              className="text-sm font-medium hover:text-primary transition-colors cursor-pointer"
-            >
-              Pricing
-            </Link>
-            <Link
-              to="/contact"
-              className="text-sm font-medium hover:text-primary transition-colors cursor-pointer"
-            >
-              Contact
-            </Link>
           </div>
 
           {/* Right side buttons */}
           <div className="hidden md:flex items-center space-x-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleTheme}
-              className="w-9 h-9 p-0 hover:bg-white/10"
-            >
-              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </Button>
             <Link to="/simple-login">
-              <Button variant="ghost" size="sm" className="hover:bg-white/10">
+              <Button variant="ghost" size="sm" className="text-gray-700 hover:bg-gray-50">
                 Login
               </Button>
             </Link>
             <Link to="/simple-signup">
-              <Button size="sm" className="bg-gradient-primary hover:opacity-90 border-0 shadow-glow">
-                Sign Up
+              <Button size="sm" className="bg-gray-900 text-white hover:bg-gray-800 rounded-md px-4 py-2 flex items-center gap-2">
+                Get Started
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </Button>
             </Link>
           </div>
@@ -180,19 +161,19 @@ export default function Navbar() {
           <div className="md:hidden">
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="sm" className="p-2 hover:bg-white/10">
-                  <Menu className="h-5 w-5" />
+                <Button variant="ghost" size="sm" className="p-2 hover:bg-gray-50">
+                  <Menu className="h-5 w-5 text-gray-700" />
                 </Button>
               </SheetTrigger>
               <SheetContent side="right" className="w-[300px] sm:w-[400px]">
                 <div className="flex flex-col space-y-4 mt-8">
                   <div className="space-y-2">
-                    <h3 className="font-semibold">Products</h3>
-                    {productItems.map((item) => (
+                    <h3 className="font-semibold">Features</h3>
+                    {featuresItems.map((item) => (
                       <Link
                         key={item.title}
                         to={item.href}
-                        className="block py-2 text-sm hover:text-primary transition-colors"
+                        className="block py-2 text-sm hover:text-gray-900 transition-colors"
                         onClick={() => setIsOpen(false)}
                       >
                         {item.title}
@@ -201,12 +182,12 @@ export default function Navbar() {
                   </div>
 
                   <div className="space-y-2">
-                    <h3 className="font-semibold">Resources</h3>
-                    {resourceItems.map((item) => (
+                    <h3 className="font-semibold">Languages</h3>
+                    {languageItems.map((item) => (
                       <Link
                         key={item.title}
                         to={item.href}
-                        className="block py-2 text-sm hover:text-primary transition-colors"
+                        className="block py-2 text-sm hover:text-gray-900 transition-colors"
                         onClick={() => setIsOpen(false)}
                       >
                         {item.title}
@@ -216,18 +197,18 @@ export default function Navbar() {
 
                   <div className="space-y-2 pt-4 border-t">
                     <Link
+                      to="/affiliate"
+                      className="block py-2 text-sm hover:text-gray-900 transition-colors"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      Affiliate
+                    </Link>
+                    <Link
                       to="/pricing"
-                      className="block py-2 text-sm hover:text-primary transition-colors"
+                      className="block py-2 text-sm hover:text-gray-900 transition-colors"
                       onClick={() => setIsOpen(false)}
                     >
                       Pricing
-                    </Link>
-                    <Link
-                      to="/contact"
-                      className="block py-2 text-sm hover:text-primary transition-colors"
-                      onClick={() => setIsOpen(false)}
-                    >
-                      Contact
                     </Link>
                   </div>
 
@@ -236,8 +217,8 @@ export default function Navbar() {
                       <Button variant="ghost" size="sm" className="w-full">Login</Button>
                     </Link>
                     <Link to="/simple-signup" onClick={() => setIsOpen(false)}>
-                      <Button size="sm" className="bg-gradient-primary hover:opacity-90 w-full">
-                        Sign Up
+                      <Button size="sm" className="bg-gray-900 text-white hover:bg-gray-800 w-full">
+                        Get Started
                       </Button>
                     </Link>
                   </div>

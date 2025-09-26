@@ -34,7 +34,10 @@
       "Bash(npm run lint:*)",
       "WebSearch",
       "WebFetch(domain:fal.ai)",
-      "Read(//c/Users/mt/Downloads/**)"
+      "Read(//c/Users/mt/Downloads/**)",
+      "Read(//c/Users/mt/Pictures/Screenshots/**)",
+      "Bash(mkdir:*)",
+      "Bash(copy:*)"
     ],
     "deny": [],
     "ask": []
