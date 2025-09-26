@@ -44,44 +44,44 @@ export default function CTASection() {
 
               <div className="space-y-4 text-left">
                 <div className="flex items-start space-x-3">
-                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center mt-0.5 flex-shrink-0 shadow-lg">
-                    <Check className="w-3 h-3 text-white stroke-[3]" />
+                  <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center mt-0.5 flex-shrink-0 shadow-lg">
+                    <Check className="w-3 h-3 text-green-600 stroke-[3]" />
                   </div>
                   <span className="text-base">Prompt → talking product-in-hand video</span>
                 </div>
                 <div className="flex items-start space-x-3">
-                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center mt-0.5 flex-shrink-0 shadow-lg">
-                    <Check className="w-3 h-3 text-white stroke-[3]" />
+                  <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center mt-0.5 flex-shrink-0 shadow-lg">
+                    <Check className="w-3 h-3 text-green-600 stroke-[3]" />
                   </div>
                   <span className="text-base">AI writes hooks, CTAs, and full scripts</span>
                 </div>
                 <div className="flex items-start space-x-3">
-                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center mt-0.5 flex-shrink-0 shadow-lg">
-                    <Check className="w-3 h-3 text-white stroke-[3]" />
+                  <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center mt-0.5 flex-shrink-0 shadow-lg">
+                    <Check className="w-3 h-3 text-green-600 stroke-[3]" />
                   </div>
                   <span className="text-base">300+ avatars with speech-to-speech in 35+ languages</span>
                 </div>
                 <div className="flex items-start space-x-3">
-                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center mt-0.5 flex-shrink-0 shadow-lg">
-                    <Check className="w-3 h-3 text-white stroke-[3]" />
+                  <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center mt-0.5 flex-shrink-0 shadow-lg">
+                    <Check className="w-3 h-3 text-green-600 stroke-[3]" />
                   </div>
                   <span className="text-base">All UGC for under $6/video</span>
                 </div>
                 <div className="flex items-start space-x-3">
-                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center mt-0.5 flex-shrink-0 shadow-lg">
-                    <Check className="w-3 h-3 text-white stroke-[3]" />
+                  <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center mt-0.5 flex-shrink-0 shadow-lg">
+                    <Check className="w-3 h-3 text-green-600 stroke-[3]" />
                   </div>
                   <span className="text-base">Bulk variation engine (100+ per input)</span>
                 </div>
                 <div className="flex items-start space-x-3">
-                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center mt-0.5 flex-shrink-0 shadow-lg">
-                    <Check className="w-3 h-3 text-white stroke-[3]" />
+                  <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center mt-0.5 flex-shrink-0 shadow-lg">
+                    <Check className="w-3 h-3 text-green-600 stroke-[3]" />
                   </div>
                   <span className="text-base">Consistent, high-performing results</span>
                 </div>
                 <div className="flex items-start space-x-3">
-                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center mt-0.5 flex-shrink-0 shadow-lg">
-                    <Check className="w-3 h-3 text-white stroke-[3]" />
+                  <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center mt-0.5 flex-shrink-0 shadow-lg">
+                    <Check className="w-3 h-3 text-green-600 stroke-[3]" />
                   </div>
                   <span className="text-base">Rapid A-B testing</span>
                 </div>
@@ -94,37 +94,37 @@ export default function CTASection() {
 
               <div className="space-y-4 text-left">
                 <div className="flex items-start space-x-3">
-                  <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center mt-0.5 flex-shrink-0 shadow-lg">
+                  <div className="w-5 h-5 bg-black rounded-full flex items-center justify-center mt-0.5 flex-shrink-0 shadow-lg">
                     <X className="w-3 h-3 text-white stroke-[3]" />
                   </div>
                   <span className="text-base text-gray-700">Expensive freelancers, creators & editors</span>
                 </div>
                 <div className="flex items-start space-x-3">
-                  <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center mt-0.5 flex-shrink-0 shadow-lg">
+                  <div className="w-5 h-5 bg-black rounded-full flex items-center justify-center mt-0.5 flex-shrink-0 shadow-lg">
                     <X className="w-3 h-3 text-white stroke-[3]" />
                   </div>
                   <span className="text-base text-gray-700">Slow shoots, edits, and approvals</span>
                 </div>
                 <div className="flex items-start space-x-3">
-                  <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center mt-0.5 flex-shrink-0 shadow-lg">
+                  <div className="w-5 h-5 bg-black rounded-full flex items-center justify-center mt-0.5 flex-shrink-0 shadow-lg">
                     <X className="w-3 h-3 text-white stroke-[3]" />
                   </div>
                   <span className="text-base text-gray-700">Inconsistent tone & quality</span>
                 </div>
                 <div className="flex items-start space-x-3">
-                  <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center mt-0.5 flex-shrink-0 shadow-lg">
+                  <div className="w-5 h-5 bg-black rounded-full flex items-center justify-center mt-0.5 flex-shrink-0 shadow-lg">
                     <X className="w-3 h-3 text-white stroke-[3]" />
                   </div>
                   <span className="text-base text-gray-700">$300+ per UGC video</span>
                 </div>
                 <div className="flex items-start space-x-3">
-                  <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center mt-0.5 flex-shrink-0 shadow-lg">
+                  <div className="w-5 h-5 bg-black rounded-full flex items-center justify-center mt-0.5 flex-shrink-0 shadow-lg">
                     <X className="w-3 h-3 text-white stroke-[3]" />
                   </div>
                   <span className="text-base text-gray-700">Manual content splicing</span>
                 </div>
                 <div className="flex items-start space-x-3">
-                  <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center mt-0.5 flex-shrink-0 shadow-lg">
+                  <div className="w-5 h-5 bg-black rounded-full flex items-center justify-center mt-0.5 flex-shrink-0 shadow-lg">
                     <X className="w-3 h-3 text-white stroke-[3]" />
                   </div>
                   <span className="text-base text-gray-700">Guesswork, delays, and fatigue</span>
