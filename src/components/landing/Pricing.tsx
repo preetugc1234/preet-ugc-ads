@@ -10,7 +10,7 @@ const plans = [
   {
     name: "Startup",
     icon: Zap,
-    price: { monthly: 49, annual: 49 },
+    price: { monthly: 0, annual: 0 },
     credits: "5 Videos",
     description: "Best option if you are starting with ads",
     features: [
@@ -32,11 +32,11 @@ const plans = [
   {
     name: "Growth",
     icon: Star,
-    price: { monthly: 69, annual: 69 },
-    credits: "10 Videos",
+    price: { monthly: 19, annual: 19 },
+    credits: "Variable Credits",
     description: "Testing many creatives a month",
     features: [
-      "10 Videos",
+      "Variable Videos (1000-64000 credits)",
       "300+ realistic AI creators",
       "35+ language available",
       "Processed in 2 minutes",
@@ -46,19 +46,20 @@ const plans = [
     ],
     limitations: [],
     cta: "Get Started",
-    popular: false,
+    popular: true,
     bgColor: "bg-white",
     textColor: "text-gray-900",
-    border: "border border-gray-200"
+    border: "border border-gray-200",
+    hasCreditsSelector: true
   },
   {
-    name: "Pro",
+    name: "Enterprise",
     icon: Crown,
-    price: { monthly: 119, annual: 119 },
-    credits: "20 Videos",
+    price: { monthly: "Custom", annual: "Custom" },
+    credits: "Custom Videos",
     description: "Advertisers ready to scale their campaigns",
     features: [
-      "20 Videos",
+      "Custom Videos",
       "300+ realistic AI creators",
       "35+ language available",
       "Processed in 2 minutes",
@@ -71,8 +72,8 @@ const plans = [
       "B-roll generator"
     ],
     limitations: [],
-    cta: "Get Started",
-    popular: true,
+    cta: "Contact Sales",
+    popular: false,
     bgColor: "bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900",
     textColor: "text-white",
     border: ""
@@ -80,7 +81,31 @@ const plans = [
 ];
 
 export default function Pricing() {
-  const [isAnnual, setIsAnnual] = useState(false);
+  const [isAnnual, setIsAnnual] = useState(true); // Default to annual
+  const [selectedCredits, setSelectedCredits] = useState("1000");
+
+  const creditOptions = [
+    { credits: "1000", annualPrice: 19, label: "1,000 credits" },
+    { credits: "2000", annualPrice: 39, label: "2,000 credits" },
+    { credits: "4000", annualPrice: 79, label: "4,000 credits" },
+    { credits: "8000", annualPrice: 159, label: "8,000 credits" },
+    { credits: "16000", annualPrice: 319, label: "16,000 credits" },
+    { credits: "32000", annualPrice: 639, label: "32,000 credits" },
+    { credits: "64000", annualPrice: 1279, label: "64,000 credits" }
+  ];
+
+  const getGrowthPricing = () => {
+    const selectedOption = creditOptions.find(option => option.credits === selectedCredits);
+    if (!selectedOption) return { displayPrice: 19, credits: "1,000" };
+
+    const displayPrice = isAnnual
+      ? selectedOption.annualPrice
+      : Math.round(selectedOption.annualPrice * 1.24); // 24% increase for monthly
+
+    return { displayPrice, credits: selectedCredits };
+  };
+
+  const growthPricing = getGrowthPricing();
 
   return (
     <section id="pricing" className="py-24 bg-white">
@@ -125,7 +150,17 @@ export default function Pricing() {
         {/* Pricing Cards */}
         <div className="grid lg:grid-cols-3 gap-8 max-w-5xl mx-auto mb-12">
           {plans.map((plan, index) => {
-            const price = plan.price.monthly;
+            let price;
+            let displayCredits = plan.credits;
+
+            if (plan.name === 'Startup') {
+              price = 0;
+            } else if (plan.name === 'Growth') {
+              price = growthPricing.displayPrice;
+              displayCredits = `${growthPricing.credits} credits`;
+            } else {
+              price = plan.price.monthly;
+            }
 
             return (
               <div
@@ -141,22 +176,52 @@ export default function Pricing() {
                 )}
 
                 <div className="text-center mb-6">
-                  <h3 className={`text-2xl font-bold mb-2 ${plan.name === 'Pro' ? 'text-blue-400' : 'text-blue-500'}`}>
+                  <h3 className={`text-2xl font-bold mb-2 ${plan.name === 'Enterprise' ? 'text-blue-400' : 'text-blue-500'}`}>
                     {plan.name}
                   </h3>
-                  <p className={`text-sm mb-4 ${plan.name === 'Pro' ? 'text-gray-300' : 'text-gray-600'}`}>
+                  <p className={`text-sm mb-4 ${plan.name === 'Enterprise' ? 'text-gray-300' : 'text-gray-600'}`}>
                     {plan.description}
                   </p>
 
                   <div className="mb-4">
                     <span className={`text-4xl font-bold ${plan.textColor}`}>
-                      ${price}
+                      {typeof price === 'string' ? price : `$${price}`}
                     </span>
-                    <span className={`text-sm ml-1 ${plan.name === 'Pro' ? 'text-gray-400' : 'text-gray-500'}`}>
-                      /month
-                    </span>
+                    {typeof price === 'number' && (
+                      <span className={`text-sm ml-1 ${plan.name === 'Enterprise' ? 'text-gray-400' : 'text-gray-500'}`}>
+                        /month
+                      </span>
+                    )}
                   </div>
+
+                  {plan.name === 'Growth' && !isAnnual && (
+                    <div className="text-xs text-orange-600 mb-2">
+                      Monthly billing (+24% surcharge)
+                    </div>
+                  )}
                 </div>
+
+                {/* Growth Plan Credit Selector */}
+                {plan.hasCreditsSelector && (
+                  <div className="mb-6">
+                    <label className="text-sm font-medium mb-2 block text-gray-700">Select Credits:</label>
+                    <Select value={selectedCredits} onValueChange={setSelectedCredits}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {creditOptions.map((option) => {
+                          const displayPrice = isAnnual ? option.annualPrice : Math.round(option.annualPrice * 1.24);
+                          return (
+                            <SelectItem key={option.credits} value={option.credits}>
+                              {option.label} - ${displayPrice}/month
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 <div className="mb-8">
                   <p className={`text-sm font-medium mb-4 ${plan.textColor}`}>Includes</p>
@@ -164,7 +229,7 @@ export default function Pricing() {
                     {plan.features.map((feature, featureIndex) => (
                       <div key={featureIndex} className="flex items-start space-x-3">
                         <div className={`w-5 h-5 rounded-full flex items-center justify-center mt-0.5 flex-shrink-0 ${
-                          plan.name === 'Pro' ? 'bg-blue-500' : 'bg-blue-500'
+                          plan.name === 'Enterprise' ? 'bg-blue-500' : 'bg-blue-500'
                         }`}>
                           <Check className="w-3 h-3 text-white" />
                         </div>
@@ -176,7 +241,9 @@ export default function Pricing() {
 
                 <Button
                   className={`w-full py-3 rounded-xl transition-all duration-300 ${
-                    plan.name === 'Pro'
+                    plan.name === 'Enterprise'
+                      ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                      : plan.name === 'Startup'
                       ? 'bg-blue-500 hover:bg-blue-600 text-white'
                       : 'bg-transparent border-2 border-gray-800 text-gray-800 hover:bg-gray-800 hover:text-white'
                   }`}
