@@ -8,283 +8,228 @@ import { useState } from "react";
 
 const plans = [
   {
-    name: "Free",
+    name: "Startup",
     icon: Zap,
-    price: { monthly: 0, annual: 0 },
-    credits: "500 credits/month",
-    description: "Perfect for exploring our AI tools",
+    price: { monthly: 49, annual: 49 },
+    credits: "5 Videos",
+    description: "Best option if you are starting with ads",
     features: [
-      "Access to all 6 AI tools",
-      "500 free credits monthly",
-      "Daily free allowances",
-      "30-item history storage",
-      "Community support",
-      "Basic tutorials access",
-      "Standard processing speed"
+      "5 Videos",
+      "300+ realistic AI creators",
+      "35+ language available",
+      "Processed in 2 minutes",
+      "Custom AI hooks",
+      "Create content in bulk",
+      "B-roll generator"
     ],
-    limitations: [
-      "5 text + 2 images daily"
-    ],
-    cta: "Get Started Free",
+    limitations: [],
+    cta: "Get Started",
     popular: false,
-    gradient: "from-gray-500 to-gray-600"
+    bgColor: "bg-white",
+    textColor: "text-gray-900",
+    border: "border border-gray-200"
+  },
+  {
+    name: "Growth",
+    icon: Star,
+    price: { monthly: 69, annual: 69 },
+    credits: "10 Videos",
+    description: "Testing many creatives a month",
+    features: [
+      "10 Videos",
+      "300+ realistic AI creators",
+      "35+ language available",
+      "Processed in 2 minutes",
+      "Custom AI hooks",
+      "Create content in bulk",
+      "B-roll generator"
+    ],
+    limitations: [],
+    cta: "Get Started",
+    popular: false,
+    bgColor: "bg-white",
+    textColor: "text-gray-900",
+    border: "border border-gray-200"
   },
   {
     name: "Pro",
-    icon: Star,
-    price: { monthly: 19, annual: 19 },
-    credits: "1,000 credits/month",
-    description: "Ideal for creators and small businesses",
-    features: [
-      "Everything in Free",
-      "Flexible credit packages",
-      "No daily generation limits",
-      "Priority processing speed",
-      "Advanced tutorials access",
-      "Email support",
-      "Custom export options",
-      "API access included",
-      "Commercial usage rights"
-    ],
-    limitations: [],
-    cta: "Choose Pro Plan",
-    popular: true,
-    gradient: "from-primary to-accent"
-  },
-  {
-    name: "Enterprise",
     icon: Crown,
-    price: { monthly: "Custom", annual: "Custom" },
-    credits: "Custom credit allocation",
-    description: "Custom solutions for large organizations",
+    price: { monthly: 119, annual: 119 },
+    credits: "20 Videos",
+    description: "Advertisers ready to scale their campaigns",
     features: [
-      "Everything in Pro",
-      "Custom credit packages",
-      "Dedicated account manager",
-      "SLA guarantees",
-      "Priority support & phone",
-      "Custom integrations",
-      "Volume discounts",
-      "Advanced analytics",
-      "White-label options",
-      "Custom training & onboarding"
+      "20 Videos",
+      "300+ realistic AI creators",
+      "35+ language available",
+      "Processed in 2 minutes",
+      "Custom AI hooks",
+      "Create content in bulk",
+      "Image to product in hand video",
+      "Custom AI avatar",
+      "Add 3 users to your workspace for free",
+      "Custom voice",
+      "B-roll generator"
     ],
     limitations: [],
-    cta: "Contact Sales",
-    popular: false,
-    gradient: "from-purple-500 to-indigo-500"
+    cta: "Get Started",
+    popular: true,
+    bgColor: "bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900",
+    textColor: "text-white",
+    border: ""
   }
 ];
 
 export default function Pricing() {
   const [isAnnual, setIsAnnual] = useState(false);
-  const [selectedCredits, setSelectedCredits] = useState("1000");
-
-  const creditOptions = [
-    { credits: "1000", monthlyPrice: 19, label: "1,000 credits" },
-    { credits: "2000", monthlyPrice: 39, label: "2,000 credits" },
-    { credits: "4000", monthlyPrice: 79, label: "4,000 credits" },
-    { credits: "8000", monthlyPrice: 159, label: "8,000 credits" },
-    { credits: "16000", monthlyPrice: 319, label: "16,000 credits" },
-    { credits: "32000", monthlyPrice: 639, label: "32,000 credits" },
-    { credits: "64000", monthlyPrice: 1279, label: "64,000 credits" }
-  ];
-
-  const getProPricing = () => {
-    const selectedOption = creditOptions.find(option => option.credits === selectedCredits);
-    if (!selectedOption) return { monthlyPrice: 19, annualPrice: 228, credits: "1,000" };
-
-    const monthlyPrice = isAnnual ? selectedOption.monthlyPrice : Math.round(selectedOption.monthlyPrice * 1.24);
-    const annualPrice = selectedOption.monthlyPrice * 12;
-    const credits = isAnnual ? `${parseInt(selectedCredits) * 12}` : selectedCredits;
-
-    return { monthlyPrice, annualPrice, credits };
-  };
-
-  const proPricing = getProPricing();
 
   return (
-    <section id="pricing" className="py-24 bg-gradient-section">
+    <section id="pricing" className="py-24 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-16">
-          <h2 className="text-4xl sm:text-5xl font-bold mb-6">
-            Pick a plan
-            <br />
-            <span className="bg-gradient-primary bg-clip-text text-transparent">
-              or get started for free
-            </span>
+          <h2 className="text-4xl sm:text-5xl font-bold mb-6 text-gray-900">
+            Start creating <span className="text-blue-500">UGC today</span>
           </h2>
-          <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
-            Plans for creators, marketers, and agencies of all sizes.
+          <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8">
+            One-Time purchase for lifetime access and all features included
           </p>
 
-          {/* Annual/Monthly Toggle */}
-          <div className="flex items-center justify-center space-x-4 mb-8">
-            <Badge 
-              variant="secondary" 
-              className="bg-primary/10 text-primary border-primary/20"
+          {/* Toggle */}
+          <div className="flex items-center justify-center space-x-2 mb-8">
+            <button
+              className={`px-6 py-2 rounded-full transition-all ${
+                !isAnnual
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+              onClick={() => setIsAnnual(false)}
             >
-              💰 SAVE 50% ON ANNUAL PLAN
-            </Badge>
-          </div>
-          
-          <div className="flex items-center justify-center space-x-4">
-            <span className={`text-sm ${!isAnnual ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
               Monthly
-            </span>
-            <Switch
-              checked={isAnnual}
-              onCheckedChange={setIsAnnual}
-              className="data-[state=checked]:bg-primary"
-            />
-            <span className={`text-sm ${isAnnual ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
-              Annual
+            </button>
+            <button
+              className={`px-6 py-2 rounded-full transition-all ${
+                isAnnual
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+              onClick={() => setIsAnnual(true)}
+            >
+              Annually
+            </button>
+            <span className="ml-2 px-3 py-1 bg-gray-800 text-white text-sm rounded-full">
+              Save 30%
             </span>
           </div>
         </div>
 
         {/* Pricing Cards */}
-        <div className="grid lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        <div className="grid lg:grid-cols-3 gap-8 max-w-5xl mx-auto mb-12">
           {plans.map((plan, index) => {
-            const Icon = plan.icon;
-            let price, credits;
-
-            if (plan.name === 'Pro') {
-              price = proPricing.monthlyPrice;
-              credits = isAnnual ? `${proPricing.credits} credits/year` : `${proPricing.credits} credits/month`;
-            } else {
-              price = typeof plan.price.monthly === 'number'
-                ? (isAnnual ? plan.price.annual : plan.price.monthly)
-                : plan.price.monthly;
-              credits = plan.credits;
-            }
+            const price = plan.price.monthly;
 
             return (
-              <Card
+              <div
                 key={index}
-                className={`relative border-0 bg-gradient-card backdrop-blur-sm shadow-glass transition-all duration-300 hover:-translate-y-2 ${
-                  plan.popular
-                    ? 'ring-2 ring-primary shadow-glow scale-105'
-                    : 'hover:shadow-glow'
-                }`}
+                className={`relative rounded-3xl p-8 transition-all duration-300 hover:scale-105 ${plan.bgColor} ${plan.border} ${plan.textColor}`}
               >
                 {plan.popular && (
                   <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                    <Badge className="bg-gradient-primary text-white border-0 shadow-lg">
-                      MOST POPULAR
-                    </Badge>
+                    <span className="bg-blue-500 text-white px-4 py-1 rounded-full text-sm font-medium">
+                      Most Popular
+                    </span>
                   </div>
                 )}
 
-                <CardHeader className="text-center pb-4">
-                  <div className={`w-12 h-12 rounded-xl bg-gradient-to-r ${plan.gradient} flex items-center justify-center shadow-lg mx-auto mb-4`}>
-                    <Icon className="w-6 h-6 text-white" />
+                <div className="text-center mb-6">
+                  <h3 className={`text-2xl font-bold mb-2 ${plan.name === 'Pro' ? 'text-blue-400' : 'text-blue-500'}`}>
+                    {plan.name}
+                  </h3>
+                  <p className={`text-sm mb-4 ${plan.name === 'Pro' ? 'text-gray-300' : 'text-gray-600'}`}>
+                    {plan.description}
+                  </p>
+
+                  <div className="mb-4">
+                    <span className={`text-4xl font-bold ${plan.textColor}`}>
+                      ${price}
+                    </span>
+                    <span className={`text-sm ml-1 ${plan.name === 'Pro' ? 'text-gray-400' : 'text-gray-500'}`}>
+                      /month
+                    </span>
                   </div>
+                </div>
 
-                  <h3 className="text-xl font-semibold">{plan.name}</h3>
-                  <p className="text-sm text-muted-foreground">{plan.description}</p>
-                </CardHeader>
-
-                <CardContent className="pt-0">
-                  {/* Price */}
-                  <div className="text-center mb-6">
-                    <div className="flex items-baseline justify-center">
-                      <span className="text-4xl font-bold">
-                        {typeof price === 'string' ? price : `$${price}`}
-                      </span>
-                      {typeof price === 'number' && price > 0 && (
-                        <span className="text-muted-foreground ml-1">
-                          /month
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1">{credits}</p>
-
-                    {plan.name === 'Pro' && isAnnual && (
-                      <div className="text-sm text-green-600 dark:text-green-400 mt-1">
-                        Billed annually - Save 24%
-                      </div>
-                    )}
-                    {plan.name === 'Pro' && !isAnnual && (
-                      <div className="text-sm text-orange-600 dark:text-orange-400 mt-1">
-                        Monthly billing - 24% higher
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Pro Plan Credit Selector */}
-                  {plan.name === 'Pro' && (
-                    <div className="mb-6">
-                      <label className="text-sm font-medium mb-2 block">Select Credits:</label>
-                      <Select value={selectedCredits} onValueChange={setSelectedCredits}>
-                        <SelectTrigger className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {creditOptions.map((option) => {
-                            const displayPrice = isAnnual ? option.monthlyPrice : Math.round(option.monthlyPrice * 1.24);
-                            return (
-                              <SelectItem key={option.credits} value={option.credits}>
-                                {option.label} - ${displayPrice}/month
-                              </SelectItem>
-                            );
-                          })}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
-                  {/* Features */}
-                  <div className="space-y-3 mb-6">
+                <div className="mb-8">
+                  <p className={`text-sm font-medium mb-4 ${plan.textColor}`}>Includes</p>
+                  <div className="space-y-3">
                     {plan.features.map((feature, featureIndex) => (
                       <div key={featureIndex} className="flex items-start space-x-3">
-                        <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                        <span className="text-sm">{feature}</span>
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center mt-0.5 flex-shrink-0 ${
+                          plan.name === 'Pro' ? 'bg-blue-500' : 'bg-blue-500'
+                        }`}>
+                          <Check className="w-3 h-3 text-white" />
+                        </div>
+                        <span className={`text-sm ${plan.textColor}`}>{feature}</span>
                       </div>
                     ))}
                   </div>
+                </div>
 
-                  {/* Limitations */}
-                  {plan.limitations.length > 0 && (
-                    <div className="space-y-2 mb-6 p-3 bg-muted/50 rounded-lg">
-                      {plan.limitations.map((limitation, limitIndex) => (
-                        <div key={limitIndex} className="flex items-start space-x-2">
-                          <div className="w-2 h-2 bg-muted-foreground rounded-full mt-2 flex-shrink-0" />
-                          <span className="text-xs text-muted-foreground">{limitation}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* CTA */}
-                  <Button
-                    className={`w-full ${
-                      plan.popular
-                        ? 'bg-gradient-primary hover:opacity-90 shadow-glow'
-                        : plan.name === 'Enterprise'
-                        ? 'bg-gradient-to-r from-purple-500 to-indigo-500 hover:opacity-90'
-                        : 'bg-muted hover:bg-muted/80 text-foreground'
-                    } transition-all duration-300 hover:scale-105`}
-                    size="lg"
-                  >
-                    {plan.cta}
-                  </Button>
-                </CardContent>
-              </Card>
+                <Button
+                  className={`w-full py-3 rounded-xl transition-all duration-300 ${
+                    plan.name === 'Pro'
+                      ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                      : 'bg-transparent border-2 border-gray-800 text-gray-800 hover:bg-gray-800 hover:text-white'
+                  }`}
+                >
+                  {plan.cta} →
+                </Button>
+              </div>
             );
           })}
         </div>
 
-        {/* Bottom CTA */}
-        <div className="text-center mt-16">
-          <p className="text-muted-foreground mb-4">
-            All plans include access to our full AI toolkit
-          </p>
-          <Button variant="outline" size="lg" className="hover:bg-primary/10 hover:text-primary hover:border-primary">
-            Compare all features
-          </Button>
+        {/* Individual Credits Card */}
+        <div className="max-w-5xl mx-auto">
+          <div className="bg-white border border-gray-200 rounded-3xl p-8">
+            <div className="text-center">
+              <h3 className="text-xl font-bold text-blue-500 mb-2">
+                Enterprise (20+ Videos)
+              </h3>
+              <p className="text-gray-600 text-sm mb-4">
+                Need more than 20+ UGC ads per month?<br />
+                Contact us to give your organization the exact control, and the support you need.
+              </p>
+
+              <div className="flex items-center justify-center space-x-8 mb-6">
+                <div className="flex items-center space-x-3">
+                  <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
+                    <Check className="w-3 h-3 text-white" />
+                  </div>
+                  <span className="text-sm text-gray-800">Custom Videos</span>
+                </div>
+
+                <div className="flex items-center space-x-3">
+                  <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
+                    <Check className="w-3 h-3 text-white" />
+                  </div>
+                  <span className="text-sm text-gray-800">Month Enterprise-Level Support</span>
+                </div>
+
+                <div className="flex items-center space-x-3">
+                  <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
+                    <Check className="w-3 h-3 text-white" />
+                  </div>
+                  <span className="text-sm text-gray-800">Payment Via Invoice</span>
+                </div>
+              </div>
+
+              <Button className="bg-gray-800 hover:bg-gray-900 text-white px-8 py-3 rounded-xl">
+                Book A Call →
+              </Button>
+            </div>
+          </div>
         </div>
+
       </div>
     </section>
   );
