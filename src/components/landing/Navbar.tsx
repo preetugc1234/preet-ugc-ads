@@ -13,7 +13,7 @@ import { Menu, Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "react-router-dom";
 
-const featuresItems = [
+const productItems = [
   { title: "AI Chat", href: "/products/chat", description: "Intelligent conversation AI" },
   { title: "Image Generation", href: "/products/image-generation", description: "Create stunning visuals" },
   { title: "Image to Video", href: "/products/image-to-video", description: "Animate your images" },
@@ -22,13 +22,14 @@ const featuresItems = [
   { title: "Audio to Video", href: "/products/audio-to-video", description: "Visual audio content" },
 ];
 
-const languageItems = [
-  { title: "English", href: "#", description: "Default language" },
-  { title: "Spanish", href: "#", description: "Español" },
-  { title: "French", href: "#", description: "Français" },
-  { title: "German", href: "#", description: "Deutsch" },
-  { title: "Italian", href: "#", description: "Italiano" },
-  { title: "Portuguese", href: "#", description: "Português" },
+const resourceItems = [
+  { title: "Documentation", href: "/resources/documentation", description: "Complete guides and tutorials" },
+  { title: "API Reference", href: "/resources/api-reference", description: "Developer documentation" },
+  { title: "Video Tutorials", href: "/resources/tutorials", description: "Step-by-step video guides" },
+  { title: "Community", href: "/resources/community", description: "Connect with other creators" },
+  { title: "Support", href: "/resources/support", description: "Get help when you need it" },
+  { title: "Privacy Policy", href: "/resources/privacy-policy", description: "Your privacy and data protection" },
+  { title: "Terms & Conditions", href: "/resources/terms-conditions", description: "Terms of service and usage" },
 ];
 
 export default function Navbar() {
@@ -71,11 +72,11 @@ export default function Navbar() {
               <NavigationMenuList>
                 <NavigationMenuItem>
                   <NavigationMenuTrigger className="bg-transparent hover:bg-gray-50 data-[state=open]:bg-gray-50 text-gray-700">
-                    Features
+                    Products
                   </NavigationMenuTrigger>
                   <NavigationMenuContent>
                     <div className="grid w-[600px] gap-3 p-4 grid-cols-2">
-                      {featuresItems.map((item) => (
+                      {productItems.map((item) => (
                         <Link
                           key={item.title}
                           to={item.href}
@@ -92,15 +93,52 @@ export default function Navbar() {
                     </div>
                   </NavigationMenuContent>
                 </NavigationMenuItem>
+
+                <NavigationMenuItem>
+                  <NavigationMenuTrigger className="bg-transparent hover:bg-gray-50 data-[state=open]:bg-gray-50 text-gray-700">
+                    Resources
+                  </NavigationMenuTrigger>
+                  <NavigationMenuContent>
+                    <div className="w-[500px] p-4">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-3">
+                          {resourceItems.slice(0, 4).map((item) => (
+                            <Link
+                              key={item.title}
+                              to={item.href}
+                              className={cn(
+                                "block select-none space-y-1 rounded-lg p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                              )}
+                            >
+                              <div className="text-sm font-medium leading-none">{item.title}</div>
+                              <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+                                {item.description}
+                              </p>
+                            </Link>
+                          ))}
+                        </div>
+                        <div className="space-y-3">
+                          {resourceItems.slice(4, 7).map((item) => (
+                            <Link
+                              key={item.title}
+                              to={item.href}
+                              className={cn(
+                                "block select-none space-y-1 rounded-lg p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                              )}
+                            >
+                              <div className="text-sm font-medium leading-none">{item.title}</div>
+                              <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+                                {item.description}
+                              </p>
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </NavigationMenuContent>
+                </NavigationMenuItem>
               </NavigationMenuList>
             </NavigationMenu>
-
-            <Link
-              to="/affiliate"
-              className="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors cursor-pointer"
-            >
-              Affiliate
-            </Link>
 
             <Link
               to="/pricing"
@@ -108,36 +146,12 @@ export default function Navbar() {
             >
               Pricing
             </Link>
-
-            <NavigationMenu>
-              <NavigationMenuList>
-                <NavigationMenuItem>
-                  <NavigationMenuTrigger className="bg-transparent hover:bg-gray-50 data-[state=open]:bg-gray-50 text-gray-700">
-                    Languages
-                  </NavigationMenuTrigger>
-                  <NavigationMenuContent>
-                    <div className="w-[300px] p-4">
-                      <div className="grid grid-cols-1 gap-3">
-                        {languageItems.map((item) => (
-                          <Link
-                            key={item.title}
-                            to={item.href}
-                            className={cn(
-                              "block select-none space-y-1 rounded-lg p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
-                            )}
-                          >
-                            <div className="text-sm font-medium leading-none">{item.title}</div>
-                            <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
-                              {item.description}
-                            </p>
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-                  </NavigationMenuContent>
-                </NavigationMenuItem>
-              </NavigationMenuList>
-            </NavigationMenu>
+            <Link
+              to="/contact"
+              className="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors cursor-pointer"
+            >
+              Contact
+            </Link>
           </div>
 
           {/* Right side buttons */}
@@ -168,8 +182,8 @@ export default function Navbar() {
               <SheetContent side="right" className="w-[300px] sm:w-[400px]">
                 <div className="flex flex-col space-y-4 mt-8">
                   <div className="space-y-2">
-                    <h3 className="font-semibold">Features</h3>
-                    {featuresItems.map((item) => (
+                    <h3 className="font-semibold">Products</h3>
+                    {productItems.map((item) => (
                       <Link
                         key={item.title}
                         to={item.href}
@@ -182,8 +196,8 @@ export default function Navbar() {
                   </div>
 
                   <div className="space-y-2">
-                    <h3 className="font-semibold">Languages</h3>
-                    {languageItems.map((item) => (
+                    <h3 className="font-semibold">Resources</h3>
+                    {resourceItems.map((item) => (
                       <Link
                         key={item.title}
                         to={item.href}
@@ -197,18 +211,18 @@ export default function Navbar() {
 
                   <div className="space-y-2 pt-4 border-t">
                     <Link
-                      to="/affiliate"
-                      className="block py-2 text-sm hover:text-gray-900 transition-colors"
-                      onClick={() => setIsOpen(false)}
-                    >
-                      Affiliate
-                    </Link>
-                    <Link
                       to="/pricing"
                       className="block py-2 text-sm hover:text-gray-900 transition-colors"
                       onClick={() => setIsOpen(false)}
                     >
                       Pricing
+                    </Link>
+                    <Link
+                      to="/contact"
+                      className="block py-2 text-sm hover:text-gray-900 transition-colors"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      Contact
                     </Link>
                   </div>
 
