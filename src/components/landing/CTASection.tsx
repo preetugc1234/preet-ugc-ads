@@ -3,22 +3,25 @@ import { Check, X } from "lucide-react";
 
 export default function CTASection() {
   return (
-    <section
-      className="relative py-24 lg:py-32 overflow-hidden"
-      style={{
-        backgroundImage: 'url(/assets/background-rotated.jpg)',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-        filter: 'blur(2px)'
-      }}
-    >
+    <section className="relative py-24 lg:py-32 overflow-hidden">
+      {/* Background with blur */}
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundImage: 'url(/assets/background-rotated.jpg)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          filter: 'blur(2px)'
+        }}
+      ></div>
+
       {/* Gradient blur effects for seamless merge */}
       <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-white via-white/90 to-transparent z-10 pointer-events-none"></div>
       <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-white via-white/90 to-transparent z-10 pointer-events-none"></div>
 
       {/* Background overlay */}
-      <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-5"></div>
+      <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-15"></div>
 
       <div className="relative z-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center">
@@ -34,7 +37,7 @@ export default function CTASection() {
           {/* Comparison Grid */}
           <div className="grid lg:grid-cols-2 gap-8 max-w-6xl mx-auto mb-12">
             {/* MakeUGC Side */}
-            <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl p-8 text-white">
+            <div className="bg-gradient-to-br from-blue-900 via-blue-700 to-black rounded-3xl p-8 text-white">
               <div className="flex items-center mb-8">
                 <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center mr-4">
                   <span className="text-blue-600 font-bold text-lg">M</span>
