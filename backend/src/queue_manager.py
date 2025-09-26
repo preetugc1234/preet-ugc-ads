@@ -1028,16 +1028,16 @@ class QueueManager:
                     current_attempts = self._test_attempts.get(str(job_id), 0) + 1
                     self._test_attempts[str(job_id)] = current_attempts
 
-                    if current_attempts < 3:
-                        logger.info(f"🧪 TEST MODE: Job {job_id} not ready, attempt {current_attempts}/3. Waiting 2 minutes before next check...")
-                        # Wait 2 minutes and check again
-                        await asyncio.sleep(120)
+                    if current_attempts < 8:
+                        logger.info(f"🧪 TEST MODE: Job {job_id} not ready, attempt {current_attempts}/8. Waiting 30 seconds before next check...")
+                        # Wait 30 seconds and check again - FAL AI videos complete in 90-180 seconds
+                        await asyncio.sleep(30)
                         # Recursive call for next attempt
                         await self._poll_fal_async_result(job_id, request_id, module, user_id, adapter)
                         return
                     else:
-                        error_msg = f"Video generation not ready after 3 attempts (6 minutes). Status: {async_result.get('status')}. This may indicate an issue with the generation."
-                        logger.warning(f"⚠️ Job {job_id} failed after 3 test attempts: {error_msg}")
+                        error_msg = f"Video generation not ready after 8 attempts (4 minutes). Status: {async_result.get('status')}. This may indicate an issue with the generation."
+                        logger.warning(f"⚠️ Job {job_id} failed after 8 test attempts: {error_msg}")
                         await self._handle_job_failure(job_id, error_msg)
                         return
 

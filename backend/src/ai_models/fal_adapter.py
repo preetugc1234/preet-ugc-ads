@@ -370,20 +370,24 @@ class FalAdapter:
                 if parsed_status.get('status') == 'completed' or parsed_status.get('success'):
                     logger.info(f"✅ Job completed, attempting to get result...")
                     try:
-                        # 🚨 FIXED: Use the actual result from handler.get() instead of placeholder
-                        if status_result.get("result"):
-                            logger.info(f"🔍 Using actual video result from handler")
-                            result = status_result["result"]
-                            logger.info(f"✅ Got actual WAN v2.2-5B result: {type(result)}")
-                        else:
-                            logger.warning(f"⚠️ No result in status_result, trying fallback")
-                            # Fallback: try to get result directly from handler
+                        # 🚨 FIXED: Handle Completed object properly
+                        if hasattr(status_result, '__class__') and status_result.__class__.__name__ == 'Completed':
+                            logger.info(f"🔍 Using Completed object directly as result")
+                            # For Completed objects, get the result directly from handler
                             handler = self.active_handlers.get(request_id)
                             if handler:
                                 result = await asyncio.to_thread(handler.get)
-                                logger.info(f"✅ Got fallback result: {type(result)}")
+                                logger.info(f"✅ Got result from Completed handler: {type(result)}")
                             else:
-                                raise Exception("No result available from handler")
+                                logger.warning(f"⚠️ No handler for completed job, using status_result")
+                                result = status_result
+                        elif isinstance(status_result, dict) and status_result.get("result"):
+                            logger.info(f"🔍 Using result from status_result dict")
+                            result = status_result["result"]
+                            logger.info(f"✅ Got result from dict: {type(result)}")
+                        else:
+                            logger.warning(f"⚠️ Fallback: using status_result as result")
+                            result = status_result
                     except Exception as result_error:
                         logger.error(f"❌ Result retrieval error: {result_error}")
                         result = status_result
@@ -404,7 +408,7 @@ class FalAdapter:
 
             logger.info(f"🎬 Processing final result for {request_id}: {result}")
 
-            if result and ("video" in result or "video_url" in str(result)):
+            if result and (isinstance(result, dict) and ("video" in result or "video_url" in result)) or "video" in str(result):
                 # Handle different response formats
                 if isinstance(result, dict) and "video" in result and isinstance(result["video"], dict):
                     video_data = result["video"]
