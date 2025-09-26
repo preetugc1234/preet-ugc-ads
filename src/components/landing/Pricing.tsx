@@ -270,89 +270,38 @@ export default function Pricing() {
 
         {/* Individual Credits Card */}
         <div className="max-w-5xl mx-auto">
-          <div className="bg-white border border-gray-200 rounded-3xl p-8">
-            <div className="text-center mb-6">
+          <div className="bg-white border border-gray-200 rounded-3xl p-6">
+            <div className="text-center mb-4">
               <h3 className="text-xl font-bold text-blue-500 mb-2">
                 Purchase Individual Credits
               </h3>
-              <p className="text-gray-600 text-sm mb-4">
-                Need specific amount of credits? Purchase exactly what you need with our flexible credit system.<br />
-                Perfect for one-time projects or testing specific campaigns.
+              <p className="text-gray-600 text-sm">
+                Need specific amount of credits? Purchase exactly what you need with our flexible credit system.
               </p>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-8 items-center">
-              {/* Left Side - Credit Input */}
-              <div>
-                <label className="text-sm font-medium mb-2 block text-gray-700">
-                  Enter Credits Amount:
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    min="100"
-                    max="90000"
-                    value={customCredits}
-                    onChange={(e) => handleCustomCreditsChange(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
-                    placeholder="Enter credits (100-90,000)"
-                  />
-                </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  Minimum: 100 credits • Maximum: 90,000 credits
-                </p>
-
-                <div className="mt-4 space-y-2">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
-                      <Check className="w-3 h-3 text-white" />
-                    </div>
-                    <span className="text-sm text-gray-800">No monthly commitment</span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
-                      <Check className="w-3 h-3 text-white" />
-                    </div>
-                    <span className="text-sm text-gray-800">Credits never expire</span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
-                      <Check className="w-3 h-3 text-white" />
-                    </div>
-                    <span className="text-sm text-gray-800">Instant access to all features</span>
-                  </div>
-                </div>
+            <div className="flex items-center justify-center space-x-8">
+              <div className="flex-1 max-w-xs">
+                <input
+                  type="number"
+                  min="100"
+                  max="90000"
+                  value={customCredits}
+                  onChange={(e) => handleCustomCreditsChange(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg text-center"
+                  placeholder="Enter credits"
+                />
               </div>
 
-              {/* Right Side - Cost Calculator */}
-              <div className="bg-gray-50 rounded-2xl p-6">
-                <h4 className="text-lg font-semibold text-gray-900 mb-4">Cost Calculator</h4>
-
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Credits:</span>
-                    <span className="font-medium text-gray-900">{customCredits.toLocaleString()}</span>
-                  </div>
-
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Rate:</span>
-                    <span className="font-medium text-gray-900">$2.75 per 100 credits</span>
-                  </div>
-
-                  <div className="border-t pt-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-lg font-semibold text-gray-900">Total Cost:</span>
-                      <span className="text-2xl font-bold text-blue-600">
-                        ${calculateCustomCost().toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <Button className="w-full mt-6 bg-blue-500 hover:bg-blue-600 text-white py-3 rounded-xl">
-                  Buy Now →
-                </Button>
+              <div className="text-center">
+                <span className="text-2xl font-bold text-blue-600">
+                  ${calculateCustomCost().toFixed(2)}
+                </span>
               </div>
+
+              <Button className="bg-gray-800 hover:bg-gray-900 text-white px-6 py-3 rounded-xl">
+                Buy Now
+              </Button>
             </div>
           </div>
         </div>
