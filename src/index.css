@@ -187,42 +187,26 @@ All colors MUST be HSL.
   }
 
   /* Vertical scroll animations for testimonials */
-  @keyframes scroll-vertical-1 {
+  @keyframes scroll-up {
     0% {
       transform: translateY(0);
     }
     100% {
-      transform: translateY(-100%);
-    }
-  }
-
-  @keyframes scroll-vertical-2 {
-    0% {
-      transform: translateY(-33.33%);
-    }
-    100% {
-      transform: translateY(-133.33%);
-    }
-  }
-
-  @keyframes scroll-vertical-3 {
-    0% {
-      transform: translateY(-66.66%);
-    }
-    100% {
-      transform: translateY(-166.66%);
+      transform: translateY(-50%);
     }
   }
 
   .animate-scroll-vertical-1 {
-    animation: scroll-vertical-1 30s linear infinite;
+    animation: scroll-up 20s linear infinite;
   }
 
   .animate-scroll-vertical-2 {
-    animation: scroll-vertical-2 30s linear infinite;
+    animation: scroll-up 20s linear infinite;
+    animation-delay: -6.67s;
   }
 
   .animate-scroll-vertical-3 {
-    animation: scroll-vertical-3 30s linear infinite;
+    animation: scroll-up 20s linear infinite;
+    animation-delay: -13.33s;
   }
 }
