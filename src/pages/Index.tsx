@@ -4,11 +4,6 @@ import Statistics from "@/components/landing/Statistics";
 import VideoCreationProcess from "@/components/landing/VideoCreationProcess";
 import FeaturesSection from "@/components/landing/FeaturesSection";
 import TestimonialsSection from "@/components/landing/TestimonialsSection";
-import ProductShowcase from "@/components/landing/ProductShowcase";
-import HowItWorks from "@/components/landing/HowItWorks";
-import RealResults from "@/components/landing/RealResults";
-import SupportTeams from "@/components/landing/SupportTeams";
-import TrustSection from "@/components/landing/TrustSection";
 import Pricing from "@/components/landing/Pricing";
 import Footer from "@/components/landing/Footer";
 
@@ -21,11 +16,6 @@ const Index = () => {
       <VideoCreationProcess />
       <FeaturesSection />
       <TestimonialsSection />
-      <ProductShowcase />
-      <HowItWorks />
-      <RealResults />
-      <SupportTeams />
-      <TrustSection />
       <Pricing />
       <Footer />
     </div>
