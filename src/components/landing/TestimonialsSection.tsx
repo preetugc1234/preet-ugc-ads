@@ -199,15 +199,15 @@ export default function TestimonialsSection() {
         </div>
 
         {/* Testimonials Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[600px] overflow-hidden">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[600px]">
           {testimonials.map((column, columnIndex) => (
-            <div key={columnIndex} className="relative h-full overflow-hidden">
-              <div className={`flex flex-col gap-4 animate-scroll-vertical-${columnIndex + 1}`}>
-                {/* Double testimonials for seamless infinite loop */}
+            <div key={columnIndex} className="relative overflow-hidden h-full">
+              <div className={`testimonial-column-${columnIndex + 1} flex flex-col space-y-4`}>
+                {/* Duplicate testimonials for seamless loop */}
                 {[...column, ...column].map((testimonial, index) => (
                   <div
                     key={`${testimonial.id}-${index}`}
-                    className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 flex-shrink-0"
+                    className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 flex-shrink-0 min-h-[200px]"
                   >
                     {/* Profile header */}
                     <div className="flex items-center mb-4">
