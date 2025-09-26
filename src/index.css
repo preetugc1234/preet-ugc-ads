@@ -195,4 +195,13 @@ All colors MUST be HSL.
       transform: translateY(-50%);
     }
   }
+
+  @keyframes scrollDown {
+    0% {
+      transform: translateY(0);
+    }
+    100% {
+      transform: translateY(50%);
+    }
+  }
 }

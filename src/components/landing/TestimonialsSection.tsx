@@ -205,8 +205,8 @@ export default function TestimonialsSection() {
               <div
                 className="flex flex-col space-y-4"
                 style={{
-                  animation: `scrollUp 15s linear infinite`,
-                  animationDelay: `${columnIndex * -5}s`,
+                  animation: `${columnIndex === 1 ? 'scrollDown' : 'scrollUp'} 25s linear infinite`,
+                  animationDelay: `${columnIndex * -8}s`,
                   willChange: 'transform'
                 }}
               >
@@ -214,27 +214,27 @@ export default function TestimonialsSection() {
                 {[...column, ...column].map((testimonial, index) => (
                   <div
                     key={`${testimonial.id}-${index}`}
-                    className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 flex-shrink-0 min-h-[200px]"
+                    className="bg-black rounded-2xl p-6 shadow-lg border border-gray-800 flex-shrink-0 min-h-[200px]"
                   >
                     {/* Profile header */}
                     <div className="flex items-center mb-4">
-                      <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center mr-3">
-                        <span className="text-gray-400 text-xs">IMG</span>
+                      <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center mr-3">
+                        <span className="text-gray-300 text-xs">IMG</span>
                       </div>
                       <div className="flex-1">
-                        <div className="font-semibold text-gray-900">{testimonial.author}</div>
-                        <div className="text-gray-500 text-sm">{testimonial.handle}</div>
+                        <div className="font-semibold text-white">{testimonial.author}</div>
+                        <div className="text-gray-300 text-sm">{testimonial.handle}</div>
                       </div>
                       <div className="text-gray-400 text-sm">{testimonial.time}</div>
                     </div>
 
                     {/* Content */}
-                    <p className="text-gray-700 mb-4 leading-relaxed">
+                    <p className="text-white mb-4 leading-relaxed">
                       {testimonial.content}
                     </p>
 
                     {/* Engagement stats */}
-                    <div className="flex items-center space-x-6 text-gray-500 text-sm">
+                    <div className="flex items-center space-x-6 text-gray-300 text-sm">
                       <div className="flex items-center space-x-1">
                         <span>💬</span>
                         <span>{Math.floor(Math.random() * 50)}</span>
@@ -251,7 +251,7 @@ export default function TestimonialsSection() {
 
                     {/* Image placeholder for some cards */}
                     {(index % 6 === 0 || index % 6 === 2 || index % 6 === 4) && (
-                      <div className="mt-4 bg-gray-100 rounded-lg h-32 flex items-center justify-center">
+                      <div className="mt-4 bg-gray-800 rounded-lg h-32 flex items-center justify-center">
                         <span className="text-gray-400">Image Placeholder</span>
                       </div>
                     )}
