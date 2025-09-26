@@ -15,7 +15,7 @@ export default function Statistics() {
   ];
 
   return (
-    <section className="relative bg-white py-16 lg:py-24">
+    <section className="relative bg-white py-16 lg:py-24 pb-24 lg:pb-32">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Statistics Grid */}
         <div className="relative flex flex-col md:flex-row items-center justify-between gap-8 md:gap-16">
