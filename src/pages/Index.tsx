@@ -2,6 +2,7 @@ import Navbar from "@/components/landing/Navbar";
 import Hero from "@/components/landing/Hero";
 import Statistics from "@/components/landing/Statistics";
 import VideoCreationProcess from "@/components/landing/VideoCreationProcess";
+import FeaturesSection from "@/components/landing/FeaturesSection";
 import ProductShowcase from "@/components/landing/ProductShowcase";
 import HowItWorks from "@/components/landing/HowItWorks";
 import RealResults from "@/components/landing/RealResults";
@@ -17,6 +18,7 @@ const Index = () => {
       <Hero />
       <Statistics />
       <VideoCreationProcess />
+      <FeaturesSection />
       <ProductShowcase />
       <HowItWorks />
       <RealResults />

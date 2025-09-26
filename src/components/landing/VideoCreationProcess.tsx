@@ -43,7 +43,7 @@ export default function VideoCreationProcess() {
           {steps.map((step, index) => (
             <div key={index} className="relative">
               {/* Gradient blue background card */}
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-50/60 to-blue-100/40 rounded-3xl -m-6 opacity-80"></div>
+              <div className="absolute inset-4 bg-gradient-to-br from-blue-50/60 to-blue-100/40 rounded-3xl opacity-80"></div>
 
               {/* Content */}
               <div className="relative text-center p-6">
