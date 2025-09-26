@@ -32,76 +32,76 @@ export default function CTASection() {
           </p>
 
           {/* Comparison Grid */}
-          <div className="grid lg:grid-cols-2 gap-6 max-w-4xl mx-auto mb-12 px-8">
+          <div className="grid lg:grid-cols-2 gap-6 max-w-5xl mx-auto mb-12 px-6">
             {/* MakeUGC Side */}
-            <div className="bg-gradient-to-br from-blue-900 via-blue-700 to-black rounded-2xl p-6 text-white">
-              <div className="flex items-center mb-6">
-                <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center mr-3">
-                  <span className="text-blue-600 font-bold text-base">M</span>
+            <div className="bg-gradient-to-br from-blue-900 via-blue-700 to-black rounded-2xl p-5 text-white aspect-[4/3]">
+              <div className="flex items-center mb-4">
+                <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center mr-3">
+                  <span className="text-blue-600 font-bold text-sm">M</span>
                 </div>
-                <span className="text-xl font-bold">makeugc</span>
+                <span className="text-lg font-bold">makeugc</span>
               </div>
 
-              <div className="space-y-3 text-left">
+              <div className="space-y-2 text-left">
                 <div className="flex items-start space-x-2">
-                  <Check className="w-5 h-5 text-white mt-0.5 flex-shrink-0" />
-                  <span className="text-base">Prompt → talking product-in-hand video</span>
+                  <Check className="w-4 h-4 text-white mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">Prompt → talking product-in-hand video</span>
                 </div>
                 <div className="flex items-start space-x-2">
-                  <Check className="w-5 h-5 text-white mt-0.5 flex-shrink-0" />
-                  <span className="text-base">AI writes hooks, CTAs, and full scripts</span>
+                  <Check className="w-4 h-4 text-white mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">AI writes hooks, CTAs, and full scripts</span>
                 </div>
                 <div className="flex items-start space-x-2">
-                  <Check className="w-5 h-5 text-white mt-0.5 flex-shrink-0" />
-                  <span className="text-base">300+ avatars with speech-to-speech in 35+ languages</span>
+                  <Check className="w-4 h-4 text-white mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">300+ avatars with speech-to-speech in 35+ languages</span>
                 </div>
                 <div className="flex items-start space-x-2">
-                  <Check className="w-5 h-5 text-white mt-0.5 flex-shrink-0" />
-                  <span className="text-base">All UGC for under $6/video</span>
+                  <Check className="w-4 h-4 text-white mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">All UGC for under $6/video</span>
                 </div>
                 <div className="flex items-start space-x-2">
-                  <Check className="w-5 h-5 text-white mt-0.5 flex-shrink-0" />
-                  <span className="text-base">Bulk variation engine (100+ per input)</span>
+                  <Check className="w-4 h-4 text-white mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">Bulk variation engine (100+ per input)</span>
                 </div>
                 <div className="flex items-start space-x-2">
-                  <Check className="w-5 h-5 text-white mt-0.5 flex-shrink-0" />
-                  <span className="text-base">Consistent, high-performing results</span>
+                  <Check className="w-4 h-4 text-white mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">Consistent, high-performing results</span>
                 </div>
                 <div className="flex items-start space-x-2">
-                  <Check className="w-5 h-5 text-white mt-0.5 flex-shrink-0" />
-                  <span className="text-base">Rapid A-B testing</span>
+                  <Check className="w-4 h-4 text-white mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">Rapid A-B testing</span>
                 </div>
               </div>
             </div>
 
             {/* Others Side */}
-            <div className="bg-white border border-gray-200 rounded-2xl p-6">
-              <h3 className="text-2xl font-bold text-gray-900 mb-6">Others</h3>
+            <div className="bg-white border border-gray-200 rounded-2xl p-5 aspect-[4/3]">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Others</h3>
 
-              <div className="space-y-3 text-left">
+              <div className="space-y-2 text-left">
                 <div className="flex items-start space-x-2">
-                  <X className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
-                  <span className="text-base text-gray-700">Expensive freelancers, creators & editors</span>
+                  <X className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm text-gray-700">Expensive freelancers, creators & editors</span>
                 </div>
                 <div className="flex items-start space-x-2">
-                  <X className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
-                  <span className="text-base text-gray-700">Slow shoots, edits, and approvals</span>
+                  <X className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm text-gray-700">Slow shoots, edits, and approvals</span>
                 </div>
                 <div className="flex items-start space-x-2">
-                  <X className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
-                  <span className="text-base text-gray-700">Inconsistent tone & quality</span>
+                  <X className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm text-gray-700">Inconsistent tone & quality</span>
                 </div>
                 <div className="flex items-start space-x-2">
-                  <X className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
-                  <span className="text-base text-gray-700">$300+ per UGC video</span>
+                  <X className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm text-gray-700">$300+ per UGC video</span>
                 </div>
                 <div className="flex items-start space-x-2">
-                  <X className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
-                  <span className="text-base text-gray-700">Manual content splicing</span>
+                  <X className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm text-gray-700">Manual content splicing</span>
                 </div>
                 <div className="flex items-start space-x-2">
-                  <X className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
-                  <span className="text-base text-gray-700">Guesswork, delays, and fatigue</span>
+                  <X className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm text-gray-700">Guesswork, delays, and fatigue</span>
                 </div>
               </div>
             </div>
