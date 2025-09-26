@@ -89,7 +89,7 @@ class FalAdapter:
 
             image_url = params.get("image_url")
             prompt = params.get("prompt", "Create smooth cinematic motion with natural camera movement")
-            duration = min(params.get("duration_seconds", 10), 10)
+            duration = params.get("duration_seconds", 5)  # Set to 5 to get 4 seconds (FAL AI offset)
             quality = params.get("quality", "hd")
 
             logger.info(f"📝 Processing params - image_url: {bool(image_url)}, prompt: {prompt[:50]}..., duration: {duration}s")
@@ -123,8 +123,9 @@ class FalAdapter:
             arguments = {
                 "prompt": prompt,
                 "image_url": image_url,
-                "num_frames": params.get("num_frames", 96),  # 96 frames = 4 seconds at 24fps
+                "num_frames": params.get("num_frames", 120),  # 120 frames = 5 seconds (to get 4 seconds output)
                 "frames_per_second": params.get("frames_per_second", 24),  # 4-60 FPS
+                "duration": duration,  # Explicit duration parameter
                 "negative_prompt": params.get("negative_prompt", ""),
                 "seed": params.get("seed", None),
                 "resolution": params.get("resolution", "720p"),  # 580p or 720p

@@ -109,7 +109,9 @@ const ImageToVideoTool = () => {
           resolution: quality, // WAN 2.5 uses resolution instead of quality
           negative_prompt: "low resolution, error, worst quality, low quality, defects",
           enable_prompt_expansion: true,
-          seed: null // Allow random generation
+          seed: null, // Allow random generation
+          duration_seconds: 5, // Set to 5 to get 4 seconds (FAL AI offset)
+          num_frames: 120 // 120 frames at 24fps = 5 seconds (to get 4 seconds output)
         }
       };
 
