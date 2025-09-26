@@ -167,4 +167,22 @@ All colors MUST be HSL.
   .focus-ring {
     @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
   }
+
+  /* Infinite scroll animation */
+  @keyframes scroll-infinite {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(-50%);
+    }
+  }
+
+  .animate-scroll-infinite {
+    animation: scroll-infinite 40s linear infinite;
+  }
+
+  .animate-scroll-infinite:hover {
+    animation-play-state: paused;
+  }
 }

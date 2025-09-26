@@ -44,18 +44,33 @@ export default function Hero() {
             </Button>
           </div>
 
-          {/* Video Grid */}
-          <div className="relative max-w-6xl mx-auto mt-16">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {/* Video placeholders with proper aspect ratios */}
-              {Array.from({ length: 4 }).map((_, i) => (
+          {/* Video Grid with Animation */}
+          <div className="relative w-full mt-16 overflow-hidden">
+            <div className="flex animate-scroll-infinite gap-6">
+              {/* Duplicate the array for seamless loop */}
+              {[...Array.from({ length: 8 }), ...Array.from({ length: 8 })].map((_, i) => (
                 <div
                   key={i}
-                  className="aspect-[9/16] bg-gray-100 rounded-2xl overflow-hidden shadow-lg border border-gray-200 group hover:scale-105 transition-transform duration-300"
+                  className="flex-shrink-0 w-72 aspect-[9/16] bg-gray-100 rounded-2xl overflow-hidden shadow-lg border border-gray-200 group hover:scale-105 transition-transform duration-300"
                 >
-                  <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center">
-                    <div className="w-12 h-12 bg-gray-800 rounded-full flex items-center justify-center">
-                      <Play className="w-6 h-6 text-white" />
+                  <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center relative">
+                    <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center">
+                      <Play className="w-8 h-8 text-white" />
+                    </div>
+                    {/* Video label */}
+                    <div className="absolute bottom-4 left-4 right-4">
+                      <div className="bg-white/90 backdrop-blur-sm rounded-lg px-3 py-2">
+                        <p className="text-gray-800 text-sm font-medium">
+                          {(i % 8) === 0 && "Product Demo"}
+                          {(i % 8) === 1 && "UGC Style"}
+                          {(i % 8) === 2 && "Testimonial"}
+                          {(i % 8) === 3 && "Brand Story"}
+                          {(i % 8) === 4 && "Tutorial"}
+                          {(i % 8) === 5 && "Review"}
+                          {(i % 8) === 6 && "Unboxing"}
+                          {(i % 8) === 7 && "Commercial"}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
