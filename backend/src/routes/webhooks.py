@@ -28,8 +28,23 @@ class FalWebhookPayload(BaseModel):
 async def fal_webhook_with_job_id(job_id: str, request: Request, background_tasks: BackgroundTasks):
     """Handle webhook from Fal AI with job ID in URL path."""
     try:
+        # Log all headers for debugging webhook authentication issues
+        headers = dict(request.headers)
+        logger.info(f"🔍 Webhook headers: {headers}")
+
+        # Check for FAL AI webhook signature if present
+        fal_signature = headers.get("x-fal-signature") or headers.get("fal-signature")
+        if fal_signature:
+            logger.info(f"🔐 FAL signature present: {fal_signature[:20]}...")
+
         payload_data = await request.json()
-        logger.info(f"Received Fal webhook for job {job_id}: {payload_data}")
+        logger.info(f"🎯 WEBHOOK RECEIVED: Job {job_id} - Payload: {payload_data}")
+        logger.info(f"✅ WEBHOOK SUCCESS: FAL AI called our webhook endpoint correctly!")
+
+        # Additional logging for webhook debugging
+        logger.info(f"🔍 Payload keys: {list(payload_data.keys())}")
+        logger.info(f"🔍 Request method: {request.method}")
+        logger.info(f"🔍 Request URL: {request.url}")
 
         db = get_db()
 
