@@ -373,7 +373,11 @@ class QueueManager:
 
                         # Use async submission method (non-blocking)
                         logger.info(f"📤 Submitting to FAL AI asynchronously (SINGLE CALL)...")
-                        submit_result = await adapter.submit_img2vid_noaudio_async(params)
+                        # Create webhook URL for direct result delivery (bypasses base64 corruption issue)
+                        webhook_url = f"{os.getenv('BACKEND_URL', 'https://preet-ugc-ads.onrender.com')}/api/webhooks/fal/{job_id}"
+                        logger.info(f"🔗 Using webhook URL for result delivery: {webhook_url}")
+
+                        submit_result = await adapter.submit_img2vid_noaudio_async(params, webhook_url=webhook_url)
                         logger.info(f"📊 FAL AI submit result: {submit_result}")
 
                         if submit_result.get('success') and submit_result.get('request_id'):
@@ -1119,36 +1123,43 @@ class QueueManager:
                                         final_urls = job["finalUrls"]
                                         logger.info(f"📦 Found URLs in database from webhook: {final_urls}")
                                     else:
-                                        # For base64 image issues, we need to mark job as completed but investigate manually
-                                        logger.warning(f"🚨 BASE64 ISSUE: Job {job_id} completed but no video URL (corrupted image)")
+                                        # Job completed but no video URL - likely webhook will deliver result
+                                        logger.warning(f"⚠️ Job {job_id} completed but no video URL yet - waiting for webhook delivery")
+                                        logger.info(f"🔗 Webhook should deliver result to: /api/webhooks/fal/{job_id}")
 
-                                        # Mark the job as completed with special status for manual investigation
-                                        db.jobs.update_one(
-                                            {"_id": job_id},
-                                            {
-                                                "$set": {
-                                                    "status": JobStatus.FAILED.value,
-                                                    "errorMessage": "Video generated successfully but result not retrievable due to base64 image corruption. Please try uploading the image again.",
-                                                    "failedAt": datetime.now(timezone.utc),
-                                                    "workerMeta": {
-                                                        "error_type": "base64_image_corruption",
-                                                        "fal_request_id": request_id,
-                                                        "job_completed_but_unrecoverable": True,
-                                                        "failed_at": datetime.now(timezone.utc).isoformat()
-                                                    },
-                                                    "updatedAt": datetime.now(timezone.utc)
+                                        # Wait a bit more for webhook delivery (only if early in polling)
+                                        if poll_attempt <= 4:  # Give webhook time in first 4 polls
+                                            logger.info(f"⏳ Poll {poll_attempt}/8: Waiting 30 more seconds for webhook delivery...")
+                                            continue
+                                        else:
+                                            # After 4 polls with no webhook, mark as failed
+                                            logger.error(f"❌ No webhook delivery after {poll_attempt} polls - marking as failed")
+
+                                            db.jobs.update_one(
+                                                {"_id": job_id},
+                                                {
+                                                    "$set": {
+                                                        "status": JobStatus.FAILED.value,
+                                                        "errorMessage": "Video generated successfully but result not delivered via webhook. This may be due to base64 image corruption. Please try uploading the image again.",
+                                                        "failedAt": datetime.now(timezone.utc),
+                                                        "workerMeta": {
+                                                            "error_type": "webhook_delivery_failed",
+                                                            "fal_request_id": request_id,
+                                                            "job_completed_but_webhook_failed": True,
+                                                            "failed_at": datetime.now(timezone.utc).isoformat()
+                                                        },
+                                                        "updatedAt": datetime.now(timezone.utc)
+                                                    }
                                                 }
-                                            }
-                                        )
+                                            )
 
-                                        # Clean up processing lock
-                                        job_id_str = str(job_id)
-                                        if job_id_str in self.processing_jobs:
-                                            self.processing_jobs.discard(job_id_str)
-                                            logger.info(f"🧹 Removed failed job {job_id} from processing lock")
+                                            # Clean up processing lock
+                                            job_id_str = str(job_id)
+                                            if job_id_str in self.processing_jobs:
+                                                self.processing_jobs.discard(job_id_str)
+                                                logger.info(f"🧹 Removed failed job {job_id} from processing lock")
 
-                                        logger.error(f"❌ BASE64 CORRUPTION: Job {job_id} marked as failed due to image corruption")
-                                        return
+                                            return
 
                                 # Update job to completed
                                 db.jobs.update_one(
