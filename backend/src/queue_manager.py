@@ -397,10 +397,19 @@ class QueueManager:
                                 )
 
                                 if cloudinary_result and cloudinary_result.get("secure_url"):
-                                    cloudinary_url = cloudinary_result["secure_url"]
+                                    base_cloudinary_url = cloudinary_result["secure_url"]
+
+                                    # Create resized URL using Cloudinary transformations to meet FAL AI requirements
+                                    # FAL AI requires minimum 300x300, so we'll use 512x512 for better quality
+                                    cloudinary_url = base_cloudinary_url.replace(
+                                        "/upload/",
+                                        "/upload/w_512,h_512,c_fill,g_center,q_auto:good/"
+                                    )
+
                                     processed_params["image_url"] = cloudinary_url
-                                    logger.info(f"✅ Base64 converted to Cloudinary URL: {cloudinary_url}")
-                                    logger.info(f"🚫 422 ERROR PREVENTION: Using Cloudinary URL instead of base64")
+                                    logger.info(f"✅ Base64 converted to Cloudinary URL: {base_cloudinary_url}")
+                                    logger.info(f"🎯 Image automatically resized to 512x512 for FAL AI: {cloudinary_url}")
+                                    logger.info(f"🚫 422 ERROR PREVENTION: Using properly sized Cloudinary URL")
                                 else:
                                     logger.warning(f"⚠️ Cloudinary upload failed, using base64 (may cause 422 error)")
 

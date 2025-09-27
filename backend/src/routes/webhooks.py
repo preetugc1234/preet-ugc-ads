@@ -93,23 +93,45 @@ async def fal_webhook_with_job_id(job_id: str, request: Request, background_task
             logger.error(f"🔥 WEBHOOK FAILURE: Job {job_id} failed with error: {error_message}")
             logger.error(f"🔥 Full error payload: {payload_data}")
 
-            # Special handling for 422 "Unexpected status code" - this often means job completed but FAL AI can't deliver result due to base64 corruption
+            # Special handling for different types of 422 errors
             if "422" in str(error_message) or "Unexpected status code" in str(error_message):
-                logger.warning(f"⚠️ 422 error detected - this is likely the base64 corruption issue")
-                logger.warning(f"⚠️ Job may have completed successfully but FAL AI can't deliver result")
-                logger.warning(f"⚠️ Marking job as failed so manual fallback mechanism can process it")
+                # Check if this is an image size error (genuine failure)
+                if "image_too_small" in str(payload_data) or "Image dimensions are too small" in str(error_message):
+                    logger.error(f"🔍 IMAGE SIZE ERROR: Image is too small for FAL AI requirements")
+                    logger.error(f"🔍 FAL AI requires minimum 300x300 pixels")
+                    logger.error(f"🔍 This is a genuine failure, not a base64 corruption issue")
+                    # Don't trigger manual fallback for size errors - this is a real failure
+                elif "image_load_error" in str(payload_data) and "base64" in str(error_message):
+                    logger.warning(f"⚠️ BASE64 CORRUPTION: This is the old base64 corruption issue")
+                    logger.warning(f"⚠️ Job may have completed successfully but FAL AI can't deliver result")
+                    logger.warning(f"⚠️ Marking job as failed so manual fallback mechanism can process it")
+                else:
+                    logger.warning(f"⚠️ 422 error detected - checking error type...")
+                    logger.warning(f"⚠️ Error details: {str(error_message)[:200]}...")
+                    logger.warning(f"⚠️ This may be a validation issue or corruption problem")
+
+            # Create user-friendly error message based on error type
+            user_error_message = f"Webhook error: {error_message}"
+            error_type = "webhook_delivery_error"
+
+            if "image_too_small" in str(payload_data) or "Image dimensions are too small" in str(error_message):
+                user_error_message = "Image is too small. Please upload an image that is at least 300x300 pixels."
+                error_type = "image_too_small"
+            elif "image_load_error" in str(payload_data):
+                user_error_message = "Image format error. Please try uploading a different image (JPG or PNG recommended)."
+                error_type = "image_load_error"
 
             db.jobs.update_one(
                 {"_id": ObjectId(job_id)},
                 {
                     "$set": {
                         "status": "failed",
-                        "errorMessage": f"Webhook error: {error_message}",
+                        "errorMessage": user_error_message,
                         "failedAt": datetime.now(timezone.utc),
                         "workerMeta": {
                             "webhook_error": True,
                             "original_error": str(error_message),
-                            "error_type": "webhook_delivery_error",
+                            "error_type": error_type,
                             "failed_at": datetime.now(timezone.utc).isoformat()
                         },
                         "updatedAt": datetime.now(timezone.utc)
