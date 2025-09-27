@@ -756,6 +756,99 @@ class QueueManager:
 
     # REMOVED: _retry_job_after_delay function - NO AUTO-RETRY to prevent money waste
 
+    async def check_processing_jobs(self):
+        """Check processing jobs for completion."""
+        try:
+            db = get_db()
+
+            # Find jobs that are in PROCESSING status
+            processing_jobs = db.jobs.find({
+                "status": JobStatus.PROCESSING.value,
+                "processingStatus": {"$in": ["queued", "processing", "in_progress"]}
+            })
+
+            for job in processing_jobs:
+                job_id = job["_id"]
+                module = job["module"]
+
+                # Skip if job was checked recently (within 2 minutes)
+                last_checked = job.get("lastCheckedAt")
+                if last_checked:
+                    time_since_check = datetime.now(timezone.utc) - last_checked
+                    if time_since_check.total_seconds() < 120:  # 2 minutes
+                        continue
+
+                logger.info(f"🔄 Checking processing job {job_id} for completion...")
+
+                try:
+                    # Get the appropriate adapter
+                    if module == "img2vid_noaudio":
+                        from .ai_models.fal_adapter import FalAdapter
+                        adapter = FalAdapter()
+
+                        # Get the request_id from workerMeta
+                        worker_meta = job.get("workerMeta", {})
+                        request_id = worker_meta.get("request_id")
+
+                        if request_id:
+                            # Check status
+                            result = await adapter.get_async_result(request_id)
+
+                            if result.get('status') == 'completed' and result.get('success'):
+                                # Job completed! Process it
+                                logger.info(f"✅ Job {job_id} completed in background check!")
+
+                                # Process the completed result
+                                final_urls = result.get('final_urls', [result.get('video_url')])
+                                if not final_urls or not final_urls[0]:
+                                    final_urls = [result.get('video_url')]
+
+                                # Update job status to completed
+                                db.jobs.update_one(
+                                    {"_id": job_id},
+                                    {
+                                        "$set": {
+                                            "status": JobStatus.COMPLETED.value,
+                                            "completedAt": datetime.now(timezone.utc),
+                                            "finalUrls": final_urls,
+                                            "workerMeta": {
+                                                "video_url": result.get('video_url'),
+                                                "processing_complete": True,
+                                                "model": result.get("model", "kling-v2.5-turbo-pro"),
+                                                "completed_at": datetime.now(timezone.utc).isoformat()
+                                            },
+                                            "updatedAt": datetime.now(timezone.utc)
+                                        }
+                                    }
+                                )
+
+                                logger.info(f"🎉 Background job completion: {job_id} -> {final_urls}")
+
+                            elif result.get('status') == 'failed':
+                                # Job failed
+                                error_msg = result.get('error', 'Job failed during processing')
+                                logger.error(f"❌ Job {job_id} failed in background check: {error_msg}")
+                                await self._handle_job_failure(job_id, error_msg)
+
+                            else:
+                                # Still processing, update last checked time
+                                db.jobs.update_one(
+                                    {"_id": job_id},
+                                    {
+                                        "$set": {
+                                            "lastCheckedAt": datetime.now(timezone.utc),
+                                            "updatedAt": datetime.now(timezone.utc)
+                                        }
+                                    }
+                                )
+                                logger.info(f"⏳ Job {job_id} still processing: {result.get('status')}")
+
+                except Exception as job_error:
+                    logger.error(f"Error checking job {job_id}: {job_error}")
+
+        except Exception as e:
+            logger.error(f"Error in check_processing_jobs: {e}")
+
     async def check_job_timeouts(self):
         """Check for timed out jobs and handle them."""
         current_time = datetime.now(timezone.utc)
@@ -987,49 +1080,31 @@ class QueueManager:
                     return
 
                 elif async_result.get('status') in ['queued', 'processing', 'in_progress']:
-                    # NO POLLING LOOP: Single attempt only to prevent money waste
-                    logger.info(f"🔄 SINGLE ATTEMPT: Job {job_id} still processing, will check once more and then fail if not ready")
+                    # NO POLLING LOOP: Job is still processing - this is normal for Kling v2.5 (takes 3-4 minutes)
+                    logger.info(f"⏳ NORMAL: Job {job_id} still processing (Kling takes 3-4 minutes)")
+                    logger.info(f"🔄 Status: {async_result.get('status')} - Job will complete automatically")
                     logger.info(f"💰 MONEY SAVED: No infinite polling loop to waste API credits")
 
-                    # Wait only once and then fail if still not ready
-                    await asyncio.sleep(30)
+                    # Mark job as processing and let it complete naturally via webhooks or background polling
+                    db.jobs.update_one(
+                        {"_id": job_id},
+                        {
+                            "$set": {
+                                "status": JobStatus.PROCESSING.value,
+                                "processingStatus": async_result.get('status'),
+                                "lastCheckedAt": datetime.now(timezone.utc),
+                                "updatedAt": datetime.now(timezone.utc)
+                            }
+                        }
+                    )
 
-                    # Single retry check
-                    try:
-                        async_result = await adapter.get_async_result(request_id, self.models[module])
-                        if async_result.get('status') == 'completed' and async_result.get('success'):
-                            # Process the completed result (same logic as above)
-                            final_urls = async_result.get('final_urls', [async_result.get('video_url')])
-                            if not final_urls or not final_urls[0]:
-                                final_urls = [async_result.get('video_url')]
+                    # Clean up processing lock so other jobs can run
+                    job_id_str = str(job_id)
+                    if job_id_str in self.processing_jobs:
+                        self.processing_jobs.discard(job_id_str)
+                        logger.info(f"🧹 Released processing lock for job {job_id} (still processing on FAL)")
 
-                            # Update job status to completed
-                            db.jobs.update_one(
-                                {"_id": job_id},
-                                {
-                                    "$set": {
-                                        "status": JobStatus.COMPLETED.value,
-                                        "completedAt": datetime.now(timezone.utc),
-                                        "finalUrls": final_urls,
-                                        "workerMeta": {
-                                            "video_url": async_result.get('video_url'),
-                                            "processing_complete": True,
-                                            "model": async_result.get("model", "kling-v2.5-turbo-pro"),
-                                            "completed_at": datetime.now(timezone.utc).isoformat()
-                                        },
-                                        "updatedAt": datetime.now(timezone.utc)
-                                    }
-                                }
-                            )
-                            logger.info(f"🎉 Job {job_id} completed on final check with URLs: {final_urls}")
-                            return
-                    except Exception as retry_error:
-                        logger.error(f"Final check failed: {retry_error}")
-
-                    # Job not ready after single retry - fail it
-                    error_msg = f"Video generation not ready after single retry. Status: {async_result.get('status', 'unknown')}. No more attempts to prevent money waste."
-                    logger.warning(f"🚫 NO AUTO-RETRY: Job {job_id} failed after single attempt: {error_msg}")
-                    await self._handle_job_failure(job_id, error_msg)
+                    logger.info(f"✅ Job {job_id} left to process naturally - will complete in 3-4 minutes")
                     return
 
                 else:
@@ -1064,7 +1139,19 @@ async def timeout_checker():
             logger.error(f"Error in timeout checker: {e}")
             await asyncio.sleep(60)
 
+# Background task to check processing jobs for completion
+async def processing_job_checker():
+    """Background task to check processing jobs for completion."""
+    while True:
+        try:
+            await queue_manager.check_processing_jobs()
+            await asyncio.sleep(30)  # Check every 30 seconds
+        except Exception as e:
+            logger.error(f"Error in processing job checker: {e}")
+            await asyncio.sleep(30)
+
 # Start timeout checker (this would be called from main application startup)
 def start_background_tasks():
     """Start background tasks for queue management."""
     asyncio.create_task(timeout_checker())
+    asyncio.create_task(processing_job_checker())
