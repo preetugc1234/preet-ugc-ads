@@ -40,7 +40,7 @@ class QueueManager:
     def __init__(self):
         self.active_workers = {}
         self.job_timeouts = {}
-        self.retry_delays = [30, 120, 300, 900]  # Exponential backoff in seconds
+        # REMOVED: retry_delays - NO AUTO-RETRY to prevent money waste
         self.processing_jobs = set()  # 🚨 CRITICAL: Track jobs currently being processed to prevent duplicates
 
     async def enqueue_job(
@@ -699,9 +699,9 @@ class QueueManager:
         self,
         job_id: ObjectId,
         error_message: str,
-        should_retry: bool = True
+        should_retry: bool = False
     ):
-        """Handle job failure with retry logic."""
+        """Handle job failure - NO AUTO-RETRY to prevent money waste."""
         try:
             # 🚨 CRITICAL: Clean up processing lock when job fails
             job_id_str = str(job_id)
@@ -719,75 +719,42 @@ class QueueManager:
             retry_count = job.get("retryCount", 0)
             max_retries = 3
 
-            if should_retry and retry_count < max_retries:
-                # Schedule retry
-                retry_count += 1
-                retry_delay = self.retry_delays[min(retry_count - 1, len(self.retry_delays) - 1)]
-                next_retry_at = datetime.now(timezone.utc) + timedelta(seconds=retry_delay)
+            # NO AUTO-RETRY: Always mark as failed immediately to prevent money waste
+            logger.info(f"🚫 NO AUTO-RETRY: Job {job_id} failed and will NOT be retried automatically")
+            logger.info(f"💰 MONEY SAVED: Preventing automatic retry that could waste API credits")
 
-                db.jobs.update_one(
-                    {"_id": job_id},
-                    {
-                        "$set": {
-                            "status": JobStatus.QUEUED.value,
-                            "retryCount": retry_count,
-                            "nextRetryAt": next_retry_at,
-                            "lastError": error_message,
-                            "updatedAt": datetime.now(timezone.utc)
-                        }
+            # Mark as permanently failed and refund credits
+            db.jobs.update_one(
+                {"_id": job_id},
+                {
+                    "$set": {
+                        "status": JobStatus.FAILED.value,
+                        "errorMessage": error_message,
+                        "failedAt": datetime.now(timezone.utc),
+                        "updatedAt": datetime.now(timezone.utc)
                     }
-                )
+                }
+            )
 
-                logger.info(f"Job {job_id} scheduled for retry {retry_count}/{max_retries} at {next_retry_at}")
+            # Refund credits
+            refund_success = refund_job_credits(
+                job_id=job_id,
+                user_id=job["userId"],
+                refund_amount=job["usedCredits"],
+                reason="job_failed"
+            )
 
-                # Schedule retry execution
-                asyncio.create_task(self._retry_job_after_delay(job_id, retry_delay))
-
+            if refund_success:
+                logger.info(f"Credits refunded for failed job {job_id}")
             else:
-                # Mark as permanently failed and refund credits
-                db.jobs.update_one(
-                    {"_id": job_id},
-                    {
-                        "$set": {
-                            "status": JobStatus.FAILED.value,
-                            "errorMessage": error_message,
-                            "failedAt": datetime.now(timezone.utc),
-                            "updatedAt": datetime.now(timezone.utc)
-                        }
-                    }
-                )
+                logger.error(f"Failed to refund credits for job {job_id}")
 
-                # Refund credits
-                refund_success = refund_job_credits(
-                    job_id=job_id,
-                    user_id=job["userId"],
-                    refund_amount=job["usedCredits"],
-                    reason="job_failed"
-                )
-
-                if refund_success:
-                    logger.info(f"Credits refunded for failed job {job_id}")
-                else:
-                    logger.error(f"Failed to refund credits for job {job_id}")
-
-                logger.error(f"Job {job_id} permanently failed: {error_message}")
+            logger.error(f"Job {job_id} permanently failed: {error_message}")
 
         except Exception as e:
             logger.error(f"Error handling job failure for {job_id}: {e}")
 
-    async def _retry_job_after_delay(self, job_id: ObjectId, delay_seconds: int):
-        """Retry job after specified delay."""
-        await asyncio.sleep(delay_seconds)
-
-        try:
-            db = get_db()
-            job = db.jobs.find_one({"_id": job_id})
-
-            if job and job.get("status") == JobStatus.QUEUED.value:
-                await self._invoke_worker(job_id, job["module"])
-                logger.info(f"Retried job {job_id} after {delay_seconds}s delay")
-        except Exception as e:
-            logger.error(f"Failed to retry job {job_id}: {e}")
+    # REMOVED: _retry_job_after_delay function - NO AUTO-RETRY to prevent money waste
 
     async def check_job_timeouts(self):
         """Check for timed out jobs and handle them."""
@@ -1020,26 +987,50 @@ class QueueManager:
                     return
 
                 elif async_result.get('status') in ['queued', 'processing', 'in_progress']:
-                    # 🚨 TESTING MODE: Allow 3 attempts to see if video generation works
-                    # This is temporary for testing - will revert to single attempt after confirming credits work
-                    if not hasattr(self, '_test_attempts'):
-                        self._test_attempts = {}
+                    # NO POLLING LOOP: Single attempt only to prevent money waste
+                    logger.info(f"🔄 SINGLE ATTEMPT: Job {job_id} still processing, will check once more and then fail if not ready")
+                    logger.info(f"💰 MONEY SAVED: No infinite polling loop to waste API credits")
 
-                    current_attempts = self._test_attempts.get(str(job_id), 0) + 1
-                    self._test_attempts[str(job_id)] = current_attempts
+                    # Wait only once and then fail if still not ready
+                    await asyncio.sleep(30)
 
-                    if current_attempts < 8:
-                        logger.info(f"🧪 TEST MODE: Job {job_id} not ready, attempt {current_attempts}/8. Waiting 30 seconds before next check...")
-                        # Wait 30 seconds and check again - FAL AI videos complete in 90-180 seconds
-                        await asyncio.sleep(30)
-                        # Recursive call for next attempt
-                        await self._poll_fal_async_result(job_id, request_id, module, user_id, adapter)
-                        return
-                    else:
-                        error_msg = f"Video generation not ready after 8 attempts (4 minutes). Status: {async_result.get('status')}. This may indicate an issue with the generation."
-                        logger.warning(f"⚠️ Job {job_id} failed after 8 test attempts: {error_msg}")
-                        await self._handle_job_failure(job_id, error_msg)
-                        return
+                    # Single retry check
+                    try:
+                        async_result = await adapter.get_async_result(request_id, self.models[module])
+                        if async_result.get('status') == 'completed' and async_result.get('success'):
+                            # Process the completed result (same logic as above)
+                            final_urls = async_result.get('final_urls', [async_result.get('video_url')])
+                            if not final_urls or not final_urls[0]:
+                                final_urls = [async_result.get('video_url')]
+
+                            # Update job status to completed
+                            db.jobs.update_one(
+                                {"_id": job_id},
+                                {
+                                    "$set": {
+                                        "status": JobStatus.COMPLETED.value,
+                                        "completedAt": datetime.now(timezone.utc),
+                                        "finalUrls": final_urls,
+                                        "workerMeta": {
+                                            "video_url": async_result.get('video_url'),
+                                            "processing_complete": True,
+                                            "model": async_result.get("model", "kling-v2.5-turbo-pro"),
+                                            "completed_at": datetime.now(timezone.utc).isoformat()
+                                        },
+                                        "updatedAt": datetime.now(timezone.utc)
+                                    }
+                                }
+                            )
+                            logger.info(f"🎉 Job {job_id} completed on final check with URLs: {final_urls}")
+                            return
+                    except Exception as retry_error:
+                        logger.error(f"Final check failed: {retry_error}")
+
+                    # Job not ready after single retry - fail it
+                    error_msg = f"Video generation not ready after single retry. Status: {async_result.get('status', 'unknown')}. No more attempts to prevent money waste."
+                    logger.warning(f"🚫 NO AUTO-RETRY: Job {job_id} failed after single attempt: {error_msg}")
+                    await self._handle_job_failure(job_id, error_msg)
+                    return
 
                 else:
                     # 🚨 NO RETRY - Unknown status, fail immediately
