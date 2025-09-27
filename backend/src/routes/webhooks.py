@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from bson import ObjectId
 
 from ..database import get_db
+from ..ai_models.asset_handler import AssetHandler
 
 logger = logging.getLogger(__name__)
 
@@ -191,7 +192,7 @@ async def process_fal_completion_direct(job_id: ObjectId, user_id: str, module: 
         # Process based on module type - DIRECT SAVE APPROACH
 
         if module == "img2vid_noaudio":
-            # Handle video result from direct Fal AI response - SIMPLE APPROACH
+            # Handle video result from direct Fal AI response - WITH CLOUDINARY AUTO-UPLOAD
             video_info = payload_data.get("video", {})
             video_url = video_info.get("url")
 
@@ -199,99 +200,230 @@ async def process_fal_completion_direct(job_id: ObjectId, user_id: str, module: 
                 raise Exception(f"No video URL in webhook payload: {payload_data}")
 
             logger.info(f"✅ WEBHOOK SUCCESS: Got video URL directly from FAL AI: {video_url}")
+            logger.info(f"☁️ Starting Cloudinary auto-upload for video...")
 
-            # SIMPLE: Just save the video URL directly without any additional API calls
-            final_urls = [video_url]
+            # Use AssetHandler to download from FAL AI and upload to Cloudinary
+            asset_handler = AssetHandler()
 
-            # Update job to completed immediately
-            db.jobs.update_one(
-                {"_id": job_id},
-                {
-                    "$set": {
-                        "status": "completed",
-                        "completedAt": datetime.now(timezone.utc),
-                        "finalUrls": final_urls,
-                        "workerMeta": {
-                            "video_url": video_url,
-                            "processing_complete": True,
-                            "model": "kling-v2.5-turbo-pro",
-                            "completed_via": "webhook",
-                            "completed_at": datetime.now(timezone.utc).isoformat()
-                        },
-                        "updatedAt": datetime.now(timezone.utc)
+            # Create video result structure for AssetHandler
+            video_result = {
+                "success": True,
+                "video_url": video_url,
+                "model": "kling-v2.5-turbo-pro",
+                "has_audio": False
+            }
+
+            # Process video through AssetHandler (downloads from FAL AI and uploads to Cloudinary)
+            asset_data = await asset_handler.handle_video_result(
+                video_result, str(job_id), user_id, False  # is_preview = False (final video)
+            )
+
+            if asset_data and asset_data.get("success"):
+                final_urls = asset_data.get("urls", [])
+                logger.info(f"✅ Cloudinary upload successful! URLs: {final_urls}")
+
+                # Update job to completed with Cloudinary URLs
+                db.jobs.update_one(
+                    {"_id": job_id},
+                    {
+                        "$set": {
+                            "status": "completed",
+                            "completedAt": datetime.now(timezone.utc),
+                            "finalUrls": final_urls,  # These are now Cloudinary URLs
+                            "workerMeta": {
+                                "fal_video_url": video_url,  # Keep original FAL AI URL for reference
+                                "cloudinary_urls": final_urls,  # Cloudinary URLs
+                                "processing_complete": True,
+                                "model": "kling-v2.5-turbo-pro",
+                                "completed_via": "webhook_with_cloudinary",
+                                "completed_at": datetime.now(timezone.utc).isoformat()
+                            },
+                            "updatedAt": datetime.now(timezone.utc)
+                        }
                     }
-                }
-            )
+                )
 
-            # Create generation record
-            from ..database import GenerationModel
-            generation_doc = GenerationModel.create_generation(
-                user_id=ObjectId(user_id),
-                job_id=job_id,
-                generation_type="img2vid_noaudio",
-                preview_url="",
-                final_urls=final_urls,
-                size_bytes=1024  # Placeholder
-            )
+                # Create generation record with Cloudinary URLs
+                from ..database import GenerationModel
+                generation_doc = GenerationModel.create_generation(
+                    user_id=ObjectId(user_id),
+                    job_id=job_id,
+                    generation_type="img2vid_noaudio",
+                    preview_url="",
+                    final_urls=final_urls,  # Cloudinary URLs
+                    size_bytes=asset_data.get("size_bytes", 1024)
+                )
 
-            db.generations.insert_one(generation_doc)
+                db.generations.insert_one(generation_doc)
 
-            # Handle history eviction
-            from ..database import cleanup_old_generations
-            cleanup_old_generations(ObjectId(user_id), max_count=30)
+                # Handle history eviction
+                from ..database import cleanup_old_generations
+                cleanup_old_generations(ObjectId(user_id), max_count=30)
 
-            logger.info(f"Fal AI job {job_id} completed successfully via direct webhook")
-            return
+                logger.info(f"Fal AI job {job_id} completed successfully via webhook with Cloudinary upload")
+                return
+            else:
+                # Cloudinary upload failed, fallback to direct FAL AI URL
+                logger.warning(f"⚠️ Cloudinary upload failed, using direct FAL AI URL as fallback")
+                final_urls = [video_url]
+
+                # Update job with FAL AI URL as fallback
+                db.jobs.update_one(
+                    {"_id": job_id},
+                    {
+                        "$set": {
+                            "status": "completed",
+                            "completedAt": datetime.now(timezone.utc),
+                            "finalUrls": final_urls,
+                            "workerMeta": {
+                                "video_url": video_url,
+                                "cloudinary_upload_failed": True,
+                                "using_fal_ai_direct": True,
+                                "model": "kling-v2.5-turbo-pro",
+                                "completed_via": "webhook_cloudinary_fallback",
+                                "completed_at": datetime.now(timezone.utc).isoformat()
+                            },
+                            "updatedAt": datetime.now(timezone.utc)
+                        }
+                    }
+                )
+
+                # Create generation record with FAL AI URL
+                from ..database import GenerationModel
+                generation_doc = GenerationModel.create_generation(
+                    user_id=ObjectId(user_id),
+                    job_id=job_id,
+                    generation_type="img2vid_noaudio",
+                    preview_url="",
+                    final_urls=final_urls,
+                    size_bytes=1024
+                )
+
+                db.generations.insert_one(generation_doc)
+
+                # Handle history eviction
+                from ..database import cleanup_old_generations
+                cleanup_old_generations(ObjectId(user_id), max_count=30)
+
+                logger.info(f"Fal AI job {job_id} completed with fallback to direct URL")
+                return
 
         elif module == "img2vid_audio" or module == "kling_avatar":
-            # Handle Kling AI Avatar result - DIRECT SAVE (no additional API calls)
+            # Handle Kling AI Avatar result - WITH CLOUDINARY AUTO-UPLOAD
             video_info = payload_data.get("video", {})
             video_url = video_info.get("url")
 
             if not video_url:
                 raise Exception(f"No video URL in webhook payload: {payload_data}")
 
-            final_urls = [video_url]
+            logger.info(f"✅ WEBHOOK SUCCESS: Got video URL for {module}: {video_url}")
+            logger.info(f"☁️ Starting Cloudinary auto-upload for {module}...")
 
-            # Update job to completed immediately
-            db.jobs.update_one(
-                {"_id": job_id},
-                {
-                    "$set": {
-                        "status": "completed",
-                        "completedAt": datetime.now(timezone.utc),
-                        "finalUrls": final_urls,
-                        "workerMeta": {
-                            "video_url": video_url,
-                            "processing_complete": True,
-                            "model": "kling-v1-pro-ai-avatar",
-                            "completed_via": "webhook",
-                            "completed_at": datetime.now(timezone.utc).isoformat()
-                        },
-                        "updatedAt": datetime.now(timezone.utc)
+            # Use AssetHandler to download from FAL AI and upload to Cloudinary
+            asset_handler = AssetHandler()
+
+            # Create video result structure for AssetHandler
+            video_result = {
+                "success": True,
+                "video_url": video_url,
+                "model": "kling-v1-pro-ai-avatar",
+                "has_audio": True
+            }
+
+            # Process video through AssetHandler (downloads from FAL AI and uploads to Cloudinary)
+            asset_data = await asset_handler.handle_video_result(
+                video_result, str(job_id), user_id, False  # is_preview = False (final video)
+            )
+
+            if asset_data and asset_data.get("success"):
+                final_urls = asset_data.get("urls", [])
+                logger.info(f"✅ Cloudinary upload successful for {module}! URLs: {final_urls}")
+
+                # Update job to completed with Cloudinary URLs
+                db.jobs.update_one(
+                    {"_id": job_id},
+                    {
+                        "$set": {
+                            "status": "completed",
+                            "completedAt": datetime.now(timezone.utc),
+                            "finalUrls": final_urls,  # These are now Cloudinary URLs
+                            "workerMeta": {
+                                "fal_video_url": video_url,  # Keep original FAL AI URL
+                                "cloudinary_urls": final_urls,  # Cloudinary URLs
+                                "processing_complete": True,
+                                "model": "kling-v1-pro-ai-avatar",
+                                "completed_via": "webhook_with_cloudinary",
+                                "completed_at": datetime.now(timezone.utc).isoformat()
+                            },
+                            "updatedAt": datetime.now(timezone.utc)
+                        }
                     }
-                }
-            )
+                )
 
-            # Create generation record
-            from ..database import GenerationModel
-            generation_doc = GenerationModel.create_generation(
-                user_id=ObjectId(user_id),
-                job_id=job_id,
-                generation_type=module,
-                preview_url="",
-                final_urls=final_urls,
-                size_bytes=1024
-            )
+                # Create generation record with Cloudinary URLs
+                from ..database import GenerationModel
+                generation_doc = GenerationModel.create_generation(
+                    user_id=ObjectId(user_id),
+                    job_id=job_id,
+                    generation_type=module,
+                    preview_url="",
+                    final_urls=final_urls,  # Cloudinary URLs
+                    size_bytes=asset_data.get("size_bytes", 1024)
+                )
 
-            db.generations.insert_one(generation_doc)
+                db.generations.insert_one(generation_doc)
 
-            # Handle history eviction
-            from ..database import cleanup_old_generations
-            cleanup_old_generations(ObjectId(user_id), max_count=30)
+                # Handle history eviction
+                from ..database import cleanup_old_generations
+                cleanup_old_generations(ObjectId(user_id), max_count=30)
 
-            logger.info(f"Fal AI job {job_id} completed successfully via direct webhook")
-            return
+                logger.info(f"Fal AI job {job_id} ({module}) completed successfully via webhook with Cloudinary upload")
+                return
+            else:
+                # Cloudinary upload failed, use fallback
+                logger.warning(f"⚠️ Cloudinary upload failed for {module}, using direct FAL AI URL")
+                final_urls = [video_url]
+
+                # Update job with FAL AI URL as fallback
+                db.jobs.update_one(
+                    {"_id": job_id},
+                    {
+                        "$set": {
+                            "status": "completed",
+                            "completedAt": datetime.now(timezone.utc),
+                            "finalUrls": final_urls,
+                            "workerMeta": {
+                                "video_url": video_url,
+                                "cloudinary_upload_failed": True,
+                                "using_fal_ai_direct": True,
+                                "model": "kling-v1-pro-ai-avatar",
+                                "completed_via": "webhook_cloudinary_fallback",
+                                "completed_at": datetime.now(timezone.utc).isoformat()
+                            },
+                            "updatedAt": datetime.now(timezone.utc)
+                        }
+                    }
+                )
+
+                # Create generation record with FAL AI URL
+                from ..database import GenerationModel
+                generation_doc = GenerationModel.create_generation(
+                    user_id=ObjectId(user_id),
+                    job_id=job_id,
+                    generation_type=module,
+                    preview_url="",
+                    final_urls=final_urls,
+                    size_bytes=1024
+                )
+
+                db.generations.insert_one(generation_doc)
+
+                # Handle history eviction
+                from ..database import cleanup_old_generations
+                cleanup_old_generations(ObjectId(user_id), max_count=30)
+
+                logger.info(f"Fal AI job {job_id} ({module}) completed with fallback to direct URL")
+                return
 
         elif module == "tts" or module == "tts_turbo":
             # Handle ElevenLabs TTS result - DIRECT SAVE (no additional API calls)
@@ -364,58 +496,124 @@ async def process_fal_completion_direct(job_id: ObjectId, user_id: str, module: 
         )
 
 async def process_fal_completion(job_id: ObjectId, user_id: str, module: str, result: Dict[str, Any]):
-    """Process completed Fal AI result in background - DIRECT SAVE APPROACH."""
+    """Process completed Fal AI result in background - WITH CLOUDINARY AUTO-UPLOAD."""
     try:
         db = get_db()
 
-        # Process based on module type - DIRECT SAVE APPROACH
+        # Process based on module type - WITH CLOUDINARY AUTO-UPLOAD
         if module == "img2vid_noaudio":
-            # Handle video result - DIRECT SAVE
+            # Handle video result - WITH CLOUDINARY AUTO-UPLOAD
             video_url = result.get("video", {}).get("url")
 
             if not video_url:
                 raise Exception(f"No video URL in result: {result}")
 
-            final_urls = [video_url]
+            logger.info(f"✅ Legacy webhook processing video URL: {video_url}")
+            logger.info(f"☁️ Starting Cloudinary auto-upload via legacy webhook...")
 
-            # Update job as completed
-            db.jobs.update_one(
-                {"_id": job_id},
-                {
-                    "$set": {
-                        "status": "completed",
-                        "finalUrls": final_urls,
-                        "completedAt": datetime.now(timezone.utc),
-                        "workerMeta": {
-                            "video_url": video_url,
-                            "processing_complete": True,
-                            "model": "kling-v2.5-turbo-pro",
-                            "completed_via": "legacy_webhook",
-                            "completed_at": datetime.now(timezone.utc).isoformat()
-                        },
-                        "updatedAt": datetime.now(timezone.utc)
+            # Use AssetHandler to download from FAL AI and upload to Cloudinary
+            asset_handler = AssetHandler()
+
+            # Create video result structure for AssetHandler
+            video_result = {
+                "success": True,
+                "video_url": video_url,
+                "model": "kling-v2.5-turbo-pro",
+                "has_audio": False
+            }
+
+            # Process video through AssetHandler (downloads from FAL AI and uploads to Cloudinary)
+            asset_data = await asset_handler.handle_video_result(
+                video_result, str(job_id), user_id, False  # is_preview = False (final video)
+            )
+
+            if asset_data and asset_data.get("success"):
+                final_urls = asset_data.get("urls", [])
+                logger.info(f"✅ Cloudinary upload successful via legacy webhook! URLs: {final_urls}")
+
+                # Update job as completed with Cloudinary URLs
+                db.jobs.update_one(
+                    {"_id": job_id},
+                    {
+                        "$set": {
+                            "status": "completed",
+                            "finalUrls": final_urls,  # These are now Cloudinary URLs
+                            "completedAt": datetime.now(timezone.utc),
+                            "workerMeta": {
+                                "fal_video_url": video_url,  # Keep original FAL AI URL
+                                "cloudinary_urls": final_urls,  # Cloudinary URLs
+                                "processing_complete": True,
+                                "model": "kling-v2.5-turbo-pro",
+                                "completed_via": "legacy_webhook_with_cloudinary",
+                                "completed_at": datetime.now(timezone.utc).isoformat()
+                            },
+                            "updatedAt": datetime.now(timezone.utc)
+                        }
                     }
-                }
-            )
+                )
 
-            # Create generation record
-            from ..database import GenerationModel
-            generation_doc = GenerationModel.create_generation(
-                user_id=ObjectId(user_id),
-                job_id=job_id,
-                generation_type=module,
-                preview_url="",
-                final_urls=final_urls,
-                size_bytes=1024
-            )
+                # Create generation record with Cloudinary URLs
+                from ..database import GenerationModel
+                generation_doc = GenerationModel.create_generation(
+                    user_id=ObjectId(user_id),
+                    job_id=job_id,
+                    generation_type=module,
+                    preview_url="",
+                    final_urls=final_urls,  # Cloudinary URLs
+                    size_bytes=asset_data.get("size_bytes", 1024)
+                )
 
-            db.generations.insert_one(generation_doc)
+                db.generations.insert_one(generation_doc)
 
-            # Handle history eviction
-            from ..database import cleanup_old_generations
-            cleanup_old_generations(ObjectId(user_id), max_count=30)
+                # Handle history eviction
+                from ..database import cleanup_old_generations
+                cleanup_old_generations(ObjectId(user_id), max_count=30)
 
-            logger.info(f"Fal AI job {job_id} completed successfully via legacy webhook")
+                logger.info(f"Fal AI job {job_id} completed successfully via legacy webhook with Cloudinary upload")
+            else:
+                # Cloudinary upload failed, use fallback
+                logger.warning(f"⚠️ Cloudinary upload failed via legacy webhook, using direct FAL AI URL")
+                final_urls = [video_url]
+
+                # Update job as completed with FAL AI URL as fallback
+                db.jobs.update_one(
+                    {"_id": job_id},
+                    {
+                        "$set": {
+                            "status": "completed",
+                            "finalUrls": final_urls,
+                            "completedAt": datetime.now(timezone.utc),
+                            "workerMeta": {
+                                "video_url": video_url,
+                                "cloudinary_upload_failed": True,
+                                "using_fal_ai_direct": True,
+                                "model": "kling-v2.5-turbo-pro",
+                                "completed_via": "legacy_webhook_cloudinary_fallback",
+                                "completed_at": datetime.now(timezone.utc).isoformat()
+                            },
+                            "updatedAt": datetime.now(timezone.utc)
+                        }
+                    }
+                )
+
+                # Create generation record with FAL AI URL
+                from ..database import GenerationModel
+                generation_doc = GenerationModel.create_generation(
+                    user_id=ObjectId(user_id),
+                    job_id=job_id,
+                    generation_type=module,
+                    preview_url="",
+                    final_urls=final_urls,
+                    size_bytes=1024
+                )
+
+                db.generations.insert_one(generation_doc)
+
+                # Handle history eviction
+                from ..database import cleanup_old_generations
+                cleanup_old_generations(ObjectId(user_id), max_count=30)
+
+                logger.info(f"Fal AI job {job_id} completed via legacy webhook with fallback to direct URL")
 
         elif module == "img2vid_audio" or module == "kling_avatar":
             # Handle Kling AI Avatar result - DIRECT SAVE

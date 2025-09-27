@@ -1320,7 +1320,7 @@ class QueueManager:
                                                         }
                                                         logger.info(f"✅ Successfully extracted video URL via fallback: {video_url}")
 
-                                                # Import and call our webhook handler directly
+                                                # Import and call our webhook handler directly (which now includes Cloudinary upload)
                                                 from .routes.webhooks import process_fal_completion_direct
                                                 await process_fal_completion_direct(job_id, str(job["userId"]), job["module"], mock_payload)
 
