@@ -165,30 +165,20 @@ const ImageToVideoTool = () => {
   const isJobFailed = jobStatus?.status === 'failed';
   const isGenerating = isSubmitting || createJobMutation.isPending || isJobRunning;
 
-  // Check if we have video URLs available (more flexible) - prioritize finalUrls over preview_url
-  const workerVideoUrl = jobStatus?.worker_meta?.video_url || jobStatus?.worker_meta?.final_url;
-  const videoUrl = jobStatus?.finalUrls?.[0] || workerVideoUrl || jobStatus?.preview_url;
-  const hasVideoUrls = !!videoUrl;
-  const finalVideoUrl = videoUrl;
+  // SIMPLIFIED VIDEO URL DETECTION: Trust the backend completeness
+  const finalVideoUrl = jobStatus?.finalUrls?.[0]; // Cloudinary URL (preferred)
+  const fallbackVideoUrl = jobStatus?.worker_meta?.fal_video_url || jobStatus?.worker_meta?.video_url; // FAL AI URL (fallback)
+  const displayVideoUrl = finalVideoUrl || fallbackVideoUrl;
 
-  // AGGRESSIVE CHECK: If we have worker_meta with processing_complete, treat as ready
-  const isVideoReady = hasVideoUrls || (jobStatus?.worker_meta?.processing_complete && workerVideoUrl);
-
-  // SUPER AGGRESSIVE: Force show video if job has been running for more than 2 minutes and has any URL
-  const jobAge = jobStatus?.created_at ? (Date.now() - new Date(jobStatus.created_at).getTime()) / 1000 : 0;
-  const forceShowVideo = jobAge > 120 && (videoUrl || workerVideoUrl);
-
-  // EMERGENCY: For jobs older than 3 minutes, force show even without URL (backend probably completed)
-  const emergencyShow = jobAge > 180 && jobStatus?.status === 'processing';
-
-  // Since backend is fixed, use only proper URLs from API (no emergency URL construction)
-  const displayVideoUrl = finalVideoUrl;
-
-  const shouldShowVideo = isVideoReady || forceShowVideo || (emergencyShow && displayVideoUrl);
+  // SIMPLE LOGIC: Show video if job completed OR if we have any video URL
+  const shouldShowVideo = (isJobCompleted && displayVideoUrl) ||
+                         (jobStatus?.worker_meta?.processing_complete && displayVideoUrl) ||
+                         (displayVideoUrl && jobStatus?.status === 'completed');
 
   // AUTO-REFRESH for old jobs without video URLs
+  const jobAge = jobStatus?.created_at ? (Date.now() - new Date(jobStatus.created_at).getTime()) / 1000 : 0;
   useEffect(() => {
-    if (jobStatus && jobAge > 30 && !finalVideoUrl && !workerVideoUrl && jobStatus?.status === 'processing') {
+    if (jobStatus && jobAge > 30 && !displayVideoUrl && jobStatus?.status === 'processing') {
       console.log('🔄 AUTO-REFRESH: Job is old and missing video URL, refreshing status...');
       const timer = setTimeout(() => {
         refetchJobStatus();
@@ -196,51 +186,25 @@ const ImageToVideoTool = () => {
 
       return () => clearTimeout(timer);
     }
-  }, [jobAge, finalVideoUrl, workerVideoUrl, jobStatus?.status, refetchJobStatus]);
+  }, [jobAge, displayVideoUrl, jobStatus?.status, refetchJobStatus]);
 
-  // COMPREHENSIVE DEBUG LOGGING
+  // SIMPLIFIED DEBUG LOGGING
   if (jobStatus) {
-    console.log('🔍 FULL JOB STATUS DEBUG:', {
+    console.log('🔍 JOB STATUS DEBUG:', {
       jobId: currentJobId,
       status: jobStatus.status,
-      preview_url: jobStatus.preview_url,
       finalUrls: jobStatus.finalUrls,
       worker_meta: jobStatus.worker_meta,
-      hasVideoUrls: hasVideoUrls,
-      isVideoReady: isVideoReady,
       shouldShowVideo: shouldShowVideo,
-      forceShowVideo: forceShowVideo,
-      emergencyShow: emergencyShow,
       jobAge: jobAge,
-      videoUrl: videoUrl,
-      workerVideoUrl: workerVideoUrl,
       finalVideoUrl: finalVideoUrl,
+      fallbackVideoUrl: fallbackVideoUrl,
       displayVideoUrl: displayVideoUrl,
       isJobCompleted: isJobCompleted,
       isJobRunning: isJobRunning,
-      isJobFailed: isJobFailed,
-      fullResponse: jobStatus
+      isGenerating: isGenerating
     });
-
-    // SPECIFIC DEBUG: Show worker_meta contents
-    if (jobStatus.worker_meta) {
-      console.log('🔧 WORKER_META DEBUG:', jobStatus.worker_meta);
-    }
   }
-
-  // ADDITIONAL DEBUGGING
-  console.log('🎯 DISPLAY CONDITIONS:', {
-    shouldShowVideo: shouldShowVideo,
-    hasVideoUrls: hasVideoUrls,
-    isVideoReady: isVideoReady,
-    forceShowVideo: forceShowVideo,
-    emergencyShow: emergencyShow,
-    jobAge: jobAge,
-    currentJobId: currentJobId,
-    jobStatusExists: !!jobStatus,
-    finalVideoUrl: finalVideoUrl,
-    displayVideoUrl: displayVideoUrl
-  });
 
   const downloadVideo = async (url: string) => {
     try {
@@ -249,7 +213,7 @@ const ImageToVideoTool = () => {
       const promptSlug = motionPrompt
         ? motionPrompt.slice(0, 30).replace(/[^a-zA-Z0-9]/g, '_')
         : 'motion_video';
-      const filename = `${promptSlug}_${duration}s_${timestamp}.mp4`;
+      const filename = `${promptSlug}_5s_${timestamp}.mp4`;
 
       // Use video URL directly without transformations to avoid corruption
       let downloadUrl = url;
@@ -444,12 +408,14 @@ const ImageToVideoTool = () => {
                       <p className="text-gray-500">Upload an image and describe the motion to create your video</p>
                     </div>
                   </div>
-                ) : isJobRunning ? (
+                ) : isGenerating ? (
                   <div className="flex items-center justify-center h-96">
                     <div className="text-center">
                       <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
                       <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                        {jobStatus?.status === 'queued' ? 'Queued for processing...' : 'Generating video...'}
+                        {isSubmitting ? 'Starting generation...' :
+                         jobStatus?.status === 'queued' ? 'Queued for processing...' :
+                         'Generating video...'}
                       </h3>
                       <p className="text-gray-500">This usually takes ~4 minutes</p>
                     </div>
