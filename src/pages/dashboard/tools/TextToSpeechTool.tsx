@@ -1,19 +1,11 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { AudioLines, Play, Pause, Download, Volume2, User, AlertCircle, CheckCircle, Clock, Loader2 } from "lucide-react";
-import { api, apiHelpers } from "@/lib/api";
+import { useState, useRef, useEffect } from "react";
+import { AudioLines, Play, Pause, Download, SkipForward, SkipBack } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
-import ToolEditorLayout from "@/components/dashboard/ToolEditorLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
-import { Progress } from "@/components/ui/progress";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Switch } from "@/components/ui/switch";
-import { toast } from "sonner";
+import { api } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 // API Types
 interface TTSRequest {
@@ -56,268 +48,81 @@ interface VoiceInfo {
 }
 
 const TextToSpeechTool = () => {
+  const { isAuthenticated } = useAuth();
   const [text, setText] = useState("");
   const [voice, setVoice] = useState("Rachel");
-  const [stability, setStability] = useState([0.5]);
-  const [similarityBoost, setSimilarityBoost] = useState([0.75]);
-  const [style, setStyle] = useState([0]);
-  const [speed, setSpeed] = useState([1.0]);
-  const [timestamps, setTimestamps] = useState(false);
-  const [languageCode, setLanguageCode] = useState("");
-
-  // Generation state
+  const [speed, setSpeed] = useState("1.0");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
-  const [progress, setProgress] = useState(0);
-  const [stage, setStage] = useState("");
-  const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  // Audio playback state
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-
-  // Generated audio
   const [generatedAudio, setGeneratedAudio] = useState<{
-    job_id: string;
-    audio_url: string;
-    cloudinary_public_id?: string;
+    id: string;
+    url: string;
     text: string;
     voice: string;
-    metadata: Record<string, unknown>;
-    timestamps?: Record<string, unknown>[];
-    processing_time?: number;
+    timestamp: Date;
   } | null>(null);
 
-  // Available voices
-  const [availableVoices, setAvailableVoices] = useState<VoiceInfo[]>([]);
-
   const audioRef = useRef<HTMLAudioElement>(null);
-  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load available voices on component mount
-  useEffect(() => {
-    const loadVoices = async () => {
-      try {
-        // Try to get voices from backend API (if available)
-        // For now, use predefined voices since backend voices endpoint may not be implemented
-        console.log('Loading TTS voices...');
+  const voices = [
+    { value: "Rachel", label: "Rachel (Female)" },
+    { value: "Drew", label: "Drew (Male)" },
+    { value: "Paul", label: "Paul (British)" },
+    { value: "Adam", label: "Adam (Deep)" },
+    { value: "Nicole", label: "Nicole (Professional)" },
+    { value: "Sam", label: "Sam (Casual)" }
+  ];
 
-        // ElevenLabs Multilingual v2 compatible voices (verified working)
-        setAvailableVoices([
-          { id: "Rachel", name: "Rachel", gender: "Female", accent: "American", description: "Young female, calm tone - ideal for narration" },
-          { id: "Drew", name: "Drew", gender: "Male", accent: "American", description: "Middle-aged male, perfect for news reading" },
-          { id: "Paul", name: "Paul", gender: "Male", accent: "British", description: "Suitable for news, narration, and documentaries" },
-          { id: "Clyde", name: "Clyde", gender: "Male", accent: "American", description: "Middle-aged male, war veteran character" },
-          { id: "Adam", name: "Adam", gender: "Male", accent: "American", description: "Deep, authoritative male voice" },
-          { id: "Sam", name: "Sam", gender: "Male", accent: "American", description: "Casual, friendly male voice" },
-          { id: "Nicole", name: "Nicole", gender: "Female", accent: "American", description: "Professional, clear female voice" },
-          { id: "Freya", name: "Freya", gender: "Female", accent: "American", description: "Young, energetic female voice" }
-        ]);
-      } catch (error) {
-        console.error('Failed to load voices:', error);
-        // Fallback voices (ElevenLabs Multilingual v2 verified)
-        setAvailableVoices([
-          { id: "Rachel", name: "Rachel", gender: "Female", accent: "American", description: "Young female, calm tone - ideal for narration" },
-          { id: "Drew", name: "Drew", gender: "Male", accent: "American", description: "Middle-aged male, perfect for news reading" },
-          { id: "Paul", name: "Paul", gender: "Male", accent: "British", description: "Suitable for news, narration, and documentaries" },
-          { id: "Clyde", name: "Clyde", gender: "Male", accent: "American", description: "Middle-aged male, war veteran character" },
-          { id: "Adam", name: "Adam", gender: "Male", accent: "American", description: "Deep, authoritative male voice" },
-          { id: "Sam", name: "Sam", gender: "Male", accent: "American", description: "Casual, friendly male voice" }
-        ]);
-      }
-    };
-    loadVoices();
-  }, []);
-
-  // Progress tracking - poll job status with timeout protection
-  const pollJobStatus = useCallback(async (jobId: string, startTime: number = Date.now()) => {
-    try {
-      // Add timeout protection - max 10 minutes
-      const TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
-      if (Date.now() - startTime > TIMEOUT_MS) {
-        setError('TTS generation timed out. Please try again.');
-        setIsGenerating(false);
-        toast.error('TTS generation timed out');
-        return false; // Stop polling
-      }
-
-      const status = await api.getJobStatus(jobId);
-
-      // Map job status to TTS progress
-      let progress = 0;
-      let stage = 'initializing';
-
-      switch (status.status) {
-        case 'queued':
-          progress = 15;
-          stage = 'submitted';
-          break;
-        case 'processing':
-          progress = 60;
-          stage = 'processing_audio';
-          break;
-        case 'completed':
-          progress = 100;
-          stage = 'completed';
-          break;
-        case 'failed':
-          setError(status.error_message || "TTS generation failed");
-          setIsGenerating(false);
-          toast.error(status.error_message || "TTS generation failed");
-          return false; // Stop polling
-        default:
-          // Handle unknown status
-          console.warn(`Unknown job status: ${status.status}`);
-          break;
-      }
-
-      setProgress(progress);
-      setStage(stage);
-
-      // Check for completion with proper audio URL
-      if (status.status === 'completed') {
-        let audioUrl = null;
-
-        // Try different ways to get the audio URL
-        if (status.finalUrls && status.finalUrls.length > 0) {
-          audioUrl = status.finalUrls[0];
-        } else if (status.result && status.result.audio_url) {
-          audioUrl = status.result.audio_url;
-        }
-
-        if (audioUrl) {
-          setGeneratedAudio({
-            job_id: jobId,
-            audio_url: audioUrl,
-            cloudinary_public_id: status.result?.cloudinary_public_id,
-            text: text,
-            voice: voice,
-            metadata: { estimated_duration: 30 },
-            timestamps: status.result?.timestamps,
-            processing_time: status.result?.processing_time
-          });
-          toast.success("TTS generation completed successfully!");
-          setIsGenerating(false);
-          return false; // Stop polling
-        } else {
-          // Completed but no audio URL - this is an error
-          setError('TTS completed but no audio file was generated');
-          setIsGenerating(false);
-          toast.error('No audio file generated');
-          return false; // Stop polling
-        }
-      }
-
-      // Continue polling for queued or processing
-      return status.status === 'queued' || status.status === 'processing';
-    } catch (error) {
-      console.error('Failed to poll job status:', error);
-      setError('Failed to track generation progress');
-      setIsGenerating(false);
-      toast.error('Connection error during TTS generation');
-      return false; // Stop polling
-    }
-  }, [text, voice]);
-
-  // Start progress polling with start time tracking
-  const startProgressPolling = useCallback((jobId: string) => {
-    if (progressIntervalRef.current) {
-      clearInterval(progressIntervalRef.current);
-    }
-
-    const startTime = Date.now();
-
-    progressIntervalRef.current = setInterval(async () => {
-      const shouldContinue = await pollJobStatus(jobId, startTime);
-      if (!shouldContinue && progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current);
-        progressIntervalRef.current = null;
-      }
-    }, 3000); // Poll every 3 seconds (slightly slower to reduce server load)
-  }, [pollJobStatus]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current);
-      }
-    };
-  }, []);
-
-  const textTemplates = [
-    "Welcome to our platform! We're excited to have you here.",
-    "Thank you for choosing our service. Your satisfaction is our priority.",
-    "Hello! This is a test of our text-to-speech capabilities powered by ElevenLabs.",
-    "In today's rapidly evolving digital landscape, innovation drives success.",
-    "Please listen carefully to the following important announcement.",
-    "Once upon a time, in a land far away, there lived a wise old wizard."
+  const speeds = [
+    { value: "0.5", label: "0.5x Slow" },
+    { value: "0.75", label: "0.75x" },
+    { value: "1.0", label: "1.0x Normal" },
+    { value: "1.25", label: "1.25x" },
+    { value: "1.5", label: "1.5x Fast" },
+    { value: "2.0", label: "2.0x Very Fast" }
   ];
 
   const handleGenerate = async () => {
-    if (!text.trim()) {
-      toast.error("Please enter some text to generate speech");
+    if (!text.trim()) return;
+
+    if (!isAuthenticated) {
+      alert('Please sign in to generate audio');
       return;
     }
 
-    if (text.length > 5000) {
-      toast.error("Text must be 5000 characters or less");
-      return;
-    }
-
-    // Reset state
     setIsGenerating(true);
-    setProgress(0);
-    setStage("initializing");
-    setError(null);
-    setCurrentJobId(null);
-    setGeneratedAudio(null);
-    setEstimatedTimeRemaining(null);
 
     try {
-      // Prepare parameters for the TTS job
-      const jobParams = {
-        text: text.trim(),
+      const result = await api.generateAudio({
+        text: text,
         voice: voice,
-        stability: stability[0],
-        similarity_boost: similarityBoost[0],
-        style: style[0] !== 0 ? style[0] : undefined,
-        speed: speed[0],
-        timestamps: timestamps,
-        language_code: (languageCode && languageCode !== 'auto') ? languageCode : undefined
-      };
+        speed: parseFloat(speed)
+      });
 
-      // Create a job using the unified API
-      const jobData = {
-        client_job_id: apiHelpers.generateClientJobId(),
-        module: 'tts' as const,
-        params: jobParams
-      };
+      if (result.success && result.audio_url) {
+        const newAudio = {
+          id: Date.now().toString(),
+          url: result.audio_url,
+          text: text,
+          voice: voice,
+          timestamp: new Date()
+        };
 
-      const result = await api.createJob(jobData);
-
-      if (result.success && result.job_id) {
-        setCurrentJobId(result.job_id);
-        setStage("submitted");
-        setProgress(5);
-        toast.success("TTS generation started! Tracking progress...");
-
-        // Start polling for progress
-        startProgressPolling(result.job_id);
+        setGeneratedAudio(newAudio);
+        console.log('✅ Audio generated successfully');
       } else {
-        setError(result.message || "Failed to start TTS generation");
-        setIsGenerating(false);
-        toast.error(result.message || "Failed to start TTS generation");
+        const errorMessage = result.error || 'Audio generation failed';
+        console.error('❌ Audio generation failed:', errorMessage);
+        alert(`Audio generation failed: ${errorMessage}`);
       }
     } catch (error) {
-      console.error('TTS generation failed:', error);
-      const errorMessage = apiHelpers.handleApiError(error);
-      setError(errorMessage);
-      setIsGenerating(false);
-      toast.error(errorMessage);
+      console.error('❌ Audio generation error:', error);
+      alert(`Network error: ${error instanceof Error ? error.message : 'Unable to connect to audio generation service'}`);
     }
+
+    setIsGenerating(false);
   };
 
   const playPauseAudio = () => {
@@ -332,19 +137,23 @@ const TextToSpeechTool = () => {
     }
   };
 
+  const skipAudio = (seconds: number) => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = Math.max(0, Math.min(duration, audioRef.current.currentTime + seconds));
+    }
+  };
+
   const downloadAudio = () => {
-    if (generatedAudio?.audio_url) {
+    if (generatedAudio?.url) {
       const link = document.createElement('a');
-      link.href = generatedAudio.audio_url;
+      link.href = generatedAudio.url;
       link.download = `tts_${generatedAudio.voice}_${Date.now()}.mp3`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      toast.success("Audio download started!");
     }
   };
 
-  // Audio event handlers
   const handleAudioLoadedData = () => {
     if (audioRef.current) {
       setDuration(audioRef.current.duration);
@@ -362,431 +171,194 @@ const TextToSpeechTool = () => {
     setCurrentTime(0);
   };
 
-  const calculateWordCount = () => text.trim().split(/\s+/).filter(word => word.length > 0).length;
-  const calculateCharacterCount = () => text.length;
-  const estimatedDuration = Math.max(1, Math.floor(calculateCharacterCount() / (15 * speed[0]))); // Adjust for speed
-
-  // Get stage display text
-  const getStageDisplay = (stage: string) => {
-    const stageMap: { [key: string]: string } = {
-      'initializing': 'Initializing...',
-      'submitted': 'Request submitted',
-      'submitting_to_fal': 'Connecting to ElevenLabs...',
-      'processing_audio': 'Generating speech...',
-      'uploading_to_cloudinary': 'Saving audio file...',
-      'completed': 'Complete!'
-    };
-    return stageMap[stage] || stage;
-  };
-
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const previewPane = (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg font-medium flex items-center">
-          <AudioLines className="w-5 h-5 mr-2" />
-          Generated Audio
-          {generatedAudio?.metadata && (
-            <Badge variant="default" className="ml-2">
-              {formatTime(generatedAudio.metadata.estimated_duration || 0)}
-            </Badge>
-          )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {/* Error State */}
-        {error && (
-          <Alert className="mb-4">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription className="text-red-600">
-              {error}
-            </AlertDescription>
-          </Alert>
-        )}
+  return (
+    <DashboardLayout>
+      <div className="flex flex-col h-full bg-white">
+        {/* Header */}
+        <div className="border-b border-gray-200 px-6 py-3">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
+              <AudioLines className="w-5 h-5 text-white" />
+            </div>
+            <h1 className="text-xl font-semibold text-gray-900">Text to Speech</h1>
+            <Badge className="bg-blue-100 text-blue-600 border-0 rounded-full">Free</Badge>
+          </div>
+        </div>
 
-        {/* Generation Progress */}
-        {isGenerating && (
-          <div className="space-y-4">
-            <div className="text-center">
-              <div className="flex items-center justify-center space-x-2 mb-2">
-                <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-                <span className="text-blue-600 font-medium">
-                  {getStageDisplay(stage)}
-                </span>
+        <div className="flex-1 p-6 space-y-8">
+          {/* Input Controls - Large Input Panel */}
+          <div className="w-full">
+            <div className="relative">
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Enter the text you want to convert to natural speech..."
+                className="min-h-[350px] flex h-full w-full flex-col justify-between gap-4 rounded-lg bg-white outline-none transition-colors focus-within:border-gray-300 border border-gray-300 p-6 text-gray-900 placeholder-gray-500 resize-none"
+              />
+
+              {/* Top Controls in Input Window */}
+              <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  {/* Voice Model Selector */}
+                  <Select value={voice} onValueChange={setVoice}>
+                    <SelectTrigger className="w-32 h-10 bg-gray-50 border-gray-300 rounded-full text-xs font-medium hover:bg-gray-100 transition-colors">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border border-gray-200 rounded-xl shadow-lg">
+                      {voices.map((v) => (
+                        <SelectItem key={v.value} value={v.value} className="hover:bg-gray-50 rounded-lg">
+                          <span className="font-medium text-gray-900">{v.label}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Speed Selector */}
+                  <Select value={speed} onValueChange={setSpeed}>
+                    <SelectTrigger className="w-24 h-10 bg-gray-50 border-gray-300 rounded-full text-xs font-medium hover:bg-gray-100 transition-colors">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border border-gray-200 rounded-xl shadow-lg">
+                      {speeds.map((s) => (
+                        <SelectItem key={s.value} value={s.value} className="hover:bg-gray-50 rounded-lg">
+                          <span className="font-medium text-gray-900">{s.label}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Generate Button */}
+                <Button
+                  onClick={handleGenerate}
+                  disabled={!text.trim() || isGenerating}
+                  className="bg-black text-white hover:bg-gray-800 disabled:bg-gray-300 rounded-lg px-6 py-2 font-medium"
+                >
+                  {isGenerating ? "Generating..." : "Generate"}
+                </Button>
               </div>
-              <Progress value={progress} className="w-full mb-2" />
-              <div className="flex justify-between text-xs text-gray-500">
-                <span>{progress}% complete</span>
-                {estimatedTimeRemaining && (
-                  <span>{estimatedTimeRemaining}s remaining</span>
-                )}
-              </div>
-              {currentJobId && (
-                <p className="text-xs text-gray-400 mt-1">Job ID: {currentJobId}</p>
-              )}
             </div>
           </div>
-        )}
 
-        {/* No Audio State */}
-        {!generatedAudio && !isGenerating && !error && (
-          <div className="text-center py-12">
-            <AudioLines className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500 dark:text-gray-400 mb-2">
-              No audio generated yet
-            </p>
-            <p className="text-sm text-gray-400">
-              Enter text and click Generate to create high-quality speech
-            </p>
-          </div>
-        )}
-
-        {/* Generated Audio Display */}
-        {generatedAudio && (
-          <div className="space-y-6">
-            {/* Audio Player */}
-            <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg p-6">
-              <div className="flex items-center space-x-4 mb-4">
-                <Button
-                  onClick={playPauseAudio}
-                  size="lg"
-                  className="w-14 h-14 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                  disabled={!generatedAudio.audio_url}
-                >
-                  {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
-                </Button>
-
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">
-                      {availableVoices.find(v => v.id === generatedAudio.voice)?.name || generatedAudio.voice}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {formatTime(duration)} / {formatTime(generatedAudio.metadata?.estimated_duration || 0)}
-                    </span>
-                  </div>
-                  <Progress
-                    value={duration > 0 ? (currentTime / duration) * 100 : 0}
-                    className="h-2"
-                  />
-                </div>
-              </div>
-
-              {/* Waveform Visualization (Static) */}
-              <div className="flex items-center justify-center space-x-1 h-16 mb-4">
-                {Array.from({ length: 50 }, (_, i) => {
-                  const height = Math.sin((i / 50) * Math.PI * 4) * 30 + 35;
-                  const isActive = duration > 0 && (i / 50) <= (currentTime / duration);
-                  return (
-                    <div
-                      key={i}
-                      className={`rounded-full transition-all duration-200 ${
-                        isActive
-                          ? 'bg-gradient-to-t from-blue-500 to-purple-500'
-                          : 'bg-gray-300 dark:bg-gray-600'
-                      }`}
-                      style={{
-                        width: '3px',
-                        height: `${height}px`,
-                        opacity: isPlaying && isActive ? 1 : 0.6
-                      }}
-                    />
-                  );
-                })}
-              </div>
-
-              <div className="text-center space-y-3">
-                <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-3">
-                  "{generatedAudio.text.substring(0, 150)}..."
-                </p>
-                <div className="flex items-center justify-center space-x-2">
-                  <Button onClick={downloadAudio} variant="outline" size="sm">
-                    <Download className="w-4 h-4 mr-2" />
-                    Download MP3
-                  </Button>
-                  {generatedAudio.processing_time && (
-                    <Badge variant="secondary">
-                      {generatedAudio.processing_time}s processing time
+          {/* Audio Preview Panel - Slim */}
+          <div className="w-full">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
+              <div className="p-6 border-b border-gray-100">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-gray-900">Generated Audio</h2>
+                  {generatedAudio && (
+                    <Badge variant="secondary" className="bg-gray-100 text-gray-600">
+                      {voice}
                     </Badge>
                   )}
                 </div>
               </div>
-            </div>
 
-            {/* Audio Details */}
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="font-medium text-gray-600">Voice:</span>{" "}
-                <span className="text-gray-800 dark:text-gray-200">
-                  {availableVoices.find(v => v.id === generatedAudio.voice)?.name || generatedAudio.voice}
-                </span>
-              </div>
-              <div>
-                <span className="font-medium text-gray-600">Model:</span>{" "}
-                <span className="text-gray-800 dark:text-gray-200">ElevenLabs Multilingual v2</span>
-              </div>
-              <div>
-                <span className="font-medium text-gray-600">Characters:</span>{" "}
-                <span className="text-gray-800 dark:text-gray-200">{generatedAudio.text.length}</span>
-              </div>
-              <div>
-                <span className="font-medium text-gray-600">File Size:</span>{" "}
-                <span className="text-gray-800 dark:text-gray-200">
-                  {generatedAudio.cloudinary_public_id ? "Saved to cloud" : "Temporary"}
-                </span>
-              </div>
-            </div>
-
-            {/* Hidden audio element for playback */}
-            <audio
-              ref={audioRef}
-              src={generatedAudio.audio_url}
-              onLoadedData={handleAudioLoadedData}
-              onTimeUpdate={handleAudioTimeUpdate}
-              onEnded={handleAudioEnded}
-              onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
-              style={{ display: 'none' }}
-              preload="metadata"
-            />
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-
-  return (
-    <DashboardLayout>
-      <ToolEditorLayout
-        toolName="Text to Speech"
-        toolIcon={AudioLines}
-        credits="Free (Testing Mode)"
-        estimatedTime={`~${estimatedDuration}s`}
-        onGenerate={handleGenerate}
-        isGenerating={isGenerating}
-        canGenerate={!!text.trim() && text.length <= 5000 && !isGenerating}
-        previewPane={previewPane}
-      >
-        {/* Text Input */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Enter Your Text</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="text">Text to Convert</Label>
-              <Textarea
-                id="text"
-                placeholder="Enter the text you want to convert to natural speech using ElevenLabs..."
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                className="min-h-[120px]"
-                maxLength={5000}
-                disabled={isGenerating}
-              />
-              <div className="flex justify-between text-xs text-gray-500 mt-1">
-                <span>
-                  {calculateWordCount()} words • {calculateCharacterCount()} characters
-                </span>
-                <span className="text-blue-600">
-                  ~{estimatedDuration}s duration
-                </span>
-              </div>
-              {text.length > 4500 && (
-                <p className="text-xs text-amber-600 mt-1">
-                  ⚠️ Approaching 5,000 character limit
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Voice Settings */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center">
-              <User className="w-4 h-4 mr-2" />
-              Voice Settings
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label>Voice Selection</Label>
-              <Select value={voice} onValueChange={setVoice} disabled={isGenerating}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableVoices.map((v) => (
-                    <SelectItem key={v.id} value={v.id}>
-                      <div className="flex justify-between w-full">
-                        <div>
-                          <div className="font-medium">{v.name}</div>
-                          <div className="text-xs text-gray-500">{v.description}</div>
-                        </div>
-                        <div className="flex space-x-1 ml-4">
-                          <Badge variant="outline" className="text-xs">
-                            {v.gender}
-                          </Badge>
-                          <Badge variant="outline" className="text-xs">
-                            {v.accent}
-                          </Badge>
-                        </div>
+              <div className="p-6">
+                {!generatedAudio && !isGenerating ? (
+                  <div className="flex items-center justify-center h-32">
+                    <div className="text-center">
+                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <AudioLines className="w-8 h-8 text-gray-400" />
                       </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">Ready to create</h3>
+                      <p className="text-gray-500">Enter text and click Generate to create your first audio</p>
+                    </div>
+                  </div>
+                ) : isGenerating ? (
+                  <div className="flex items-center justify-center h-32">
+                    <div className="text-center">
+                      <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">Generating audio...</h3>
+                      <p className="text-gray-500">This usually takes ~1 minute</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Slim Audio Player */}
+                    <div className="bg-black rounded-lg p-4 flex items-center space-x-4">
+                      {/* Play/Pause Button */}
+                      <Button
+                        onClick={playPauseAudio}
+                        className="w-12 h-12 rounded-full bg-white hover:bg-gray-100 text-black p-0"
+                      >
+                        {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+                      </Button>
 
-            <div>
-              <Label>Voice Stability: {stability[0]}</Label>
-              <Slider
-                value={stability}
-                onValueChange={setStability}
-                max={1}
-                min={0}
-                step={0.1}
-                className="mt-2"
-                disabled={isGenerating}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Higher values create more consistent voice, lower values add variation
-              </p>
-            </div>
+                      {/* Skip Backward */}
+                      <Button
+                        onClick={() => skipAudio(-5)}
+                        variant="ghost"
+                        size="sm"
+                        className="text-white hover:bg-gray-800 p-2"
+                      >
+                        <SkipBack className="w-4 h-4" />
+                      </Button>
 
-            <div>
-              <Label>Similarity Boost: {similarityBoost[0]}</Label>
-              <Slider
-                value={similarityBoost}
-                onValueChange={setSimilarityBoost}
-                max={1}
-                min={0}
-                step={0.1}
-                className="mt-2"
-                disabled={isGenerating}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Enhances similarity to the original voice, may affect stability
-              </p>
-            </div>
+                      {/* Audio Progress Bar */}
+                      <div className="flex-1 flex items-center space-x-3">
+                        <span className="text-white text-sm">{formatTime(currentTime)}</span>
+                        <div className="flex-1 h-2 bg-gray-700 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-white transition-all duration-300"
+                            style={{ width: duration > 0 ? `${(currentTime / duration) * 100}%` : '0%' }}
+                          />
+                        </div>
+                        <span className="text-white text-sm">{formatTime(duration)}</span>
+                      </div>
 
-            <div>
-              <Label>Style Enhancement: {style[0]}</Label>
-              <Slider
-                value={style}
-                onValueChange={setStyle}
-                max={1}
-                min={0}
-                step={0.1}
-                className="mt-2"
-                disabled={isGenerating}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Amplifies the style of the original speaker, 0 = neutral
-              </p>
-            </div>
+                      {/* Skip Forward */}
+                      <Button
+                        onClick={() => skipAudio(5)}
+                        variant="ghost"
+                        size="sm"
+                        className="text-white hover:bg-gray-800 p-2"
+                      >
+                        <SkipForward className="w-4 h-4" />
+                      </Button>
 
-            <div>
-              <Label>Speech Speed: {speed[0]}x</Label>
-              <Slider
-                value={speed}
-                onValueChange={setSpeed}
-                max={4}
-                min={0.25}
-                step={0.25}
-                className="mt-2"
-                disabled={isGenerating}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                0.25x = Very slow, 1x = Normal, 4x = Very fast
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+                      {/* Download Button */}
+                      <Button
+                        onClick={downloadAudio}
+                        variant="ghost"
+                        size="sm"
+                        className="text-white hover:bg-gray-800 p-2"
+                      >
+                        <Download className="w-4 h-4" />
+                      </Button>
+                    </div>
 
-        {/* Advanced Settings */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Advanced Settings</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>Include Word Timestamps</Label>
-                <p className="text-xs text-gray-500 mt-1">
-                  Generate timing data for each word (useful for subtitles)
-                </p>
+                    {/* Audio Info */}
+                    <div className="text-center">
+                      <p className="text-sm text-gray-700 truncate">{generatedAudio.text}</p>
+                      <p className="text-xs text-gray-500 mt-1">{generatedAudio.timestamp.toLocaleTimeString()}</p>
+                    </div>
+
+                    {/* Hidden audio element for playback */}
+                    <audio
+                      ref={audioRef}
+                      src={generatedAudio.url}
+                      onLoadedData={handleAudioLoadedData}
+                      onTimeUpdate={handleAudioTimeUpdate}
+                      onEnded={handleAudioEnded}
+                      onPlay={() => setIsPlaying(true)}
+                      onPause={() => setIsPlaying(false)}
+                      style={{ display: 'none' }}
+                      preload="metadata"
+                    />
+                  </div>
+                )}
               </div>
-              <Switch
-                checked={timestamps}
-                onCheckedChange={setTimestamps}
-                disabled={isGenerating}
-              />
             </div>
-
-            <div>
-              <Label htmlFor="languageCode">Language Code (Optional)</Label>
-              <Select value={languageCode} onValueChange={setLanguageCode} disabled={isGenerating}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Auto-detect language" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="auto">Auto-detect</SelectItem>
-                  <SelectItem value="en">English</SelectItem>
-                  <SelectItem value="es">Spanish</SelectItem>
-                  <SelectItem value="fr">French</SelectItem>
-                  <SelectItem value="de">German</SelectItem>
-                  <SelectItem value="it">Italian</SelectItem>
-                  <SelectItem value="pt">Portuguese</SelectItem>
-                  <SelectItem value="pl">Polish</SelectItem>
-                  <SelectItem value="tr">Turkish</SelectItem>
-                  <SelectItem value="ru">Russian</SelectItem>
-                  <SelectItem value="nl">Dutch</SelectItem>
-                  <SelectItem value="cs">Czech</SelectItem>
-                  <SelectItem value="ar">Arabic</SelectItem>
-                  <SelectItem value="zh">Chinese</SelectItem>
-                  <SelectItem value="ja">Japanese</SelectItem>
-                  <SelectItem value="hu">Hungarian</SelectItem>
-                  <SelectItem value="ko">Korean</SelectItem>
-                  <SelectItem value="hi">Hindi</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Quick Templates */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center">
-              <Volume2 className="w-4 h-4 mr-2" />
-              Quick Templates
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-2">
-              {textTemplates.map((template, index) => (
-                <Button
-                  key={index}
-                  variant="outline"
-                  size="sm"
-                  className="justify-start text-left h-auto py-2 text-xs"
-                  onClick={() => setText(template)}
-                  disabled={isGenerating}
-                >
-                  {template}
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </ToolEditorLayout>
+          </div>
+        </div>
+      </div>
     </DashboardLayout>
   );
 };
