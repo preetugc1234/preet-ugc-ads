@@ -232,9 +232,9 @@ const ImageTool = () => {
           </div>
         </div>
 
-        <div className="flex-1 flex gap-8 p-6">
-          {/* Left Panel - Input Controls */}
-          <div className="w-1/2 space-y-6">
+        <div className="flex-1 p-6 space-y-8">
+          {/* Input Controls - Full Width */}
+          <div className="w-full space-y-6">
             {/* Main Prompt Input */}
             <div className="relative">
               <textarea
@@ -308,7 +308,7 @@ const ImageTool = () => {
 
             {/* Reference Image Display */}
             {inputImage && (
-              <div className="relative bg-gray-50 rounded-lg border border-gray-200 p-4">
+              <div className="relative bg-gray-50 rounded-lg border border-gray-200 p-4 max-w-md">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-gray-700">Reference Image</span>
                   <Button
@@ -339,12 +339,12 @@ const ImageTool = () => {
             </div>
           </div>
 
-          {/* Right Panel - Preview */}
-          <div className="w-1/2">
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm h-full">
+          {/* Preview Panel - Full Width Below */}
+          <div className="w-full">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
               <div className="p-6 border-b border-gray-100">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-gray-900">Generated Images</h2>
+                  <h2 className="text-xl font-semibold text-gray-900">Generated Images</h2>
                   {generatedImages.length > 0 && (
                     <Badge variant="secondary" className="bg-gray-100 text-gray-600">
                       {generatedImages.length}
@@ -360,7 +360,7 @@ const ImageTool = () => {
                       <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                         <Image className="w-8 h-8 text-gray-400" />
                       </div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">Ready to create</h3>
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">Ready to create</h3>
                       <p className="text-gray-500">Enter a prompt and click Generate to create your first image</p>
                     </div>
                   </div>
@@ -368,20 +368,19 @@ const ImageTool = () => {
                   <div className="flex items-center justify-center h-96">
                     <div className="text-center">
                       <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">Generating image...</h3>
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">Generating image...</h3>
                       <p className="text-gray-500">This usually takes ~2 minutes</p>
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {generatedImages.map((image) => (
                       <div key={image.id} className="relative group">
-                        <div className="aspect-square rounded-xl overflow-hidden bg-gray-100">
+                        <div className="aspect-square rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
                           <img
                             src={image.url}
                             alt={image.prompt}
                             className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                            style={{ width: '70%', height: '70%', margin: '15% auto' }}
                           />
                           <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded-xl flex items-center justify-center">
                             <div className="opacity-0 group-hover:opacity-100 transition-opacity flex space-x-2">
