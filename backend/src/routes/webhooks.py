@@ -12,7 +12,6 @@ from pydantic import BaseModel
 from bson import ObjectId
 
 from ..database import get_db
-from ..ai_models.asset_handler import AssetHandler
 
 logger = logging.getLogger(__name__)
 
@@ -145,74 +144,87 @@ async def process_fal_completion_direct(job_id: ObjectId, user_id: str, module: 
     """Process completed Fal AI result directly from webhook payload."""
     try:
         db = get_db()
-        asset_handler = AssetHandler()
 
-        # Process based on module type
-        asset_data = None
+        # Process based on module type - DIRECT SAVE APPROACH
 
         if module == "img2vid_noaudio":
-            # Handle video result from direct Fal AI response
+            # Handle video result from direct Fal AI response - SIMPLE APPROACH
             video_info = payload_data.get("video", {})
             video_url = video_info.get("url")
 
             if not video_url:
-                raise Exception(f"No video URL in payload: {payload_data}")
+                raise Exception(f"No video URL in webhook payload: {payload_data}")
 
-            video_result = {
-                "success": True,
-                "video_url": video_url,
-                "thumbnail_url": video_info.get("thumbnail_url"),
-                "duration": video_info.get("duration", 10),
-                "model": "kling-v2.1-pro",
-                "has_audio": False
-            }
+            logger.info(f"✅ WEBHOOK SUCCESS: Got video URL directly from FAL AI: {video_url}")
 
-            asset_data = await asset_handler.handle_video_result(
-                video_result, str(job_id), user_id, False
-            )
+            # SIMPLE: Just save the video URL directly without any additional API calls
+            final_urls = [video_url]
 
-        elif module == "img2vid_audio" or module == "kling_avatar":
-            # Handle Kling AI Avatar result
-            video_info = payload_data.get("video", {})
-            video_result = {
-                "success": True,
-                "video_url": video_info.get("url"),
-                "duration": video_info.get("duration", 0),
-                "model": "kling-v1-pro-ai-avatar",
-                "has_audio": True,
-                "audio_synced": True
-            }
-
-            asset_data = await asset_handler.handle_video_result(
-                video_result, str(job_id), user_id, True  # has_audio = True
-            )
-
-        elif module == "tts" or module == "tts_turbo":
-            # Handle ElevenLabs TTS Turbo v2.5 result
-            audio_info = payload_data.get("audio", {})
-            audio_result = {
-                "success": True,
-                "audio_url": audio_info.get("url"),
-                "timestamps": payload_data.get("timestamps", []),
-                "model": "elevenlabs-tts-multilingual-v2",
-                "has_audio": True
-            }
-
-            asset_data = await asset_handler.handle_audio_result(
-                audio_result, str(job_id), user_id
-            )
-
-        if asset_data and asset_data.get("success"):
-            final_urls = asset_data.get("urls", [])
-
-            # Update job as completed
+            # Update job to completed immediately
             db.jobs.update_one(
                 {"_id": job_id},
                 {
                     "$set": {
                         "status": "completed",
-                        "finalUrls": final_urls,
                         "completedAt": datetime.now(timezone.utc),
+                        "finalUrls": final_urls,
+                        "workerMeta": {
+                            "video_url": video_url,
+                            "processing_complete": True,
+                            "model": "kling-v2.5-turbo-pro",
+                            "completed_via": "webhook",
+                            "completed_at": datetime.now(timezone.utc).isoformat()
+                        },
+                        "updatedAt": datetime.now(timezone.utc)
+                    }
+                }
+            )
+
+            # Create generation record
+            from ..database import GenerationModel
+            generation_doc = GenerationModel.create_generation(
+                user_id=ObjectId(user_id),
+                job_id=job_id,
+                generation_type="img2vid_noaudio",
+                preview_url="",
+                final_urls=final_urls,
+                size_bytes=1024  # Placeholder
+            )
+
+            db.generations.insert_one(generation_doc)
+
+            # Handle history eviction
+            from ..database import cleanup_old_generations
+            cleanup_old_generations(ObjectId(user_id), max_count=30)
+
+            logger.info(f"Fal AI job {job_id} completed successfully via direct webhook")
+            return
+
+        elif module == "img2vid_audio" or module == "kling_avatar":
+            # Handle Kling AI Avatar result - DIRECT SAVE (no additional API calls)
+            video_info = payload_data.get("video", {})
+            video_url = video_info.get("url")
+
+            if not video_url:
+                raise Exception(f"No video URL in webhook payload: {payload_data}")
+
+            final_urls = [video_url]
+
+            # Update job to completed immediately
+            db.jobs.update_one(
+                {"_id": job_id},
+                {
+                    "$set": {
+                        "status": "completed",
+                        "completedAt": datetime.now(timezone.utc),
+                        "finalUrls": final_urls,
+                        "workerMeta": {
+                            "video_url": video_url,
+                            "processing_complete": True,
+                            "model": "kling-v1-pro-ai-avatar",
+                            "completed_via": "webhook",
+                            "completed_at": datetime.now(timezone.utc).isoformat()
+                        },
                         "updatedAt": datetime.now(timezone.utc)
                     }
                 }
@@ -224,9 +236,9 @@ async def process_fal_completion_direct(job_id: ObjectId, user_id: str, module: 
                 user_id=ObjectId(user_id),
                 job_id=job_id,
                 generation_type=module,
-                preview_url=db.jobs.find_one({"_id": job_id}).get("previewUrl", ""),
+                preview_url="",
                 final_urls=final_urls,
-                size_bytes=sum([1024 for _ in final_urls])
+                size_bytes=1024
             )
 
             db.generations.insert_one(generation_doc)
@@ -236,9 +248,60 @@ async def process_fal_completion_direct(job_id: ObjectId, user_id: str, module: 
             cleanup_old_generations(ObjectId(user_id), max_count=30)
 
             logger.info(f"Fal AI job {job_id} completed successfully via direct webhook")
+            return
+
+        elif module == "tts" or module == "tts_turbo":
+            # Handle ElevenLabs TTS result - DIRECT SAVE (no additional API calls)
+            audio_info = payload_data.get("audio", {})
+            audio_url = audio_info.get("url")
+
+            if not audio_url:
+                raise Exception(f"No audio URL in webhook payload: {payload_data}")
+
+            final_urls = [audio_url]
+
+            # Update job to completed immediately
+            db.jobs.update_one(
+                {"_id": job_id},
+                {
+                    "$set": {
+                        "status": "completed",
+                        "completedAt": datetime.now(timezone.utc),
+                        "finalUrls": final_urls,
+                        "workerMeta": {
+                            "audio_url": audio_url,
+                            "processing_complete": True,
+                            "model": "elevenlabs-tts-multilingual-v2",
+                            "completed_via": "webhook",
+                            "completed_at": datetime.now(timezone.utc).isoformat()
+                        },
+                        "updatedAt": datetime.now(timezone.utc)
+                    }
+                }
+            )
+
+            # Create generation record
+            from ..database import GenerationModel
+            generation_doc = GenerationModel.create_generation(
+                user_id=ObjectId(user_id),
+                job_id=job_id,
+                generation_type=module,
+                preview_url="",
+                final_urls=final_urls,
+                size_bytes=1024
+            )
+
+            db.generations.insert_one(generation_doc)
+
+            # Handle history eviction
+            from ..database import cleanup_old_generations
+            cleanup_old_generations(ObjectId(user_id), max_count=30)
+
+            logger.info(f"Fal AI job {job_id} completed successfully via direct webhook")
+            return
 
         else:
-            raise Exception("Failed to process video asset or unsupported module")
+            raise Exception(f"Unsupported module: {module}")
 
     except Exception as e:
         logger.error(f"Error processing Fal completion directly: {e}")
@@ -258,59 +321,19 @@ async def process_fal_completion_direct(job_id: ObjectId, user_id: str, module: 
         )
 
 async def process_fal_completion(job_id: ObjectId, user_id: str, module: str, result: Dict[str, Any]):
-    """Process completed Fal AI result in background."""
+    """Process completed Fal AI result in background - DIRECT SAVE APPROACH."""
     try:
         db = get_db()
-        asset_handler = AssetHandler()
 
-        # Process based on module type
-        asset_data = None
-
+        # Process based on module type - DIRECT SAVE APPROACH
         if module == "img2vid_noaudio":
-            # Handle video result
-            video_result = {
-                "success": True,
-                "video_url": result.get("video", {}).get("url"),
-                "duration": 10,  # Default duration
-                "model": "kling-v2.1-pro",
-                "has_audio": False
-            }
+            # Handle video result - DIRECT SAVE
+            video_url = result.get("video", {}).get("url")
 
-            asset_data = await asset_handler.handle_video_result(
-                video_result, str(job_id), user_id, False
-            )
+            if not video_url:
+                raise Exception(f"No video URL in result: {result}")
 
-        elif module == "img2vid_audio" or module == "kling_avatar":
-            # Handle Kling AI Avatar result
-            video_result = {
-                "success": True,
-                "video_url": result.get("video", {}).get("url"),
-                "duration": result.get("duration", 0),
-                "model": "kling-v1-pro-ai-avatar",
-                "has_audio": True,
-                "audio_synced": True
-            }
-
-            asset_data = await asset_handler.handle_video_result(
-                video_result, str(job_id), user_id, True  # has_audio = True
-            )
-
-        elif module == "tts" or module == "tts_turbo":
-            # Handle ElevenLabs TTS Turbo v2.5 result
-            audio_result = {
-                "success": True,
-                "audio_url": result.get("audio", {}).get("url"),
-                "timestamps": result.get("timestamps", []),
-                "model": "elevenlabs-tts-multilingual-v2",
-                "has_audio": True
-            }
-
-            asset_data = await asset_handler.handle_audio_result(
-                audio_result, str(job_id), user_id
-            )
-
-        if asset_data and asset_data.get("success"):
-            final_urls = asset_data.get("urls", [])
+            final_urls = [video_url]
 
             # Update job as completed
             db.jobs.update_one(
@@ -320,6 +343,13 @@ async def process_fal_completion(job_id: ObjectId, user_id: str, module: str, re
                         "status": "completed",
                         "finalUrls": final_urls,
                         "completedAt": datetime.now(timezone.utc),
+                        "workerMeta": {
+                            "video_url": video_url,
+                            "processing_complete": True,
+                            "model": "kling-v2.5-turbo-pro",
+                            "completed_via": "legacy_webhook",
+                            "completed_at": datetime.now(timezone.utc).isoformat()
+                        },
                         "updatedAt": datetime.now(timezone.utc)
                     }
                 }
@@ -331,9 +361,9 @@ async def process_fal_completion(job_id: ObjectId, user_id: str, module: str, re
                 user_id=ObjectId(user_id),
                 job_id=job_id,
                 generation_type=module,
-                preview_url=db.jobs.find_one({"_id": job_id}).get("previewUrl", ""),
+                preview_url="",
                 final_urls=final_urls,
-                size_bytes=sum([1024 for _ in final_urls])
+                size_bytes=1024
             )
 
             db.generations.insert_one(generation_doc)
@@ -342,10 +372,106 @@ async def process_fal_completion(job_id: ObjectId, user_id: str, module: str, re
             from ..database import cleanup_old_generations
             cleanup_old_generations(ObjectId(user_id), max_count=30)
 
-            logger.info(f"Fal AI job {job_id} completed successfully via webhook")
+            logger.info(f"Fal AI job {job_id} completed successfully via legacy webhook")
+
+        elif module == "img2vid_audio" or module == "kling_avatar":
+            # Handle Kling AI Avatar result - DIRECT SAVE
+            video_url = result.get("video", {}).get("url")
+
+            if not video_url:
+                raise Exception(f"No video URL in result: {result}")
+
+            final_urls = [video_url]
+
+            # Update job as completed
+            db.jobs.update_one(
+                {"_id": job_id},
+                {
+                    "$set": {
+                        "status": "completed",
+                        "finalUrls": final_urls,
+                        "completedAt": datetime.now(timezone.utc),
+                        "workerMeta": {
+                            "video_url": video_url,
+                            "processing_complete": True,
+                            "model": "kling-v1-pro-ai-avatar",
+                            "completed_via": "legacy_webhook",
+                            "completed_at": datetime.now(timezone.utc).isoformat()
+                        },
+                        "updatedAt": datetime.now(timezone.utc)
+                    }
+                }
+            )
+
+            # Create generation record
+            from ..database import GenerationModel
+            generation_doc = GenerationModel.create_generation(
+                user_id=ObjectId(user_id),
+                job_id=job_id,
+                generation_type=module,
+                preview_url="",
+                final_urls=final_urls,
+                size_bytes=1024
+            )
+
+            db.generations.insert_one(generation_doc)
+
+            # Handle history eviction
+            from ..database import cleanup_old_generations
+            cleanup_old_generations(ObjectId(user_id), max_count=30)
+
+            logger.info(f"Fal AI job {job_id} completed successfully via legacy webhook")
+
+        elif module == "tts" or module == "tts_turbo":
+            # Handle ElevenLabs TTS result - DIRECT SAVE
+            audio_url = result.get("audio", {}).get("url")
+
+            if not audio_url:
+                raise Exception(f"No audio URL in result: {result}")
+
+            final_urls = [audio_url]
+
+            # Update job as completed
+            db.jobs.update_one(
+                {"_id": job_id},
+                {
+                    "$set": {
+                        "status": "completed",
+                        "finalUrls": final_urls,
+                        "completedAt": datetime.now(timezone.utc),
+                        "workerMeta": {
+                            "audio_url": audio_url,
+                            "processing_complete": True,
+                            "model": "elevenlabs-tts-multilingual-v2",
+                            "completed_via": "legacy_webhook",
+                            "completed_at": datetime.now(timezone.utc).isoformat()
+                        },
+                        "updatedAt": datetime.now(timezone.utc)
+                    }
+                }
+            )
+
+            # Create generation record
+            from ..database import GenerationModel
+            generation_doc = GenerationModel.create_generation(
+                user_id=ObjectId(user_id),
+                job_id=job_id,
+                generation_type=module,
+                preview_url="",
+                final_urls=final_urls,
+                size_bytes=1024
+            )
+
+            db.generations.insert_one(generation_doc)
+
+            # Handle history eviction
+            from ..database import cleanup_old_generations
+            cleanup_old_generations(ObjectId(user_id), max_count=30)
+
+            logger.info(f"Fal AI job {job_id} completed successfully via legacy webhook")
 
         else:
-            raise Exception("Failed to process video asset or unsupported module")
+            raise Exception(f"Unsupported module: {module}")
 
     except Exception as e:
         logger.error(f"Error processing Fal completion: {e}")
