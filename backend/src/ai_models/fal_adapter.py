@@ -321,23 +321,78 @@ class FalAdapter:
                     try:
                         # Handle Completed object for Kling v2.5 Turbo Pro
                         if hasattr(status_result, '__class__') and status_result.__class__.__name__ == 'Completed':
-                            logger.info(f"🔍 Job completed, fetching result for Kling v2.5 Turbo Pro...")
+                            logger.info(f"🔍 Job completed, getting result for Kling v2.5 Turbo Pro...")
 
-                            # Always use fal_client.result to get the actual result for Kling models
+                            # Try multiple methods to get the result
+                            result = None
+
+                            # Method 1: Try to extract result directly from the Completed object
                             try:
-                                result = await asyncio.to_thread(
-                                    fal_client.result,
-                                    self.models["img2vid_noaudio"],
-                                    request_id
-                                )
-                                logger.info(f"✅ Got Kling result via fal_client.result: {type(result)}")
-                                logger.info(f"🎬 Kling result content: {result}")
-                            except Exception as result_fetch_error:
-                                logger.error(f"❌ Kling result fetch failed: {result_fetch_error}")
+                                logger.info(f"🔄 Method 1: Extracting result from Completed object...")
+                                # For Kling models, try to get the result directly using the handler
+                                handler = self.active_handlers.get(request_id)
+                                if handler and hasattr(handler, 'get'):
+                                    result = await asyncio.to_thread(handler.get)
+                                    logger.info(f"✅ Got result from Completed handler: {type(result)}")
+                                    if result:
+                                        logger.info(f"🎬 Completed result content: {result}")
+                                else:
+                                    # Try alternative - use a synchronous get on the handler
+                                    if handler:
+                                        result = handler.get()
+                                        logger.info(f"✅ Got result from sync handler: {type(result)}")
+                                        if result:
+                                            logger.info(f"🎬 Sync result content: {result}")
+                            except Exception as handler_error:
+                                logger.warning(f"⚠️ Method 1 failed: {handler_error}")
+                                result = None
+
+                            # Method 2: If handler failed, try fal_client.result
+                            if not result:
+                                try:
+                                    logger.info(f"🔄 Method 2: Using fal_client.result...")
+                                    result = await asyncio.to_thread(
+                                        fal_client.result,
+                                        self.models["img2vid_noaudio"],
+                                        request_id
+                                    )
+                                    logger.info(f"✅ Got result via fal_client.result: {type(result)}")
+                                    if result:
+                                        logger.info(f"🎬 FAL result content: {result}")
+                                except Exception as result_fetch_error:
+                                    logger.warning(f"⚠️ fal_client.result failed: {result_fetch_error}")
+
+                            # Method 3: If both failed but job completed, try one more approach
+                            if not result:
+                                logger.warning(f"⚠️ Cannot retrieve result, but job completed - checking for webhook delivery...")
+
+                                # This might be a webhook-delivered result, let's check the database
+                                # or wait a bit and check if the result appears in the job record
+                                try:
+                                    # Sometimes results are delivered via webhook, check if we have it
+                                    from ..database import get_db
+                                    db = get_db()
+                                    job = db.jobs.find_one({"workerMeta.request_id": request_id})
+
+                                    if job and job.get("finalUrls"):
+                                        logger.info(f"📦 Found completed job in database with URLs!")
+                                        return {
+                                            "success": True,
+                                            "video_url": job["finalUrls"][0] if job["finalUrls"] else None,
+                                            "final_urls": job["finalUrls"],
+                                            "status": "completed",
+                                            "model": "kling-v2.5-turbo-pro",
+                                            "request_id": request_id
+                                        }
+                                except Exception as db_error:
+                                    logger.warning(f"⚠️ Database check failed: {db_error}")
+
+                                # If all else fails, return a special status that polling can handle
+                                logger.error(f"❌ Job completed but result retrieval failed - will retry in polling")
                                 return {
                                     "success": False,
-                                    "status": "failed",
-                                    "error": f"Failed to fetch Kling result: {result_fetch_error}",
+                                    "status": "completed_but_result_pending",
+                                    "error": "Job completed but result not immediately available. Polling will continue.",
                                     "request_id": request_id
                                 }
                         elif isinstance(status_result, dict) and status_result.get("result"):

@@ -1099,14 +1099,28 @@ class QueueManager:
 
                             logger.info(f"📊 POLL {poll_attempt}/8: Status = {current_status}")
 
-                            if poll_result.get('status') == 'completed' and poll_result.get('success'):
+                            if (poll_result.get('status') == 'completed' and poll_result.get('success')) or poll_result.get('status') == 'completed_but_result_pending':
                                 # 🎉 JOB COMPLETED! Process and save to Cloudinary
                                 logger.info(f"✅ POLL SUCCESS: Job {job_id} completed on poll {poll_attempt}/8!")
 
-                                # Get final URLs
+                                # Get final URLs - handle different result formats
                                 final_urls = poll_result.get('final_urls', [poll_result.get('video_url')])
                                 if not final_urls or not final_urls[0]:
                                     final_urls = [poll_result.get('video_url')]
+
+                                # If no video URL available but job completed, check for webhook delivery
+                                if not final_urls or not final_urls[0] or final_urls[0] is None:
+                                    logger.warning(f"⚠️ No video URL in poll result, checking database for webhook delivery...")
+
+                                    # Check if the job was already completed via webhook
+                                    job = db.jobs.find_one({"_id": job_id})
+                                    if job and job.get("finalUrls"):
+                                        final_urls = job["finalUrls"]
+                                        logger.info(f"📦 Found URLs in database: {final_urls}")
+                                    elif poll_result.get('status') == 'completed_but_result_pending':
+                                        # Continue polling for a bit more to see if result appears
+                                        logger.info(f"⏳ Result pending, will continue polling...")
+                                        continue
 
                                 # Update job to completed
                                 db.jobs.update_one(
