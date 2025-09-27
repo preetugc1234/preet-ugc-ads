@@ -1080,31 +1080,94 @@ class QueueManager:
                     return
 
                 elif async_result.get('status') in ['queued', 'processing', 'in_progress']:
-                    # NO POLLING LOOP: Job is still processing - this is normal for Kling v2.5 (takes 3-4 minutes)
-                    logger.info(f"⏳ NORMAL: Job {job_id} still processing (Kling takes 3-4 minutes)")
-                    logger.info(f"🔄 Status: {async_result.get('status')} - Job will complete automatically")
-                    logger.info(f"💰 MONEY SAVED: No infinite polling loop to waste API credits")
+                    # 🔄 POLLING SYSTEM: Check same job 8 times (NOT retry - just status checks)
+                    logger.info(f"🔄 POLLING: Job {job_id} still processing, starting 8-poll system")
+                    logger.info(f"💰 SMART: 8 FREE status checks (no new jobs created)")
 
-                    # Mark job as processing and let it complete naturally via webhooks or background polling
-                    db.jobs.update_one(
-                        {"_id": job_id},
-                        {
-                            "$set": {
-                                "status": JobStatus.PROCESSING.value,
-                                "processingStatus": async_result.get('status'),
-                                "lastCheckedAt": datetime.now(timezone.utc),
-                                "updatedAt": datetime.now(timezone.utc)
-                            }
-                        }
-                    )
+                    # Start polling system - check same request_id up to 8 times
+                    for poll_attempt in range(1, 9):  # 1 to 8
+                        logger.info(f"🔍 POLL {poll_attempt}/8: Checking job {job_id} status...")
 
-                    # Clean up processing lock so other jobs can run
-                    job_id_str = str(job_id)
-                    if job_id_str in self.processing_jobs:
-                        self.processing_jobs.discard(job_id_str)
-                        logger.info(f"🧹 Released processing lock for job {job_id} (still processing on FAL)")
+                        # Wait 30 seconds between polls (except first poll which is immediate)
+                        if poll_attempt > 1:
+                            await asyncio.sleep(30)
 
-                    logger.info(f"✅ Job {job_id} left to process naturally - will complete in 3-4 minutes")
+                        try:
+                            # Check SAME request_id status (FREE operation)
+                            poll_result = await adapter.get_async_result(request_id)
+                            current_status = poll_result.get('status')
+
+                            logger.info(f"📊 POLL {poll_attempt}/8: Status = {current_status}")
+
+                            if poll_result.get('status') == 'completed' and poll_result.get('success'):
+                                # 🎉 JOB COMPLETED! Process and save to Cloudinary
+                                logger.info(f"✅ POLL SUCCESS: Job {job_id} completed on poll {poll_attempt}/8!")
+
+                                # Get final URLs
+                                final_urls = poll_result.get('final_urls', [poll_result.get('video_url')])
+                                if not final_urls or not final_urls[0]:
+                                    final_urls = [poll_result.get('video_url')]
+
+                                # Update job to completed
+                                db.jobs.update_one(
+                                    {"_id": job_id},
+                                    {
+                                        "$set": {
+                                            "status": JobStatus.COMPLETED.value,
+                                            "completedAt": datetime.now(timezone.utc),
+                                            "finalUrls": final_urls,
+                                            "workerMeta": {
+                                                "video_url": poll_result.get('video_url'),
+                                                "processing_complete": True,
+                                                "model": poll_result.get("model", "kling-v2.5-turbo-pro"),
+                                                "completed_at": datetime.now(timezone.utc).isoformat(),
+                                                "completed_on_poll": poll_attempt
+                                            },
+                                            "updatedAt": datetime.now(timezone.utc)
+                                        }
+                                    }
+                                )
+
+                                # Clean up processing lock
+                                job_id_str = str(job_id)
+                                if job_id_str in self.processing_jobs:
+                                    self.processing_jobs.discard(job_id_str)
+                                    logger.info(f"🧹 Removed completed job {job_id} from processing lock")
+
+                                # Create generation record
+                                from .database import GenerationModel
+                                generation_doc = GenerationModel.create_generation(
+                                    user_id=ObjectId(user_id),
+                                    job_id=job_id,
+                                    generation_type="img2vid_noaudio",
+                                    preview_url="",
+                                    final_urls=final_urls,
+                                    size_bytes=sum([1024 for _ in final_urls])
+                                )
+
+                                logger.info(f"🎉 POLLING SUCCESS: Job {job_id} completed and saved! URLs: {final_urls}")
+                                return
+
+                            elif poll_result.get('status') == 'failed':
+                                # Job failed during polling
+                                error_msg = poll_result.get('error', 'Job failed during processing')
+                                logger.error(f"❌ POLL FAILED: Job {job_id} failed on poll {poll_attempt}/8: {error_msg}")
+                                await self._handle_job_failure(job_id, f"Job failed during polling: {error_msg}")
+                                return
+
+                            else:
+                                # Still processing, continue polling
+                                logger.info(f"⏳ POLL {poll_attempt}/8: Job {job_id} still {current_status}, continuing...")
+
+                        except Exception as poll_error:
+                            logger.error(f"❌ POLL {poll_attempt}/8 ERROR: {poll_error}")
+                            # Continue polling even if one check fails
+                            continue
+
+                    # All 8 polls completed but job not ready - mark as failed
+                    logger.warning(f"⏰ POLL TIMEOUT: Job {job_id} not ready after 8 polls (4 minutes)")
+                    logger.warning(f"💰 NO RETRY: Job failed naturally, no new job will be created")
+                    await self._handle_job_failure(job_id, "Job not completed after 8 polling attempts (4 minutes). Please try generating again.")
                     return
 
                 else:
