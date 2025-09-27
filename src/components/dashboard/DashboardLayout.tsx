@@ -136,57 +136,57 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   const isActive = (href: string) => location.pathname === href;
 
   const SidebarContent = () => (
-    <div className="flex flex-col h-full bg-slate-900 text-white">
+    <div className="flex flex-col h-full bg-white border-r border-gray-200">
       {/* Logo & Brand */}
-      <div className="flex items-center space-x-3 p-6 border-b border-slate-700">
-        <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-          <span className="text-white font-bold text-sm">AI</span>
+      <div className="flex items-center space-x-3 p-6 border-b border-gray-100">
+        <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
+          <span className="text-white font-bold text-lg">M</span>
         </div>
-        <span className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-          AdMax
+        <span className="text-xl font-semibold text-gray-900">
+          makeugc
         </span>
       </div>
 
       {/* Profile Section */}
-      <div className="p-4 border-b border-slate-700">
-        <div className="flex items-center space-x-3 mb-3">
-          <Avatar className="h-10 w-10">
+      <div className="p-6 border-b border-gray-100">
+        <div className="flex items-center space-x-3 mb-4">
+          <Avatar className="h-12 w-12">
             <AvatarImage src={user.avatar} />
-            <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-600">
+            <AvatarFallback className="bg-blue-600 text-white">
               {user.name.split(' ').map(n => n[0]).join('')}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{user.name}</p>
+            <p className="font-semibold text-gray-900 truncate">{user.name}</p>
             <div className="flex items-center space-x-2">
-              <Badge variant="outline" className="text-xs border-purple-500 text-purple-400">
+              <Badge className="text-xs bg-blue-100 text-blue-600 border-0 rounded-full">
                 <Crown className="w-3 h-3 mr-1" />
                 {user.plan}
               </Badge>
             </div>
           </div>
         </div>
-        <div className="bg-slate-800 rounded-lg p-3">
+        <div className="bg-gray-50 rounded-xl p-4">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs text-slate-400">Credits</span>
+            <span className="text-sm text-gray-600">Credits</span>
             <Link to="/dashboard/billing">
-              <Button size="sm" variant="ghost" className="h-6 text-xs text-blue-400 hover:text-blue-300">
+              <Button size="sm" variant="ghost" className="h-6 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg">
                 Buy More
               </Button>
             </Link>
           </div>
-          <p className="text-lg font-semibold text-green-400">{user.credits.toLocaleString()}</p>
+          <p className="text-xl font-bold text-gray-900">{user.credits.toLocaleString()}</p>
         </div>
       </div>
 
       {/* Navigation */}
-      <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800">
+      <div className="flex-1 overflow-y-auto">
         {/* Tools Section */}
         <div className="px-4 py-4">
-          <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">
             AI Tools
           </h3>
-          <nav className="space-y-1">
+          <nav className="space-y-2">
             {toolsNavigation.map((item) => {
               const Icon = item.icon;
               return (
@@ -194,10 +194,10 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                   key={item.name}
                   to={item.href}
                   className={cn(
-                    "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors group",
+                    "flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-colors group",
                     isActive(item.href)
-                      ? "bg-blue-600 text-white"
-                      : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                      ? "bg-blue-600 text-white shadow-lg"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                   )}
                   onClick={() => setSidebarOpen(false)}
                 >
@@ -207,7 +207,12 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                       <span>{item.name}</span>
                       <Badge
                         variant="outline"
-                        className="text-xs border-slate-600 text-slate-400 ml-2"
+                        className={cn(
+                          "text-xs ml-2 border-0 rounded-full",
+                          isActive(item.href)
+                            ? "bg-white/20 text-white"
+                            : "bg-gray-100 text-gray-600"
+                        )}
                       >
                         {item.credits}
                       </Badge>
@@ -220,8 +225,8 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
         </div>
 
         {/* Main Navigation */}
-        <div className="px-4 py-4 border-t border-slate-700">
-          <nav className="space-y-1">
+        <div className="px-4 py-4 border-t border-gray-100">
+          <nav className="space-y-2">
             {mainNavigation.map((item) => {
               const Icon = item.icon;
               return (
@@ -229,10 +234,10 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                   key={item.name}
                   to={item.href}
                   className={cn(
-                    "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors",
+                    "flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-colors",
                     isActive(item.href)
-                      ? "bg-blue-600 text-white"
-                      : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                      ? "bg-blue-600 text-white shadow-lg"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                   )}
                   onClick={() => setSidebarOpen(false)}
                 >
@@ -246,11 +251,11 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 
         {/* Admin Navigation */}
         {adminNavigation.length > 0 && (
-          <div className="px-4 py-4 border-t border-slate-700">
-            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+          <div className="px-4 py-4 border-t border-gray-100">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">
               Administration
             </h3>
-            <nav className="space-y-1">
+            <nav className="space-y-2">
               {adminNavigation.map((item) => {
                 const Icon = item.icon;
                 return (
@@ -258,10 +263,10 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                     key={item.name}
                     to={item.href}
                     className={cn(
-                      "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors",
+                      "flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-colors",
                       isActive(item.href)
-                        ? "bg-red-600 text-white"
-                        : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                        ? "bg-red-600 text-white shadow-lg"
+                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                     )}
                     onClick={() => setSidebarOpen(false)}
                   >
@@ -276,14 +281,14 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
       </div>
 
       {/* Settings at Bottom */}
-      <div className="p-4 border-t border-slate-700">
+      <div className="p-4 border-t border-gray-100">
         <Link
           to="/dashboard/settings"
           className={cn(
-            "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors w-full",
+            "flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-colors w-full",
             isActive("/dashboard/settings")
-              ? "bg-blue-600 text-white"
-              : "text-slate-300 hover:bg-slate-800 hover:text-white"
+              ? "bg-blue-600 text-white shadow-lg"
+              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
           )}
           onClick={() => setSidebarOpen(false)}
         >
@@ -295,7 +300,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   );
 
   return (
-    <div className="h-screen bg-slate-50 dark:bg-slate-950 flex overflow-hidden smooth-scroll">
+    <div className="h-screen bg-white flex overflow-hidden">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
@@ -315,17 +320,17 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top header */}
-        <header className="bg-white dark:bg-slate-900 shadow-sm border-b border-slate-200 dark:border-slate-700">
+        <header className="bg-white shadow-sm border-b border-gray-100">
           <div className="flex items-center justify-between px-6 py-4">
             <div className="flex items-center space-x-4">
               {/* Mobile menu button */}
               <Button
                 variant="ghost"
                 size="sm"
-                className="lg:hidden p-2"
+                className="lg:hidden p-2 hover:bg-gray-50 rounded-lg"
                 onClick={() => setSidebarOpen(true)}
               >
-                <Menu className="h-5 w-5" />
+                <Menu className="h-5 w-5 text-gray-600" />
               </Button>
             </div>
 
@@ -336,9 +341,9 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                 variant="ghost"
                 size="sm"
                 onClick={toggleTheme}
-                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="p-2 hover:bg-gray-50 rounded-lg"
               >
-                {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                {isDark ? <Sun className="h-5 w-5 text-gray-600" /> : <Moon className="h-5 w-5 text-gray-600" />}
               </Button>
 
               {/* Notifications */}
@@ -349,51 +354,51 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                 variant="ghost"
                 size="sm"
                 onClick={() => navigate("/dashboard/learning")}
-                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="p-2 hover:bg-gray-50 rounded-lg"
               >
-                <BookOpen className="h-5 w-5" />
+                <BookOpen className="h-5 w-5 text-gray-600" />
               </Button>
 
               {/* User menu */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="p-1">
+                  <Button variant="ghost" className="p-1 hover:bg-gray-50 rounded-lg">
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={user.avatar} />
-                      <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-600 text-white">
+                      <AvatarFallback className="bg-blue-600 text-white">
                         {user.name.split(' ').map(n => n[0]).join('')}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <div className="flex items-center space-x-2 p-2">
+                <DropdownMenuContent align="end" className="w-56 bg-white border border-gray-200 rounded-xl shadow-lg">
+                  <div className="flex items-center space-x-2 p-3">
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={user.avatar} />
-                      <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-600 text-white">
+                      <AvatarFallback className="bg-blue-600 text-white">
                         {user.name.split(' ').map(n => n[0]).join('')}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium">{user.name}</p>
-                      <p className="text-xs text-muted-foreground">{user.email}</p>
+                      <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                      <p className="text-xs text-gray-500">{user.email}</p>
                     </div>
                   </div>
-                  <DropdownMenuSeparator />
+                  <DropdownMenuSeparator className="bg-gray-100" />
                   <DropdownMenuItem asChild>
-                    <Link to="/dashboard/settings" className="flex items-center">
+                    <Link to="/dashboard/settings" className="flex items-center px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
                       <User className="mr-2 h-4 w-4" />
                       Profile Settings
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link to="/dashboard/billing" className="flex items-center">
+                    <Link to="/dashboard/billing" className="flex items-center px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
                       <CreditCard className="mr-2 h-4 w-4" />
                       Billing & Credits
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout} className="text-red-600">
+                  <DropdownMenuSeparator className="bg-gray-100" />
+                  <DropdownMenuItem onClick={handleLogout} className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg">
                     <LogOut className="mr-2 h-4 w-4" />
                     Logout
                   </DropdownMenuItem>
@@ -404,7 +409,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
         </header>
 
         {/* Main content area */}
-        <main className="flex-1 overflow-auto bg-slate-50 dark:bg-slate-950 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent dark:scrollbar-thumb-slate-600 scroll-smooth">
+        <main className="flex-1 overflow-auto bg-white">
           {children}
         </main>
       </div>

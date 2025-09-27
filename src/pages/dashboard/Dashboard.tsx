@@ -144,270 +144,291 @@ const Dashboard = () => {
 
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-8">
-        {/* Welcome Section */}
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Welcome back, {user?.name || 'there'}! 👋
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300">
-            Ready to create something amazing? Choose a tool below to get started.
-          </p>
+      <div className="min-h-screen bg-white">
+        {/* Header Section */}
+        <div className="bg-white border-b border-gray-100 px-8 py-8">
+          <div className="max-w-7xl mx-auto">
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">
+              Welcome back, {user?.name || 'Creator'}! 👋
+            </h1>
+            <p className="text-xl text-gray-600">
+              Ready to create something amazing? Choose a tool below to get started.
+            </p>
+          </div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200 dark:border-blue-800">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                Total Generations
-              </CardTitle>
-              <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
-                {statsLoading ? (
-                  <Skeleton className="h-8 w-16" />
-                ) : (
-                  stats.totalGenerations.toLocaleString()
-                )}
-              </div>
-              <p className="text-xs text-blue-600 dark:text-blue-400">
-                All-time creations
-              </p>
-            </CardContent>
-          </Card>
+        <div className="px-8 py-8">
+          <div className="max-w-7xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <Card className="bg-white rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                  <CardTitle className="text-sm font-medium text-gray-600">
+                    Total Generations
+                  </CardTitle>
+                  <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+                    <TrendingUp className="h-5 w-5 text-white" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-gray-900 mb-2">
+                    {statsLoading ? (
+                      <Skeleton className="h-8 w-16" />
+                    ) : (
+                      stats.totalGenerations.toLocaleString()
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-500">
+                    All-time creations
+                  </p>
+                </CardContent>
+              </Card>
 
-          <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-green-200 dark:border-green-800">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-green-700 dark:text-green-300">
-                Credits Remaining
-              </CardTitle>
-              <Zap className="h-4 w-4 text-green-600 dark:text-green-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-900 dark:text-green-100">
-                {balanceLoading ? (
-                  <Skeleton className="h-8 w-16" />
-                ) : (
-                  stats.creditsRemaining.toLocaleString()
-                )}
-              </div>
-              <p className="text-xs text-green-600 dark:text-green-400">
-                {user?.plan?.toUpperCase() || 'FREE'} plan active
-              </p>
-            </CardContent>
-          </Card>
+              <Card className="bg-white rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                  <CardTitle className="text-sm font-medium text-gray-600">
+                    Credits Remaining
+                  </CardTitle>
+                  <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+                    <Zap className="h-5 w-5 text-white" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-gray-900 mb-2">
+                    {balanceLoading ? (
+                      <Skeleton className="h-8 w-16" />
+                    ) : (
+                      stats.creditsRemaining.toLocaleString()
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-500">
+                    {user?.plan?.toUpperCase() || 'FREE'} plan active
+                  </p>
+                </CardContent>
+              </Card>
 
-          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border-purple-200 dark:border-purple-800">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-purple-700 dark:text-purple-300">
-                Credits Used
-              </CardTitle>
-              <TrendingUp className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">
-                {statsLoading ? (
-                  <Skeleton className="h-8 w-16" />
-                ) : (
-                  stats.creditsUsed.toLocaleString()
-                )}
-              </div>
-              <p className="text-xs text-purple-600 dark:text-purple-400">
-                All-time usage
-              </p>
-            </CardContent>
-          </Card>
+              <Card className="bg-white rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                  <CardTitle className="text-sm font-medium text-gray-600">
+                    Credits Used
+                  </CardTitle>
+                  <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+                    <TrendingUp className="h-5 w-5 text-white" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-gray-900 mb-2">
+                    {statsLoading ? (
+                      <Skeleton className="h-8 w-16" />
+                    ) : (
+                      stats.creditsUsed.toLocaleString()
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-500">
+                    All-time usage
+                  </p>
+                </CardContent>
+              </Card>
 
-          <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border-orange-200 dark:border-orange-800">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-orange-700 dark:text-orange-300">
-                Today's Generations
-              </CardTitle>
-              <Clock className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-orange-900 dark:text-orange-100">
-                {historyLoading ? (
-                  <Skeleton className="h-8 w-16" />
-                ) : (
-                  stats.generationsToday
-                )}
-              </div>
-              <p className="text-xs text-orange-600 dark:text-orange-400">
-                Created today
-              </p>
-            </CardContent>
-          </Card>
+              <Card className="bg-white rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                  <CardTitle className="text-sm font-medium text-gray-600">
+                    Today's Generations
+                  </CardTitle>
+                  <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+                    <Clock className="h-5 w-5 text-white" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-gray-900 mb-2">
+                    {historyLoading ? (
+                      <Skeleton className="h-8 w-16" />
+                    ) : (
+                      stats.generationsToday
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-500">
+                    Created today
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
 
         {/* Usage Progress */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Zap className="h-5 w-5 text-yellow-500" />
-              <span>Monthly Usage</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  Credits Used: {stats.creditsUsed.toLocaleString()} / {(stats.creditsUsed + stats.creditsRemaining).toLocaleString()}
-                </span>
-                <span className="text-sm font-medium">
-                  {Math.round((stats.creditsUsed / (stats.creditsUsed + stats.creditsRemaining)) * 100)}%
-                </span>
-              </div>
-              <Progress
-                value={(stats.creditsUsed / (stats.creditsUsed + stats.creditsRemaining)) * 100}
-                className="h-2"
-              />
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Pro plan renews in 18 days. <Link to="/dashboard/billing" className="text-blue-600 hover:text-blue-500">Manage subscription</Link>
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Quick Actions */}
-        <div>
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-              AI Tools
-            </h2>
-            <Link to="/dashboard/history">
-              <Button variant="outline" size="sm">
-                View All History
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
+        <div className="px-8 py-4">
+          <div className="max-w-7xl mx-auto">
+            <Card className="bg-white rounded-2xl shadow-lg border border-gray-100">
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2 text-xl font-bold text-gray-900">
+                  <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                    <Zap className="h-4 w-4 text-white" />
+                  </div>
+                  <span>Monthly Usage</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">
+                      Credits Used: {stats.creditsUsed.toLocaleString()} / {(stats.creditsUsed + stats.creditsRemaining).toLocaleString()}
+                    </span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {Math.round((stats.creditsUsed / (stats.creditsUsed + stats.creditsRemaining)) * 100)}%
+                    </span>
+                  </div>
+                  <Progress
+                    value={(stats.creditsUsed / (stats.creditsUsed + stats.creditsRemaining)) * 100}
+                    className="h-3"
+                  />
+                  <p className="text-sm text-gray-500">
+                    Pro plan renews in 18 days. <Link to="/dashboard/billing" className="text-blue-600 hover:text-blue-700 font-medium">Manage subscription</Link>
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
+        </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {quickActions.map((action) => {
-              const Icon = action.icon;
-              return (
-                <Card
-                  key={action.name}
-                  className="relative overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1 cursor-pointer group"
-                >
-                  {action.popular && (
-                    <div className="absolute top-4 right-4">
-                      <Badge className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-0">
-                        Popular
-                      </Badge>
-                    </div>
-                  )}
-                  <Link to={action.href} className="block">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className={`w-12 h-12 rounded-xl bg-gradient-to-r ${action.color} flex items-center justify-center shadow-lg`}>
-                          <Icon className="w-6 h-6 text-white" />
+        {/* AI Tools Section */}
+        <div className="px-8 py-8">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-3xl font-bold text-gray-900">
+                AI Tools
+              </h2>
+              <Link to="/dashboard/history">
+                <Button className="bg-blue-600 text-white hover:bg-blue-700 rounded-lg font-medium">
+                  View All History
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {quickActions.map((action) => {
+                const Icon = action.icon;
+                return (
+                  <Card
+                    key={action.name}
+                    className="relative bg-white rounded-3xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer group overflow-hidden"
+                  >
+                    {action.popular && (
+                      <div className="absolute top-6 right-6 z-10">
+                        <Badge className="bg-blue-600 text-white border-0 rounded-full px-3 py-1">
+                          Popular
+                        </Badge>
+                      </div>
+                    )}
+                    <Link to={action.href} className="block p-8">
+                      <div className="flex items-start justify-between mb-6">
+                        <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
+                          <Icon className="w-8 h-8 text-white" />
                         </div>
-                        <Badge variant="secondary" className="text-xs">
+                        <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600 border-0 rounded-full">
                           {action.credits}
                         </Badge>
                       </div>
-                    </CardHeader>
-                    <CardContent>
-                      <h3 className="font-semibold text-gray-900 dark:text-white mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+
+                      <h3 className="text-2xl font-bold text-gray-900 mb-4 group-hover:text-blue-600 transition-colors">
                         {action.name}
                       </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                      <p className="text-gray-600 leading-relaxed">
                         {action.description}
                       </p>
-                    </CardContent>
-                  </Link>
-                </Card>
-              );
-            })}
+                    </Link>
+                  </Card>
+                );
+              })}
+            </div>
           </div>
         </div>
 
         {/* Recent Generations */}
-        <div>
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Recent Generations
-            </h2>
-            <Link to="/dashboard/history">
-              <Button variant="outline" size="sm">
-                View All
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
-          </div>
+        <div className="px-8 py-8">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-3xl font-bold text-gray-900">
+                Recent Generations
+              </h2>
+              <Link to="/dashboard/history">
+                <Button className="bg-blue-600 text-white hover:bg-blue-700 rounded-lg font-medium">
+                  View All
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {recentGenerations.map((generation) => {
-              const TypeIcon = getTypeIcon(generation.type);
-              return (
-                <Card key={generation.id} className="group hover:shadow-lg transition-all duration-300">
-                  <CardContent className="p-4">
-                    <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg mb-3 relative overflow-hidden">
-                      {generation.thumbnail ? (
-                        <img
-                          src={generation.thumbnail}
-                          alt={generation.title}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <TypeIcon className="w-12 h-12 text-gray-400" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {recentGenerations.map((generation) => {
+                const TypeIcon = getTypeIcon(generation.type);
+                return (
+                  <Card key={generation.id} className="bg-white rounded-2xl shadow-lg border border-gray-100 group hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                    <CardContent className="p-6">
+                      <div className="aspect-square bg-gray-100 rounded-xl mb-4 relative overflow-hidden">
+                        {generation.thumbnail ? (
+                          <img
+                            src={generation.thumbnail}
+                            alt={generation.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <TypeIcon className="w-12 h-12 text-gray-400" />
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 flex items-center justify-center">
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex space-x-2">
+                            {generation.type === 'video' || generation.type === 'audio' ? (
+                              <Button size="sm" className="bg-white/90 hover:bg-white text-gray-900 rounded-lg">
+                                <Play className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <Button size="sm" className="bg-white/90 hover:bg-white text-gray-900 rounded-lg">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Button size="sm" className="bg-white/90 hover:bg-white text-gray-900 rounded-lg">
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
-                      )}
-                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 flex items-center justify-center">
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex space-x-2">
-                          {generation.type === 'video' || generation.type === 'audio' ? (
-                            <Button size="sm" variant="secondary" className="bg-white/90 hover:bg-white">
-                              <Play className="h-4 w-4" />
-                            </Button>
-                          ) : (
-                            <Button size="sm" variant="secondary" className="bg-white/90 hover:bg-white">
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          )}
-                          <Button size="sm" variant="secondary" className="bg-white/90 hover:bg-white">
-                            <Download className="h-4 w-4" />
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Badge className="text-xs capitalize bg-blue-100 text-blue-600 border-0 rounded-full">
+                            {getTypeName(generation.type)}
+                          </Badge>
+                          <Button variant="ghost" size="sm" className="p-1 h-auto hover:bg-gray-100 rounded-lg">
+                            <MoreVertical className="h-4 w-4 text-gray-400" />
                           </Button>
                         </div>
-                      </div>
-                    </div>
 
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Badge variant="outline" className="text-xs capitalize">
-                          {getTypeName(generation.type)}
-                        </Badge>
-                        <Button variant="ghost" size="sm" className="p-1 h-auto">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </div>
+                        <h4 className="font-bold text-gray-900 truncate">
+                          {generation.title}
+                        </h4>
 
-                      <h4 className="font-medium text-sm text-gray-900 dark:text-white truncate">
-                        {generation.title}
-                      </h4>
-
-                      <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                        <span>{generation.createdAt}</span>
-                        <span className="flex items-center">
-                          {generation.credits > 0 ? (
-                            <>
-                              <Zap className="w-3 h-3 mr-1" />
-                              {generation.credits}
-                            </>
-                          ) : (
-                            "Free"
-                          )}
-                        </span>
+                        <div className="flex items-center justify-between text-sm text-gray-500">
+                          <span>{generation.createdAt}</span>
+                          <span className="flex items-center">
+                            {generation.credits > 0 ? (
+                              <>
+                                <Zap className="w-3 h-3 mr-1" />
+                                {generation.credits}
+                              </>
+                            ) : (
+                              "Free"
+                            )}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
