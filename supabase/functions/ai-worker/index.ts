@@ -44,7 +44,7 @@ const MODULE_CONFIGS: Record<string, ModelConfig> = {
   "img2vid_noaudio": {
     name: "Image to Video (No Audio)",
     provider: "fal",
-    model: "fal-ai/wan/v2.2-5b/image-to-video",
+    model: "fal-ai/kling-video/v2.5-turbo/pro/image-to-video",
     avg_time_seconds: 60  // ~60 seconds for Wan v2.2-5B
   },
   "tts": {
@@ -282,32 +282,15 @@ class ModelAdapter {
         break
 
       case 'img2vid_noaudio':
-        endpoint = 'fal-ai/wan/v2.2-5b/image-to-video'
+        endpoint = 'fal-ai/kling-video/v2.5-turbo/pro/image-to-video'
         requestPayload = {
           image_url: params.image_url,
           prompt: params.prompt || 'Smooth cinematic motion with natural camera movement',
-          num_frames: 120,  // 120 frames for exactly 5 seconds at 24fps
-          frames_per_second: 24,
-          resolution: '720p',
-          aspect_ratio: 'auto',
-          num_inference_steps: 30,
-          enable_safety_checker: true,
-          enable_prompt_expansion: false,
-          guidance_scale: 3.5,
-          shift: 5,
-          interpolator_model: 'film',
-          num_interpolated_frames: 0,
-          adjust_fps_for_interpolation: true,
-          video_quality: 'high',
-          video_write_mode: 'balanced'
+          duration: params.duration || "5",
+          negative_prompt: params.negative_prompt || "blur, distort, and low quality",
+          cfg_scale: params.cfg_scale || 0.5
         }
-        // Add optional parameters if provided
-        if (params.seed) {
-          requestPayload.seed = parseInt(params.seed)
-        }
-        if (params.negative_prompt) {
-          requestPayload.negative_prompt = params.negative_prompt
-        }
+        // Remove the optional parameters handling since they're now included in the base payload
         break
 
       case 'img2vid_audio':
@@ -383,7 +366,7 @@ class ModelAdapter {
           aspect_ratio: params.aspect_ratio || '16:9',
           fps: result.video?.fps || (isPreview ? 24 : 30),
           has_audio: module === 'img2vid_audio',
-          model: module === 'img2vid_noaudio' ? 'wan-v2.2-5b' : 'kling-v1-pro',
+          model: module === 'img2vid_noaudio' ? 'kling-v2.5-turbo-pro' : 'kling-v1-pro',
           preview: isPreview
         }
 

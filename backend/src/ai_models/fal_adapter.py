@@ -66,7 +66,7 @@ class FalAdapter:
         self.models = {
             "tts": "fal-ai/elevenlabs/tts/multilingual-v2",  # ElevenLabs TTS Multilingual v2 (primary TTS model - stability & quality focused)
             "tts_turbo": "fal-ai/elevenlabs/tts/turbo-v2.5",  # ElevenLabs TTS Turbo v2.5 (kept for compatibility)
-            "img2vid_noaudio": "fal-ai/wan/v2.2-5b/image-to-video",  # WAN v2.2-5B model (OFFICIAL 5B PARAMETER MODEL)
+            "img2vid_noaudio": "fal-ai/kling-video/v2.5-turbo/pro/image-to-video",  # Kling v2.5 Turbo Pro model (OFFICIAL IMAGE-TO-VIDEO MODEL)
             "img2vid_audio": "fal-ai/kling-video/v1/pro/ai-avatar",  # Kling v1 Pro AI Avatar
             "audio2vid": "veed/avatars/audio-to-video",  # Veed Avatars Audio-to-Video via Fal AI
             "image_generation": "fal-ai/flux/schnell"  # FLUX Schnell for image generation
@@ -259,7 +259,7 @@ class FalAdapter:
                 "success": True,
                 "request_id": request_id,
                 "status": "submitted",
-                "model": "wan-v2.2-5b",
+                "model": "kling-v2.5-turbo-pro",
                 "estimated_processing_time": "3-4 minutes",
                 "quality": arguments.get("resolution", "720p"),
                 "duration": 4,  # Fixed 4-second duration for WAN v2.2-5B
@@ -298,7 +298,7 @@ class FalAdapter:
                 "success": False,
                 "error": str(e),
                 "error_type": error_type,
-                "model": "wan-v2.2-5b",
+                "model": "kling-v2.5-turbo-pro",
                 "retry_recommended": error_type in ["network_error", "processing_error"],
                 "debug_info": {
                     "error_class": type(e).__name__,
@@ -526,7 +526,7 @@ class FalAdapter:
                     "duration": 4,  # Fixed 4-second duration for WAN v2.2-5B
                     "seed": result.get("seed") if isinstance(result, dict) else None,
                     "actual_prompt": result.get("actual_prompt") if isinstance(result, dict) else None,
-                    "model": "wan-v2.2-5b",
+                    "model": "kling-v2.5-turbo-pro",
                     "status": "completed"
                 }
             else:
@@ -554,7 +554,7 @@ class FalAdapter:
                 "success": False,
                 "error": str(e),
                 "status": status,
-                "model": "wan-v2.2-5b",
+                "model": "kling-v2.5-turbo-pro",
                 "request_id": request_id,
                 "cleanup_required": status in ["timeout", "not_found"]
             }
@@ -1230,7 +1230,7 @@ class FalAdapter:
                     "success": True,
                     "request_id": request_id,
                     "status": "processing",
-                    "model": "wan-v2.2-5b",
+                    "model": "kling-v2.5-turbo-pro",
                     "processing_started": True,
                     "estimated_completion": "3-4 minutes"
                 }
@@ -1245,7 +1245,7 @@ class FalAdapter:
                     "success": True,
                     "request_id": request_id,
                     "status": "processing",
-                    "model": "wan-v2.2-5b",
+                    "model": "kling-v2.5-turbo-pro",
                     "processing_started": True,
                     "estimated_completion": "3-4 minutes"
                 }
@@ -1268,7 +1268,7 @@ class FalAdapter:
                     "video_url": video_url,
                     "duration": 5.0,  # Fixed 5-second video generation
                     "resolution": arguments.get("resolution", "720p"),
-                    "model": "wan-v2.2-5b",
+                    "model": "kling-v2.5-turbo-pro",
                     "has_audio": False,
                     "preview": False,
                     "seed": result.get("seed"),
@@ -1309,7 +1309,7 @@ class FalAdapter:
                 "error": user_message,
                 "error_details": str(e),
                 "error_category": error_category,
-                "model": "wan-v2.2-5b",
+                "model": "kling-v2.5-turbo-pro",
                 "video_url": None,
                 "retry_recommended": error_category in ["timeout_error", "network_error", "processing_error"]
             }

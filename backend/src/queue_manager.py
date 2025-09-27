@@ -389,7 +389,7 @@ class QueueManager:
                                         "processingStartedAt": datetime.now(timezone.utc),
                                         "workerMeta": {
                                             "request_id": request_id,
-                                            "model": submit_result.get("model", "wan-v2.2-5b"),
+                                            "model": submit_result.get("model", "kling-v2.5-turbo-pro"),
                                             "processing_started": True,
                                             "submitted_at": datetime.now(timezone.utc).isoformat()
                                         },
@@ -985,7 +985,7 @@ class QueueManager:
                                 "workerMeta": {
                                     "video_url": async_result.get('video_url'),
                                     "processing_complete": True,
-                                    "model": async_result.get("model", "wan-v2.2-5b"),
+                                    "model": async_result.get("model", "kling-v2.5-turbo-pro"),
                                     "completed_at": datetime.now(timezone.utc).isoformat()
                                 },
                                 "updatedAt": datetime.now(timezone.utc)

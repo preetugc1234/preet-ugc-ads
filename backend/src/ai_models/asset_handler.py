@@ -230,7 +230,7 @@ class AssetHandler:
             asset_data = {
                 "type": "img2vid_noaudio",
                 "video_url": uploaded_urls[0],
-                "model": "wan-v2.2-5b",
+                "model": "kling-v2.5-turbo-pro",
                 "duration": 96 / 24,  # 96 frames at 24fps = 4.0 seconds
                 "frames": 96,
                 "fps": 24,
@@ -252,7 +252,7 @@ class AssetHandler:
                 "urls": uploaded_urls,
                 "metadata": {
                     "type": "img2vid_noaudio",
-                    "model": "wan-v2.2-5b",
+                    "model": "kling-v2.5-turbo-pro",
                     "duration": 4.0,
                     "resolution": result.get("resolution", "720p"),
                     "file_count": len(uploaded_urls),
