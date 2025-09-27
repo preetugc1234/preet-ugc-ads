@@ -1,14 +1,9 @@
 import { useState, useRef, useEffect } from "react";
-import { MessageSquare, Send, Copy, Download, RotateCcw, Sparkles, AlertCircle } from "lucide-react";
+import { MessageSquare, Send, Copy, ChevronDown, Bot, User } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
-import ToolEditorLayout from "@/components/dashboard/ToolEditorLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
-import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, apiHelpers } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
@@ -22,53 +17,30 @@ const ChatTool = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [streamingResponse, setStreamingResponse] = useState("");
   const [model, setModel] = useState("gpt-4o-mini");
-  const [temperature, setTemperature] = useState([0.7]);
-  const [maxTokens, setMaxTokens] = useState([2000]);
-  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const models = [
     {
       value: "gpt-4o-mini",
       label: "GPT-4o Mini",
-      description: "Fast marketing content generation",
-      time: "~2s",
-      bestFor: "Quick social media posts, captions, hashtags"
+      description: "Fast and efficient"
     },
     {
       value: "gpt-4",
       label: "GPT-4",
-      description: "Advanced marketing strategies",
-      time: "~5s",
-      bestFor: "Detailed campaigns, SEO content, scripts"
+      description: "Most capable model"
     },
     {
       value: "claude-3-haiku",
       label: "Claude 3 Haiku",
-      description: "Creative content generation",
-      time: "~8s",
-      bestFor: "Creative copy, storytelling, brand voice"
+      description: "Fast and lightweight"
     },
     {
       value: "claude-3-sonnet",
       label: "Claude 3 Sonnet",
-      description: "Comprehensive content strategy",
-      time: "~10s",
-      bestFor: "Long-form content, strategy docs, analysis"
+      description: "Balanced performance"
     }
-  ];
-
-  const promptTemplates = [
-    "Create an Instagram caption for...",
-    "Write a YouTube title and description for...",
-    "Generate 30 hashtags for...",
-    "Create a Facebook ad copy for...",
-    "Write a TikTok video script about...",
-    "Design an email marketing campaign for...",
-    "Create SEO meta tags for...",
-    "Write a product description for...",
-    "Generate a social media content calendar...",
-    "Create a brand voice guide for..."
   ];
 
   const scrollToBottom = () => {
@@ -109,8 +81,8 @@ const ChatTool = () => {
             role: msg.type === 'user' ? 'user' : 'assistant',
             content: msg.content
           })),
-          max_tokens: maxTokens[0],
-          temperature: temperature[0]
+          max_tokens: 2000,
+          temperature: 0.7
         }),
       });
 
@@ -171,248 +143,174 @@ const ChatTool = () => {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    // You can add a toast notification here
+    toast({
+      title: "Copied to clipboard",
+      description: "Message copied successfully",
+    });
   };
 
-  const clearChat = () => {
-    setMessages([]);
-    setStreamingResponse("");
+  const adjustTextareaHeight = () => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + 'px';
+    }
   };
 
-  const previewPane = (
-    <Card className="h-full">
-      <CardHeader className="pb-4">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg font-medium flex items-center">
-            <MessageSquare className="w-5 h-5 mr-2" />
-            Chat Response
-          </CardTitle>
-          <div className="flex items-center space-x-2">
-            <Button variant="outline" size="sm" onClick={clearChat} disabled={isGenerating}>
-              <RotateCcw className="w-4 h-4 mr-1" />
-              Clear
-            </Button>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="p-0 flex flex-col h-96">
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.length === 0 && !streamingResponse && (
-            <div className="text-center py-12">
-              <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500 dark:text-gray-400">
-                Start a conversation by entering your message below
-              </p>
-            </div>
-          )}
-
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-[80%] rounded-lg p-3 ${
-                  message.type === 'user'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
-                }`}
-              >
-                <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                <div className="flex items-center justify-between mt-2">
-                  <span className="text-xs opacity-70">
-                    {message.timestamp.toLocaleTimeString()}
-                  </span>
-                  {message.type === 'assistant' && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="p-1 h-auto"
-                      onClick={() => copyToClipboard(message.content)}
-                    >
-                      <Copy className="w-3 h-3" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-
-          {/* Streaming Response */}
-          {streamingResponse && (
-            <div className="flex justify-start">
-              <div className="max-w-[80%] bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg p-3">
-                <p className="text-sm whitespace-pre-wrap">{streamingResponse}</p>
-                <div className="w-2 h-4 bg-blue-500 animate-pulse inline-block ml-1" />
-              </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Input Area */}
-        <div className="border-t p-4">
-          <div className="flex space-x-2">
-            <Textarea
-              placeholder="Type your message here..."
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleGenerate();
-                }
-              }}
-              className="flex-1 min-h-[60px] max-h-[120px]"
-              disabled={isGenerating}
-            />
-            <Button
-              onClick={handleGenerate}
-              disabled={!prompt.trim() || isGenerating}
-              size="sm"
-              className="px-4"
-            >
-              <Send className="w-4 h-4" />
-            </Button>
-          </div>
-          <p className="text-xs text-gray-500 mt-2">
-            Press Enter to send, Shift+Enter for new line
-          </p>
-        </div>
-      </CardContent>
-    </Card>
-  );
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [prompt]);
 
   return (
     <DashboardLayout>
-      <ToolEditorLayout
-        toolName="Marketing AI Chat"
-        toolIcon={MessageSquare}
-        credits="Free"
-        estimatedTime={models.find(m => m.value === model)?.time || "~5s"}
-        onGenerate={handleGenerate}
-        isGenerating={isGenerating}
-        canGenerate={!!prompt.trim()}
-        previewPane={previewPane}
-      >
-        {/* Model Selection */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Model Settings</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="model">AI Model</Label>
+      <div className="flex flex-col h-full bg-white">
+        {/* Header */}
+        <div className="border-b border-gray-200 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
+                <MessageSquare className="w-5 h-5 text-white" />
+              </div>
+              <h1 className="text-2xl font-semibold text-gray-900">Chat</h1>
+            </div>
+
+            {/* Model Selector */}
+            <div className="flex items-center space-x-2">
               <Select value={model} onValueChange={setModel}>
-                <SelectTrigger>
+                <SelectTrigger className="w-48 bg-white border-gray-200 rounded-lg">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white border border-gray-200 rounded-xl shadow-lg">
                   {models.map((m) => (
-                    <SelectItem key={m.value} value={m.value}>
-                      <div className="w-full">
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium">{m.label}</span>
-                          <Badge variant="outline" className="text-xs">{m.time}</Badge>
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">{m.description}</div>
-                        <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                          Best for: {m.bestFor}
-                        </div>
+                    <SelectItem key={m.value} value={m.value} className="hover:bg-gray-50 rounded-lg">
+                      <div className="flex flex-col items-start">
+                        <span className="font-medium text-gray-900">{m.label}</span>
+                        <span className="text-xs text-gray-500">{m.description}</span>
                       </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+          </div>
+        </div>
 
-            <div>
-              <Label>Temperature: {temperature[0]}</Label>
-              <Slider
-                value={temperature}
-                onValueChange={setTemperature}
-                max={2}
-                min={0}
-                step={0.1}
-                className="mt-2"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Lower = more focused, Higher = more creative
-              </p>
-            </div>
+        {/* Chat Area */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Messages Container */}
+          <div className="flex-1 overflow-y-auto">
+            {messages.length === 0 && !streamingResponse ? (
+              <div className="h-full flex items-center justify-center">
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <MessageSquare className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">How can I help you today?</h3>
+                  <p className="text-gray-500">Start a conversation by typing a message below</p>
+                </div>
+              </div>
+            ) : (
+              <div className="max-w-3xl mx-auto px-6 py-6">
+                {messages.map((message) => (
+                  <div key={message.id} className="mb-8">
+                    <div className="flex items-start space-x-4">
+                      {message.type === 'user' ? (
+                        <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                          <User className="w-4 h-4 text-white" />
+                        </div>
+                      ) : (
+                        <div className="w-8 h-8 bg-gray-900 rounded-full flex items-center justify-center flex-shrink-0">
+                          <Bot className="w-4 h-4 text-white" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-gray-900 mb-2">
+                          {message.type === 'user' ? 'You' : 'Assistant'}
+                        </div>
+                        <div className="prose prose-sm max-w-none text-gray-700">
+                          <div className="whitespace-pre-wrap">{message.content}</div>
+                        </div>
+                        {message.type === 'assistant' && (
+                          <div className="flex items-center mt-3">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => copyToClipboard(message.content)}
+                              className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 h-8 px-2 rounded-lg"
+                            >
+                              <Copy className="w-4 h-4 mr-1" />
+                              Copy
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
 
-            <div>
-              <Label>Max Tokens: {maxTokens[0]}</Label>
-              <Slider
-                value={maxTokens}
-                onValueChange={setMaxTokens}
-                max={4000}
-                min={100}
-                step={100}
-                className="mt-2"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Maximum response length
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+                {/* Streaming Response */}
+                {streamingResponse && (
+                  <div className="mb-8">
+                    <div className="flex items-start space-x-4">
+                      <div className="w-8 h-8 bg-gray-900 rounded-full flex items-center justify-center flex-shrink-0">
+                        <Bot className="w-4 h-4 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-gray-900 mb-2">Assistant</div>
+                        <div className="prose prose-sm max-w-none text-gray-700">
+                          <div className="whitespace-pre-wrap">{streamingResponse}</div>
+                          <div className="w-2 h-5 bg-gray-500 animate-pulse inline-block ml-1 rounded-sm" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+            )}
+          </div>
 
-        {/* Marketing Focus Info */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center">
-              <Sparkles className="w-4 h-4 mr-2" />
-              Marketing AI Assistant
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-              <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
-                🎯 Specialized for Marketing
-              </h4>
-              <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
-                <p>• Social media content & captions</p>
-                <p>• SEO titles & descriptions</p>
-                <p>• Ad copy & marketing scripts</p>
-                <p>• Hashtags & content strategy</p>
-                <p>• Brand voice & storytelling</p>
+          {/* Input Area */}
+          <div className="border-t border-gray-200 bg-white">
+            <div className="max-w-3xl mx-auto px-6 py-4">
+              <div className="relative">
+                <textarea
+                  ref={textareaRef}
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      if (prompt.trim() && !isGenerating) {
+                        handleGenerate();
+                      }
+                    }
+                  }}
+                  placeholder="Message Chat..."
+                  disabled={isGenerating}
+                  className="w-full resize-none rounded-2xl border border-gray-300 px-4 py-3 pr-12 text-gray-900 placeholder-gray-500 focus:border-gray-400 focus:outline-none focus:ring-0 bg-white"
+                  style={{ minHeight: '52px', maxHeight: '200px' }}
+                />
+
+                {/* Send Button */}
+                <div className="absolute bottom-3 right-3">
+                  <Button
+                    onClick={handleGenerate}
+                    disabled={!prompt.trim() || isGenerating}
+                    className="w-8 h-8 p-0 bg-black hover:bg-gray-800 disabled:bg-gray-300 rounded-full flex items-center justify-center"
+                  >
+                    <Send className="w-4 h-4 text-white" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+                <span>Press Enter to send, Shift+Enter for new line</span>
+                <span>Free to use</span>
               </div>
             </div>
-            <div className="text-xs text-gray-600 dark:text-gray-400">
-              <p className="font-medium mb-1">🤖 All responses include:</p>
-              <p>• Structured markdown formatting</p>
-              <p>• H1, H2, H3 headings for clarity</p>
-              <p>• Actionable insights & examples</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Prompt Templates */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center">
-              <Sparkles className="w-4 h-4 mr-2" />
-              Quick Templates
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-2">
-              {promptTemplates.map((template, index) => (
-                <Button
-                  key={index}
-                  variant="outline"
-                  size="sm"
-                  className="justify-start text-left h-auto py-2"
-                  onClick={() => setPrompt(template)}
-                >
-                  {template}
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </ToolEditorLayout>
+          </div>
+        </div>
+      </div>
     </DashboardLayout>
   );
 };
