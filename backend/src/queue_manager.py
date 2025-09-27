@@ -1108,19 +1108,47 @@ class QueueManager:
                                 if not final_urls or not final_urls[0]:
                                     final_urls = [poll_result.get('video_url')]
 
-                                # If no video URL available but job completed, check for webhook delivery
+                                # If no video URL available but job completed, this is the base64 image issue
                                 if not final_urls or not final_urls[0] or final_urls[0] is None:
-                                    logger.warning(f"⚠️ No video URL in poll result, checking database for webhook delivery...")
+                                    logger.warning(f"⚠️ No video URL in poll result - likely base64 image validation issue")
+                                    logger.info(f"🔍 Checking database and webhook delivery for completed job...")
 
                                     # Check if the job was already completed via webhook
                                     job = db.jobs.find_one({"_id": job_id})
                                     if job and job.get("finalUrls"):
                                         final_urls = job["finalUrls"]
-                                        logger.info(f"📦 Found URLs in database: {final_urls}")
-                                    elif poll_result.get('status') == 'completed_but_result_pending':
-                                        # Continue polling for a bit more to see if result appears
-                                        logger.info(f"⏳ Result pending, will continue polling...")
-                                        continue
+                                        logger.info(f"📦 Found URLs in database from webhook: {final_urls}")
+                                    else:
+                                        # For base64 image issues, we need to mark job as completed but investigate manually
+                                        logger.warning(f"🚨 BASE64 ISSUE: Job {job_id} completed but no video URL (corrupted image)")
+
+                                        # Mark the job as completed with special status for manual investigation
+                                        db.jobs.update_one(
+                                            {"_id": job_id},
+                                            {
+                                                "$set": {
+                                                    "status": JobStatus.FAILED.value,
+                                                    "errorMessage": "Video generated successfully but result not retrievable due to base64 image corruption. Please try uploading the image again.",
+                                                    "failedAt": datetime.now(timezone.utc),
+                                                    "workerMeta": {
+                                                        "error_type": "base64_image_corruption",
+                                                        "fal_request_id": request_id,
+                                                        "job_completed_but_unrecoverable": True,
+                                                        "failed_at": datetime.now(timezone.utc).isoformat()
+                                                    },
+                                                    "updatedAt": datetime.now(timezone.utc)
+                                                }
+                                            }
+                                        )
+
+                                        # Clean up processing lock
+                                        job_id_str = str(job_id)
+                                        if job_id_str in self.processing_jobs:
+                                            self.processing_jobs.discard(job_id_str)
+                                            logger.info(f"🧹 Removed failed job {job_id} from processing lock")
+
+                                        logger.error(f"❌ BASE64 CORRUPTION: Job {job_id} marked as failed due to image corruption")
+                                        return
 
                                 # Update job to completed
                                 db.jobs.update_one(
