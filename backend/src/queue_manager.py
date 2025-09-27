@@ -687,15 +687,10 @@ class QueueManager:
                     # Get the result from FAL AI
                     async_result = await adapter.get_async_result(request_id)
                     if async_result.get('success'):
-                        # Process the result with optimized WAN 2.5 handler for img2vid_noaudio
-                        if module == "img2vid_noaudio":
-                            final_asset = await asset_handler.handle_img2vid_noaudio_result(
-                                async_result, str(job_id), user_id, False
-                            )
-                        else:
-                            final_asset = await asset_handler.handle_video_result(
-                                async_result, str(job_id), user_id, False
-                            )
+                        # Process the result with generic video handler (works for all models including Kling v2.5)
+                        final_asset = await asset_handler.handle_video_result(
+                            async_result, str(job_id), user_id, False
+                        )
                         final_urls = final_asset.get('urls', []) if final_asset.get('success') else []
 
                         if final_urls:
@@ -1068,8 +1063,8 @@ class QueueManager:
                 if async_result.get('success'):
                     logger.info(f"✅ FAL AI processing completed for job {job_id}")
 
-                    # Process result and upload to Cloudinary
-                    final_asset = await asset_handler.handle_img2vid_noaudio_result(
+                    # Process result and upload to Cloudinary (use generic video handler for all models)
+                    final_asset = await asset_handler.handle_video_result(
                         async_result, str(job_id), user_id, False
                     )
                     cloudinary_urls = final_asset.get('urls', []) if final_asset.get('success') else []
