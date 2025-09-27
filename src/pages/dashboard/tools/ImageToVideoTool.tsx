@@ -1,14 +1,9 @@
 import { useState, useEffect } from "react";
-import { Video, Upload, Play, Download, Clock, FileImage } from "lucide-react";
+import { Video, Upload, Download, Plus, Settings, X } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
-import ToolEditorLayout from "@/components/dashboard/ToolEditorLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Slider } from "@/components/ui/slider";
 import { useCreateJob, useJobStatus } from "@/hooks/useJobs";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiHelpers } from "@/lib/api";
@@ -17,12 +12,10 @@ const ImageToVideoTool = () => {
   const { isAuthenticated } = useAuth();
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
-  const duration = "4"; // Fixed 4 seconds
   const [quality, setQuality] = useState("720p");
   const [motionPrompt, setMotionPrompt] = useState("");
-  const [intensity, setIntensity] = useState([0.7]);
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false); // Prevent double clicks
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Job management hooks
   const createJobMutation = useCreateJob();
@@ -32,21 +25,9 @@ const ImageToVideoTool = () => {
   });
 
 
-  // Fixed 4 seconds duration - no user selection needed
-  const fixedDuration = { value: "4", label: "4 seconds", credits: 100 };
-
   const qualities = [
-    { value: "580p", label: "Standard (580p)", description: "Good quality, fastest" },
-    { value: "720p", label: "HD (720p)", description: "High quality, recommended" }
-  ];
-
-  const motionTemplates = [
-    "Gentle camera pan from left to right",
-    "Slow zoom in towards the center",
-    "Subtle parallax effect on background elements",
-    "Gentle swaying motion like a breeze",
-    "Smooth rotation around the main subject",
-    "Cinematic dolly movement forward"
+    { value: "580p", label: "Standard", short: "580p" },
+    { value: "720p", label: "HD", short: "720p" }
   ];
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -170,19 +151,12 @@ const ImageToVideoTool = () => {
     }
   };
 
-  const calculateCost = () => {
-    const baseCost = fixedDuration.credits;
-    const qualityMultiplier = quality === '4k' ? 2 : quality === 'fhd' ? 1.5 : 1;
-    return Math.round(baseCost * qualityMultiplier);
-  };
-
-  const costBreakdown = {
-    baseCost: fixedDuration.credits,
-    additionalCosts: quality !== 'hd' ? [
-      { name: quality === '4k' ? '4K Quality' : 'Full HD Quality',
-        cost: quality === '4k' ? 100 : 50 }
-    ] : undefined,
-    total: calculateCost()
+  const removeUploadedImage = () => {
+    setUploadedImage(null);
+    setUploadedImageUrl(null);
+    // Clear the file input
+    const fileInput = document.getElementById('video-image-upload') as HTMLInputElement;
+    if (fileInput) fileInput.value = '';
   };
 
   // Helper functions for job status - Enhanced with submitting state
@@ -349,364 +323,198 @@ const ImageToVideoTool = () => {
     }
   };
 
-  const previewPane = (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg font-medium flex items-center">
-          <Video className="w-5 h-5 mr-2" />
-          Generated Video
-          {jobStatus && (
-            <Badge variant={isJobCompleted ? 'default' : isJobRunning ? 'secondary' : 'destructive'} className="ml-2">
-              {jobStatus.status.charAt(0).toUpperCase() + jobStatus.status.slice(1)}
-            </Badge>
-          )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {!currentJobId && (
-          <div className="text-center py-12">
-            <Video className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500 dark:text-gray-400 mb-2">
-              No video generated yet
-            </p>
-            <p className="text-sm text-gray-400">
-              Upload an image and click Generate to create a video
-            </p>
-          </div>
-        )}
-
-        {isJobRunning && (
-          <div className="text-center py-12">
-            <div className="space-y-4">
-              <div className="inline-flex items-center space-x-2">
-                <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                <span className="text-blue-600 font-medium">
-                  {jobStatus?.status === 'queued' ? 'Queued for processing...' : 'Generating video...'}
-                </span>
-              </div>
-              <div className="space-y-2">
-                <div className="text-sm text-gray-500">
-                  {jobStatus?.preview_url ? 'Creating final version...' : 'Processing your image...'}
-                </div>
-                <div className="w-64 bg-gray-200 rounded-full h-2 mx-auto">
-                  <div
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-1000"
-                    style={{
-                      width: jobStatus?.progress ? `${jobStatus.progress}%` : jobStatus?.preview_url ? '60%' : '30%'
-                    }}
-                  ></div>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-gray-500">
-                    This usually takes 90-180 seconds using FAL AI Wan v2.2-5B (4 seconds video)
-                  </p>
-                  <p className="text-xs text-blue-600">
-                    ⏱️ Please wait - video is being generated and will appear once complete
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* SMOOTH DEBUG: Show processing status without manual buttons */}
-        {jobStatus && !shouldShowVideo && isJobRunning && (
-          <div className="bg-blue-50 p-4 text-sm text-blue-800 rounded">
-            <h4 className="font-semibold">🔄 Processing Status</h4>
-            <p><strong>Status:</strong> {jobStatus.status}</p>
-            <p><strong>Age:</strong> {Math.round(jobAge)}s</p>
-            {jobAge > 30 && (
-              <p className="text-blue-600"><strong>🔄 Auto-refreshing to check for completed video...</strong></p>
-            )}
-            {emergencyShow && (
-              <p className="text-orange-600"><strong>🚨 Emergency mode: Video should appear soon...</strong></p>
-            )}
-          </div>
-        )}
-
-        {shouldShowVideo && (
-          <div className="space-y-4">
-            <div className={`p-2 text-sm rounded ${emergencyShow ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
-              {emergencyShow ?
-                '🚨 EMERGENCY MODE: Video processing completed but URL missing - trying emergency URL...' :
-                `🎬 DEBUG: Video section is rendering! URL: ${displayVideoUrl?.substring(0, 50)}...`
-              }
-            </div>
-            <div className="aspect-video bg-black rounded-lg overflow-hidden relative">
-              <video
-                controls
-                preload="auto"
-                playsInline
-                muted={false}
-                className="w-full h-full"
-                poster={uploadedImage || undefined}
-                onLoadStart={() => console.log('🎬 WAN 2.2 video loading started')}
-                onCanPlay={() => console.log('🎬 WAN 2.2 video can play')}
-                onLoadedData={() => console.log('🎬 WAN 2.2 video data loaded')}
-                onError={(e) => {
-                  console.error('🎬 WAN 2.2 video error:', e);
-                  if (emergencyShow && !finalVideoUrl) {
-                    console.log('🔄 Emergency mode: Video error, trying to refresh job status...');
-                    setTimeout(() => refetchJobStatus(), 2000); // Auto-retry in 2 seconds
-                  }
-                }}
-                onWaiting={() => console.log('🎬 Video buffering...')}
-                onPlaying={() => console.log('🎬 Video playing smoothly')}
-                key={displayVideoUrl} // Force re-render when URL changes
-                style={{
-                  objectFit: 'contain',
-                  backgroundColor: '#000'
-                }}
-              >
-                <source src={displayVideoUrl} type="video/mp4" />
-                <source src={displayVideoUrl} type="video/webm" />
-                Your browser does not support the video tag.
-              </video>
-
-              {/* Perfect Download Button Overlay */}
-              <div className="absolute top-2 right-2 z-10">
-                <Button
-                  onClick={() => {
-                    const link = document.createElement('a');
-                    link.href = displayVideoUrl!;
-                    link.download = `wan22-video-${Date.now()}.mp4`;
-                    link.target = '_blank';
-                    link.click();
-                  }}
-                  className="bg-black/70 hover:bg-black/90 text-white border-white/20"
-                  size="sm"
-                >
-                  <Download className="w-4 h-4 mr-1" />
-                  Download
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                <p><strong>Duration:</strong> 4 seconds (fixed)</p>
-                <p><strong>Quality:</strong> {qualities.find(q => q.value === quality)?.label}</p>
-                <p><strong>Model:</strong> FAL AI Wan v2.2-5B</p>
-                <p><strong>Status:</strong> {jobStatus?.status}</p>
-                {displayVideoUrl && <p><strong>Video URL:</strong> ✅ Available</p>}
-                {jobStatus?.created_at && (
-                  <p><strong>Generated:</strong> {new Date(jobStatus.created_at).toLocaleString()}</p>
-                )}
-                {isJobCompleted && (
-                  <p className="text-green-600"><strong>✅ High-quality MP4 ready</strong></p>
-                )}
-              </div>
-              <div className="flex space-x-2">
-                {displayVideoUrl ? (
-                  <Button onClick={() => downloadVideo(displayVideoUrl)}>
-                    <Download className="w-4 h-4 mr-2" />
-                    {isJobCompleted ? 'Download MP4' : 'Preview'}
-                  </Button>
-                ) : isJobRunning ? (
-                  <Button variant="outline" disabled>
-                    <Clock className="w-4 h-4 mr-2" />
-                    {jobStatus?.preview_url ? 'Finalizing...' : 'Processing...'}
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-
-            {jobStatus?.preview_url && !isJobCompleted && (
-              <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-                <p className="text-sm text-blue-800 dark:text-blue-200">
-                  <strong>Preview Ready!</strong> Your final high-quality video is still processing.
-                  You can download it once complete.
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {isJobFailed && (
-          <div className="text-center py-12">
-            <div className="text-red-500 mb-4">
-              <Video className="w-16 h-16 mx-auto mb-4" />
-              <p className="font-medium">Video generation failed</p>
-              <p className="text-sm mt-2">{jobStatus?.error_message || 'Unknown error occurred'}</p>
-            </div>
-            <Button variant="outline" onClick={() => setCurrentJobId(null)}>
-              Try Again
-            </Button>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-
   return (
     <DashboardLayout>
-      <ToolEditorLayout
-        toolName="Image to Video (No Audio)"
-        toolIcon={Video}
-        credits="100-200/video"
-        estimatedTime="~4min"
-        onGenerate={handleGenerate}
-        isGenerating={isGenerating}
-        canGenerate={!!uploadedImage && !isGenerating}
-        costBreakdown={costBreakdown}
-        previewPane={previewPane}
-      >
-        {/* Image Upload */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center">
-              <FileImage className="w-4 h-4 mr-2" />
-              Upload Image
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6">
-              {uploadedImage ? (
-                <div className="text-center">
-                  <img
-                    src={uploadedImage}
-                    alt="Uploaded"
-                    className="mx-auto max-h-48 rounded-lg shadow-md"
-                  />
-                  <div className="mt-4 space-x-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => document.getElementById('image-upload')?.click()}
-                    >
-                      Change Image
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      onClick={() => setUploadedImage(null)}
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center">
-                  <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600 dark:text-gray-400 mb-2">
-                    Click to upload an image
-                  </p>
-                  <p className="text-sm text-gray-500 mb-4">
-                    Supports JPG, PNG, WebP up to 10MB
-                  </p>
+      <div className="flex flex-col h-full bg-white">
+        {/* Header */}
+        <div className="border-b border-gray-200 px-6 py-3">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
+              <Video className="w-5 h-5 text-white" />
+            </div>
+            <h1 className="text-xl font-semibold text-gray-900">Image to Video</h1>
+            <Badge className="bg-blue-100 text-blue-600 border-0 rounded-full">100 Credits</Badge>
+          </div>
+        </div>
+
+        <div className="flex-1 p-6 space-y-8">
+          {/* Input Controls - Full Width */}
+          <div className="w-full space-y-6">
+            {/* Main Prompt Input */}
+            <div className="relative">
+              <textarea
+                value={motionPrompt}
+                onChange={(e) => setMotionPrompt(e.target.value)}
+                placeholder="Describe how you want your image to move..."
+                className="min-h-[268px] flex h-full w-full flex-col justify-between gap-4 rounded-lg bg-white outline-none transition-colors focus-within:border-gray-300 border border-gray-300 p-6 text-gray-900 placeholder-gray-500 resize-none"
+              />
+
+              {/* Bottom Controls in Prompt Window */}
+              <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  {/* Image Upload Button */}
                   <Button
-                    onClick={() => document.getElementById('image-upload')?.click()}
+                    onClick={() => document.getElementById('video-image-upload')?.click()}
+                    className="w-10 h-10 p-0 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center border border-gray-300"
                   >
-                    <Upload className="w-4 h-4 mr-2" />
-                    Upload Image
+                    <Plus className="w-5 h-5 text-gray-600" />
                   </Button>
+
+                  {/* Quality Selector */}
+                  <Select value={quality} onValueChange={setQuality}>
+                    <SelectTrigger className="w-24 h-10 bg-gray-50 border-gray-300 rounded-full text-xs font-medium hover:bg-gray-100 transition-colors">
+                      <Settings className="w-4 h-4 mr-1" />
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border border-gray-200 rounded-xl shadow-lg">
+                      {qualities.map((q) => (
+                        <SelectItem key={q.value} value={q.value} className="hover:bg-gray-50 rounded-lg">
+                          <span className="font-medium text-gray-900">{q.label}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-              )}
+
+                {/* Generate Button */}
+                <Button
+                  onClick={handleGenerate}
+                  disabled={!uploadedImage || !motionPrompt.trim() || isGenerating}
+                  className="bg-black text-white hover:bg-gray-800 disabled:bg-gray-300 rounded-lg px-6 py-2 font-medium"
+                >
+                  {isGenerating ? "Generating..." : "Generate"}
+                </Button>
+              </div>
+
+              {/* Hidden file input */}
               <input
-                id="image-upload"
+                id="video-image-upload"
                 type="file"
                 accept="image/*"
                 onChange={handleImageUpload}
                 className="hidden"
               />
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Video Settings */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Video Settings</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Fixed 4 seconds duration - no user selection */}
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-blue-900 dark:text-blue-100">Video Duration</p>
-                  <p className="text-sm text-blue-700 dark:text-blue-300">Fixed at 4 seconds for optimal quality</p>
+            {/* Uploaded Image Display */}
+            {uploadedImage && (
+              <div className="relative bg-gray-50 rounded-lg border border-gray-200 p-4 max-w-md">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700">Source Image</span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={removeUploadedImage}
+                    className="p-1 h-auto text-gray-500 hover:text-gray-700"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
                 </div>
-                <Badge variant="secondary">4s</Badge>
+                <img
+                  src={uploadedImage}
+                  alt="Source"
+                  className="w-full max-h-32 object-contain rounded"
+                />
               </div>
-            </div>
+            )}
+          </div>
 
-            <div>
-              <Label>Quality</Label>
-              <Select value={quality} onValueChange={setQuality}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {qualities.map((q) => (
-                    <SelectItem key={q.value} value={q.value}>
-                      <div>
-                        <div className="font-medium">{q.label}</div>
-                        <div className="text-xs text-gray-500">{q.description}</div>
+          {/* Preview Panel - Full Width Below */}
+          <div className="w-full">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
+              <div className="p-6 border-b border-gray-100">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-gray-900">Generated Video</h2>
+                  {jobStatus && (
+                    <Badge variant="secondary" className="bg-gray-100 text-gray-600">
+                      {jobStatus.status.charAt(0).toUpperCase() + jobStatus.status.slice(1)}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-6">
+                {!currentJobId ? (
+                  <div className="flex items-center justify-center h-96">
+                    <div className="text-center">
+                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Video className="w-8 h-8 text-gray-400" />
                       </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">Ready to animate</h3>
+                      <p className="text-gray-500">Upload an image and describe the motion to create your video</p>
+                    </div>
+                  </div>
+                ) : isJobRunning ? (
+                  <div className="flex items-center justify-center h-96">
+                    <div className="text-center">
+                      <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                        {jobStatus?.status === 'queued' ? 'Queued for processing...' : 'Generating video...'}
+                      </h3>
+                      <p className="text-gray-500">This usually takes ~4 minutes</p>
+                    </div>
+                  </div>
+                ) : shouldShowVideo ? (
+                  <div className="space-y-4">
+                    <div className="aspect-video bg-black rounded-xl overflow-hidden relative border border-gray-200">
+                      <video
+                        controls
+                        preload="auto"
+                        playsInline
+                        muted={false}
+                        className="w-full h-full"
+                        poster={uploadedImage || undefined}
+                        key={displayVideoUrl}
+                        style={{
+                          objectFit: 'contain',
+                          backgroundColor: '#000'
+                        }}
+                      >
+                        <source src={displayVideoUrl} type="video/mp4" />
+                        <source src={displayVideoUrl} type="video/webm" />
+                        Your browser does not support the video tag.
+                      </video>
 
-            <div>
-              <Label>Motion Intensity: {intensity[0]}</Label>
-              <Slider
-                value={intensity}
-                onValueChange={setIntensity}
-                max={1}
-                min={0.1}
-                step={0.1}
-                className="mt-2"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Lower = subtle motion, Higher = dramatic motion
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+                      {/* Download Button Overlay */}
+                      <div className="absolute top-2 right-2 z-10">
+                        <Button
+                          onClick={() => downloadVideo(displayVideoUrl!)}
+                          className="bg-black/70 hover:bg-black/90 text-white border-white/20 rounded-lg"
+                          size="sm"
+                        >
+                          <Download className="w-4 h-4 mr-1" />
+                          Download
+                        </Button>
+                      </div>
+                    </div>
 
-        {/* Motion Description */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Motion Description</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="motionPrompt" className="text-base font-semibold">
-                🎬 Describe Your Motion (Required)
-              </Label>
-              <Textarea
-                id="motionPrompt"
-                placeholder="Example: Gentle head nod with natural eye movement, subtle smile appearing..."
-                value={motionPrompt}
-                onChange={(e) => setMotionPrompt(e.target.value)}
-                className="min-h-[100px] text-base"
-              />
-              <div className="flex items-start space-x-2 mt-2">
-                <div className="w-2 h-2 rounded-full bg-blue-500 mt-2"></div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  <strong>Be specific!</strong> Describe exactly how you want your image to move.
-                  Better descriptions = better videos. Leave empty for automatic motion.
-                </p>
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-gray-600">
+                        <p><strong>Duration:</strong> 4 seconds</p>
+                        <p><strong>Quality:</strong> {qualities.find(q => q.value === quality)?.label}</p>
+                        {jobStatus?.created_at && (
+                          <p><strong>Generated:</strong> {new Date(jobStatus.created_at).toLocaleString()}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : isJobFailed ? (
+                  <div className="text-center py-12">
+                    <div className="text-red-500 mb-4">
+                      <Video className="w-16 h-16 mx-auto mb-4" />
+                      <p className="font-medium text-xl">Video generation failed</p>
+                      <p className="text-sm mt-2">{jobStatus?.error_message || 'Unknown error occurred'}</p>
+                    </div>
+                    <Button variant="outline" onClick={() => setCurrentJobId(null)} className="rounded-lg">
+                      Try Again
+                    </Button>
+                  </div>
+                ) : null}
               </div>
             </div>
-
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Motion Templates</Label>
-              {motionTemplates.map((template, index) => (
-                <Button
-                  key={index}
-                  variant="outline"
-                  size="sm"
-                  className="justify-start text-left h-auto py-2 text-xs w-full"
-                  onClick={() => setMotionPrompt(template)}
-                >
-                  {template}
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </ToolEditorLayout>
+          </div>
+        </div>
+      </div>
     </DashboardLayout>
   );
 };
