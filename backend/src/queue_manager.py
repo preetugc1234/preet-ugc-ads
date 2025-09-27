@@ -1122,6 +1122,11 @@ class QueueManager:
                                     if job and job.get("finalUrls"):
                                         final_urls = job["finalUrls"]
                                         logger.info(f"📦 Found URLs in database from webhook: {final_urls}")
+                                    elif job and job.get("status") == "failed" and job.get("workerMeta", {}).get("webhook_error"):
+                                        # Webhook reported failure (likely 422 base64 issue) but polling shows job completed
+                                        logger.warning(f"⚠️ Webhook reported failure but polling shows completion - this is the 422 base64 bug!")
+                                        logger.warning(f"⚠️ Will attempt manual result retrieval immediately")
+                                        # Skip waiting and go straight to manual processing
                                     else:
                                         # Job completed but no video URL - likely webhook will deliver result
                                         logger.warning(f"⚠️ Job {job_id} completed but no video URL yet - waiting for webhook delivery")
@@ -1139,30 +1144,82 @@ class QueueManager:
                                                 # Import and call our webhook handler directly with a mock payload
                                                 logger.info(f"🔄 Creating mock webhook payload for completed job {job_id}")
 
-                                                # Create a simple mock payload - FAL AI job completed successfully
-                                                mock_payload = {
-                                                    "video": {"url": "https://fal.media/files/completed-video-placeholder.mp4"},
-                                                    "status": "completed",
-                                                    "request_id": request_id,
-                                                    "manual_retrieval": True
-                                                }
-
-                                                # Try to extract actual video URL from FAL AI if possible
+                                                # Try to extract actual video URL from FAL AI using a different approach
+                                                video_url = None
                                                 try:
-                                                    # Use the existing adapter to try one more result fetch
-                                                    from .ai_models.fal_adapter import FalAdapter
-                                                    adapter = FalAdapter()
+                                                    # Method 1: Try to use the FAL AI result endpoint directly without image validation
+                                                    import httpx
+                                                    headers = {"Authorization": f"Key {os.getenv('FAL_API_KEY')}"}
 
-                                                    # Try to get direct result
-                                                    result = await adapter.get_async_result(request_id, job["module"])
-                                                    if result.get("success") and result.get("video_url"):
-                                                        mock_payload["video"]["url"] = result["video_url"]
-                                                        logger.info(f"✅ Retrieved actual video URL: {result['video_url']}")
-                                                    else:
-                                                        logger.warning(f"⚠️ Could not retrieve actual video URL, using placeholder")
+                                                    # Try the simple result endpoint that might work
+                                                    async with httpx.AsyncClient() as client:
+                                                        try:
+                                                            # Try FAL AI queue status endpoint which sometimes has video URL
+                                                            status_url = f"https://queue.fal.run/fal-ai/kling-video/requests/{request_id}/status"
+                                                            status_response = await client.get(status_url, headers=headers)
 
-                                                except Exception as retrieve_error:
-                                                    logger.warning(f"⚠️ Direct retrieval failed: {retrieve_error}")
+                                                            if status_response.status_code == 200:
+                                                                status_data = status_response.json()
+                                                                logger.info(f"🔍 Status endpoint response: {status_data}")
+
+                                                                # Look for video URL in various places in status response
+                                                                if "output" in status_data:
+                                                                    output = status_data["output"]
+                                                                    if isinstance(output, dict) and "video" in output:
+                                                                        if isinstance(output["video"], dict) and "url" in output["video"]:
+                                                                            video_url = output["video"]["url"]
+                                                                        elif isinstance(output["video"], str):
+                                                                            video_url = output["video"]
+
+                                                                if not video_url and "result" in status_data:
+                                                                    result = status_data["result"]
+                                                                    if isinstance(result, dict) and "video" in result:
+                                                                        if isinstance(result["video"], dict) and "url" in result["video"]:
+                                                                            video_url = result["video"]["url"]
+
+                                                        except Exception as status_error:
+                                                            logger.warning(f"⚠️ Status endpoint failed: {status_error}")
+
+                                                        # Method 2: Try the actual result endpoint but catch 422 and extract from error
+                                                        if not video_url:
+                                                            try:
+                                                                result_url = f"https://queue.fal.run/fal-ai/kling-video/requests/{request_id}"
+                                                                result_response = await client.get(result_url, headers=headers)
+
+                                                                # Even if 422, sometimes the response body contains the video URL
+                                                                if result_response.status_code in [200, 422]:
+                                                                    try:
+                                                                        result_data = result_response.json()
+                                                                        logger.info(f"🔍 Result endpoint response (status {result_response.status_code}): {result_data}")
+
+                                                                        # Look for video URL even in error responses
+                                                                        if "video" in result_data:
+                                                                            if isinstance(result_data["video"], dict) and "url" in result_data["video"]:
+                                                                                video_url = result_data["video"]["url"]
+                                                                            elif isinstance(result_data["video"], str):
+                                                                                video_url = result_data["video"]
+                                                                    except:
+                                                                        pass
+                                                            except Exception as result_error:
+                                                                logger.warning(f"⚠️ Result endpoint failed: {result_error}")
+
+                                                except Exception as extract_error:
+                                                    logger.warning(f"⚠️ Video URL extraction failed: {extract_error}")
+
+                                                # Create payload with real video URL if found, otherwise use a better placeholder
+                                                if video_url:
+                                                    logger.info(f"✅ Successfully extracted real video URL: {video_url}")
+                                                    mock_payload = {
+                                                        "video": {"url": video_url},
+                                                        "status": "completed",
+                                                        "request_id": request_id,
+                                                        "manual_retrieval": True,
+                                                        "video_source": "extracted_from_fal_api"
+                                                    }
+                                                else:
+                                                    logger.warning(f"⚠️ Could not extract video URL, job may need to be retried")
+                                                    # Don't use placeholder - mark as failed so user can retry
+                                                    raise Exception("Could not extract video URL from completed FAL AI job")
 
                                                 # Import and call our webhook handler directly
                                                 from .routes.webhooks import process_fal_completion_direct

@@ -61,28 +61,56 @@ async def fal_webhook_with_job_id(job_id: str, request: Request, background_task
 
         user_id = str(job["userId"])
 
-        # Handle different Fal AI response formats
-        if "video" in payload_data and payload_data["video"]:
+        # Handle FAL AI webhook payload structure
+        logger.info(f"🔍 Raw payload structure: {payload_data}")
+
+        # FAL AI sends nested payload structure: {'payload': {...}, 'status': '...', etc}
+        actual_payload = payload_data
+        if "payload" in payload_data:
+            actual_payload = payload_data["payload"]
+            logger.info(f"🔍 Extracted nested payload: {actual_payload}")
+
+        webhook_status = payload_data.get("status", "unknown")
+        logger.info(f"🔍 Webhook status: {webhook_status}")
+
+        # Check if job completed successfully
+        if webhook_status == "completed" and actual_payload:
+            logger.info(f"✅ Job completed successfully, processing result...")
             # Process the completed result
             background_tasks.add_task(
                 process_fal_completion_direct,
                 ObjectId(job_id),
                 user_id,
                 job["module"],
-                payload_data
+                actual_payload
             )
             return {"success": True, "message": "Webhook processed"}
 
-        elif "error" in payload_data or "status" in payload_data:
-            # Handle failure
+        elif webhook_status == "failed" or "error" in payload_data:
+            # Handle failure - but check if this is a 422 base64 issue when job actually completed
             error_message = payload_data.get("error", "Fal AI processing failed")
+            logger.error(f"🔥 WEBHOOK FAILURE: Job {job_id} failed with error: {error_message}")
+            logger.error(f"🔥 Full error payload: {payload_data}")
+
+            # Special handling for 422 "Unexpected status code" - this often means job completed but FAL AI can't deliver result due to base64 corruption
+            if "422" in str(error_message) or "Unexpected status code" in str(error_message):
+                logger.warning(f"⚠️ 422 error detected - this is likely the base64 corruption issue")
+                logger.warning(f"⚠️ Job may have completed successfully but FAL AI can't deliver result")
+                logger.warning(f"⚠️ Marking job as failed so manual fallback mechanism can process it")
+
             db.jobs.update_one(
                 {"_id": ObjectId(job_id)},
                 {
                     "$set": {
                         "status": "failed",
-                        "errorMessage": error_message,
+                        "errorMessage": f"Webhook error: {error_message}",
                         "failedAt": datetime.now(timezone.utc),
+                        "workerMeta": {
+                            "webhook_error": True,
+                            "original_error": str(error_message),
+                            "error_type": "webhook_delivery_error",
+                            "failed_at": datetime.now(timezone.utc).isoformat()
+                        },
                         "updatedAt": datetime.now(timezone.utc)
                     }
                 }
