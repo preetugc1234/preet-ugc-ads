@@ -164,33 +164,12 @@ const ChatTool = () => {
     <DashboardLayout>
       <div className="flex flex-col h-full bg-white">
         {/* Header */}
-        <div className="border-b border-gray-200 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
-                <MessageSquare className="w-5 h-5 text-white" />
-              </div>
-              <h1 className="text-2xl font-semibold text-gray-900">Chat</h1>
+        <div className="border-b border-gray-200 px-6 py-3">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
+              <MessageSquare className="w-5 h-5 text-white" />
             </div>
-
-            {/* Model Selector */}
-            <div className="flex items-center space-x-2">
-              <Select value={model} onValueChange={setModel}>
-                <SelectTrigger className="w-48 bg-white border-gray-200 rounded-lg">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-white border border-gray-200 rounded-xl shadow-lg">
-                  {models.map((m) => (
-                    <SelectItem key={m.value} value={m.value} className="hover:bg-gray-50 rounded-lg">
-                      <div className="flex flex-col items-start">
-                        <span className="font-medium text-gray-900">{m.label}</span>
-                        <span className="text-xs text-gray-500">{m.description}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <h1 className="text-xl font-semibold text-gray-900">Chat</h1>
           </div>
         </div>
 
@@ -287,12 +266,31 @@ const ChatTool = () => {
                   }}
                   placeholder="Message Chat..."
                   disabled={isGenerating}
-                  className="w-full resize-none rounded-2xl border border-gray-300 px-4 py-3 pr-12 text-gray-900 placeholder-gray-500 focus:border-gray-400 focus:outline-none focus:ring-0 bg-white"
+                  className="w-full resize-none rounded-2xl border border-gray-300 px-4 py-3 pr-20 text-gray-900 placeholder-gray-500 focus:border-gray-400 focus:outline-none focus:ring-0 bg-white"
                   style={{ minHeight: '52px', maxHeight: '200px' }}
                 />
 
-                {/* Send Button */}
-                <div className="absolute bottom-3 right-3">
+                {/* Model Selector & Send Button */}
+                <div className="absolute bottom-3 right-3 flex items-center space-x-2">
+                  {/* Model Selector */}
+                  <Select value={model} onValueChange={setModel}>
+                    <SelectTrigger className="w-auto h-8 px-3 bg-gray-50 border-gray-200 rounded-full text-xs font-medium hover:bg-gray-100 transition-colors">
+                      <SelectValue />
+                      <ChevronDown className="w-3 h-3 ml-1" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border border-gray-200 rounded-xl shadow-lg min-w-48">
+                      {models.map((m) => (
+                        <SelectItem key={m.value} value={m.value} className="hover:bg-gray-50 rounded-lg">
+                          <div className="flex flex-col items-start">
+                            <span className="font-medium text-gray-900 text-sm">{m.label}</span>
+                            <span className="text-xs text-gray-500">{m.description}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Send Button */}
                   <Button
                     onClick={handleGenerate}
                     disabled={!prompt.trim() || isGenerating}

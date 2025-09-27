@@ -321,7 +321,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top header */}
         <header className="bg-white shadow-sm border-b border-gray-100">
-          <div className="flex items-center justify-between px-6 py-4">
+          <div className="flex items-center justify-between px-6 py-2">
             <div className="flex items-center space-x-4">
               {/* Mobile menu button */}
               <Button
