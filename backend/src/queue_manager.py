@@ -400,16 +400,16 @@ class QueueManager:
                                     base_cloudinary_url = cloudinary_result["secure_url"]
 
                                     # Create resized URL preserving aspect ratio while meeting FAL AI requirements
-                                    # Strategy: Scale to fit within 768x768 while maintaining aspect ratio
-                                    # This ensures minimum 512px on shortest side without complex conditionals
+                                    # Strategy: Scale to fit within 1280x1280 while maintaining aspect ratio
+                                    # This ensures higher quality output while keeping aspect ratios intact
                                     cloudinary_url = base_cloudinary_url.replace(
                                         "/upload/",
-                                        "/upload/c_fit,w_768,h_768,q_auto:good/"
+                                        "/upload/c_fit,w_1280,h_1280,q_auto:good/"
                                     )
 
                                     processed_params["image_url"] = cloudinary_url
                                     logger.info(f"✅ Base64 converted to Cloudinary URL: {base_cloudinary_url}")
-                                    logger.info(f"🎯 Image resized to fit 768x768 preserving aspect ratio: {cloudinary_url}")
+                                    logger.info(f"🎯 Image resized to fit 1280x1280 preserving aspect ratio for higher quality: {cloudinary_url}")
                                     logger.info(f"🚫 422 ERROR PREVENTION: Using properly sized Cloudinary URL")
                                 else:
                                     logger.warning(f"⚠️ Cloudinary upload failed, using base64 (may cause 422 error)")
