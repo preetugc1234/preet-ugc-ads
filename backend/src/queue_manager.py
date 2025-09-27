@@ -371,13 +371,52 @@ class QueueManager:
                             }
                         )
 
+                        # 🔥 CRITICAL FIX: Convert base64 images to Cloudinary URLs to prevent 422 errors
+                        processed_params = params.copy()
+                        image_url = processed_params.get("image_url", "")
+
+                        if image_url and image_url.startswith("data:image"):
+                            logger.info(f"🔄 Converting base64 image to Cloudinary URL to prevent 422 errors...")
+                            try:
+                                # Import AssetHandler for Cloudinary upload
+                                from .ai_models.asset_handler import AssetHandler
+                                asset_handler = AssetHandler()
+
+                                # Extract base64 data
+                                base64_data = image_url.split(",")[1]
+                                import base64
+                                image_bytes = base64.b64decode(base64_data)
+
+                                # Upload to Cloudinary
+                                image_path = f"user_{job['userId']}/job_{job_id}/input_image"
+                                cloudinary_result = await asset_handler._upload_to_cloudinary(
+                                    image_bytes,
+                                    image_path,
+                                    resource_type="image",
+                                    format="jpg"
+                                )
+
+                                if cloudinary_result and cloudinary_result.get("secure_url"):
+                                    cloudinary_url = cloudinary_result["secure_url"]
+                                    processed_params["image_url"] = cloudinary_url
+                                    logger.info(f"✅ Base64 converted to Cloudinary URL: {cloudinary_url}")
+                                    logger.info(f"🚫 422 ERROR PREVENTION: Using Cloudinary URL instead of base64")
+                                else:
+                                    logger.warning(f"⚠️ Cloudinary upload failed, using base64 (may cause 422 error)")
+
+                            except Exception as conversion_error:
+                                logger.warning(f"⚠️ Base64 to Cloudinary conversion failed: {conversion_error}")
+                                logger.warning(f"⚠️ Using original base64 (may cause 422 error)")
+                        else:
+                            logger.info(f"✅ Image URL is already a URL (not base64): {image_url[:100]}...")
+
                         # Use async submission method (non-blocking)
                         logger.info(f"📤 Submitting to FAL AI asynchronously (SINGLE CALL)...")
                         # Create webhook URL for direct result delivery (bypasses base64 corruption issue)
                         webhook_url = f"{os.getenv('BACKEND_URL', 'https://preet-ugc-ads.onrender.com')}/api/webhooks/fal/{job_id}"
                         logger.info(f"🔗 Using webhook URL for result delivery: {webhook_url}")
 
-                        submit_result = await adapter.submit_img2vid_noaudio_async(params, webhook_url=webhook_url)
+                        submit_result = await adapter.submit_img2vid_noaudio_async(processed_params, webhook_url=webhook_url)
                         logger.info(f"📊 FAL AI submit result: {submit_result}")
 
                         if submit_result.get('success') and submit_result.get('request_id'):
@@ -1348,7 +1387,6 @@ class QueueManager:
                                                         timestamp_str = ""
                                                         if job_created_at:
                                                             try:
-                                                                from datetime import datetime
                                                                 if isinstance(job_created_at, str):
                                                                     job_time = datetime.fromisoformat(job_created_at.replace('Z', '+00:00'))
                                                                 else:
@@ -1358,8 +1396,9 @@ class QueueManager:
                                                                 timestamp_str = job_time.strftime("%Y%m%d_%H%M%S")
                                                                 timestamp_str2 = job_time.strftime("%Y-%m-%d-%H-%M-%S")
                                                                 timestamp_str3 = str(int(job_time.timestamp()))
-                                                            except:
-                                                                pass
+                                                            except Exception as ts_error:
+                                                                logger.warning(f"⚠️ Timestamp extraction failed: {ts_error}")
+                                                                timestamp_str = ""
 
                                                         # Multiple construction patterns based on FAL AI's known formats
                                                         construction_patterns = [
