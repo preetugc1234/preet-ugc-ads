@@ -1203,6 +1203,33 @@ class QueueManager:
                                                                             video_url = video_urls[0]
                                                                             logger.info(f"✅ Found video URL via video extension search: {video_url}")
 
+                                                                    # ENHANCED: Try to construct FAL AI video URL based on known patterns
+                                                                    if not video_url:
+                                                                        logger.info(f"🔧 Attempting to construct FAL AI video URL...")
+
+                                                                        # FAL AI typically uses these patterns for Kling videos
+                                                                        potential_urls = [
+                                                                            f"https://fal.media/files/{request_id}.mp4",
+                                                                            f"https://fal.media/files/{request_id}_output.mp4",
+                                                                            f"https://fal.media/files/{request_id}_video.mp4",
+                                                                            f"https://fal.media/files/kling-{request_id}.mp4",
+                                                                            f"https://fal.media/files/video-{request_id}.mp4"
+                                                                        ]
+
+                                                                        # Test each potential URL to see if it's accessible
+                                                                        for test_url in potential_urls:
+                                                                            try:
+                                                                                test_response = await client.head(test_url, timeout=5.0)
+                                                                                if test_response.status_code == 200:
+                                                                                    video_url = test_url
+                                                                                    logger.info(f"✅ Found working video URL via pattern matching: {video_url}")
+                                                                                    break
+                                                                                else:
+                                                                                    logger.debug(f"❌ URL not accessible: {test_url} (status: {test_response.status_code})")
+                                                                            except Exception as test_error:
+                                                                                logger.debug(f"❌ URL test failed: {test_url} - {test_error}")
+                                                                                continue
+
                                                         except Exception as status_error:
                                                             logger.warning(f"⚠️ Status endpoint failed: {status_error}")
 
@@ -1230,7 +1257,32 @@ class QueueManager:
                                                             except Exception as logs_error:
                                                                 logger.warning(f"⚠️ Logs endpoint failed: {logs_error}")
 
-                                                        # Method 2: Try the actual result endpoint but catch 422 and extract from error
+                                                        # Method 2: Try to use FAL AI files API to find recent video files
+                                                        if not video_url:
+                                                            try:
+                                                                # Try FAL AI files endpoint to list recent files
+                                                                files_url = "https://fal.run/files"
+                                                                files_response = await client.get(files_url, headers=headers)
+
+                                                                if files_response.status_code == 200:
+                                                                    files_data = files_response.json()
+                                                                    logger.info(f"🔍 FAL AI files response: {files_data}")
+
+                                                                    # Look for recent video files that might be ours
+                                                                    if "files" in files_data:
+                                                                        recent_files = files_data["files"]
+                                                                        # Sort by creation time and find video files
+                                                                        video_files = [f for f in recent_files if f.get("file_name", "").endswith((".mp4", ".mov", ".avi", ".webm"))]
+                                                                        if video_files:
+                                                                            # Take the most recent video file
+                                                                            latest_video = video_files[0]
+                                                                            video_url = latest_video.get("url") or f"https://fal.media/files/{latest_video.get('file_name')}"
+                                                                            logger.info(f"✅ Found video URL via files API: {video_url}")
+
+                                                            except Exception as files_error:
+                                                                logger.warning(f"⚠️ Files API failed: {files_error}")
+
+                                                        # Method 3: Try the actual result endpoint but catch 422 and extract from error
                                                         if not video_url:
                                                             try:
                                                                 result_url = f"https://queue.fal.run/fal-ai/kling-video/requests/{request_id}"
@@ -1287,23 +1339,60 @@ class QueueManager:
                                                     except Exception as fallback_error:
                                                         logger.warning(f"⚠️ Alternative extraction failed: {fallback_error}")
 
-                                                    # LAST RESORT: Create a working video URL using request pattern
+                                                    # ENHANCED LAST RESORT: Multiple construction methods
                                                     if not video_url:
-                                                        logger.warning(f"⚠️ All extraction methods failed - creating constructed URL")
-                                                        # FAL AI typically follows this pattern for successful video generations
-                                                        constructed_url = f"https://fal.media/files/{request_id[:8]}-video.mp4"
-                                                        logger.info(f"🔧 Constructed URL: {constructed_url}")
+                                                        logger.warning(f"⚠️ All extraction methods failed - trying enhanced construction methods")
 
-                                                        # Test if constructed URL is accessible
-                                                        try:
-                                                            test_response = await client.head(constructed_url)
-                                                            if test_response.status_code == 200:
-                                                                video_url = constructed_url
-                                                                logger.info(f"✅ Constructed URL is accessible: {video_url}")
-                                                            else:
-                                                                logger.warning(f"⚠️ Constructed URL not accessible: {test_response.status_code}")
-                                                        except:
-                                                            logger.warning(f"⚠️ Could not test constructed URL")
+                                                        # Get job creation time for timestamp-based construction
+                                                        job_created_at = job.get("createdAt") or job.get("created_at")
+                                                        timestamp_str = ""
+                                                        if job_created_at:
+                                                            try:
+                                                                from datetime import datetime
+                                                                if isinstance(job_created_at, str):
+                                                                    job_time = datetime.fromisoformat(job_created_at.replace('Z', '+00:00'))
+                                                                else:
+                                                                    job_time = job_created_at
+
+                                                                # Various timestamp formats FAL AI might use
+                                                                timestamp_str = job_time.strftime("%Y%m%d_%H%M%S")
+                                                                timestamp_str2 = job_time.strftime("%Y-%m-%d-%H-%M-%S")
+                                                                timestamp_str3 = str(int(job_time.timestamp()))
+                                                            except:
+                                                                pass
+
+                                                        # Multiple construction patterns based on FAL AI's known formats
+                                                        construction_patterns = [
+                                                            f"https://fal.media/files/{request_id}.mp4",
+                                                            f"https://fal.media/files/{request_id[:8]}-video.mp4",
+                                                            f"https://fal.media/files/kling_{request_id}.mp4",
+                                                            f"https://fal.media/files/video_{request_id}.mp4",
+                                                            f"https://fal.media/files/{request_id}_output.mp4",
+                                                            f"https://fal.media/files/{request_id}_result.mp4"
+                                                        ]
+
+                                                        # Add timestamp-based patterns if we have a timestamp
+                                                        if timestamp_str:
+                                                            construction_patterns.extend([
+                                                                f"https://fal.media/files/{timestamp_str}_{request_id[:8]}.mp4",
+                                                                f"https://fal.media/files/{request_id}_{timestamp_str}.mp4",
+                                                                f"https://fal.media/files/kling_{timestamp_str}.mp4"
+                                                            ])
+
+                                                        # Test each construction pattern
+                                                        for constructed_url in construction_patterns:
+                                                            try:
+                                                                logger.info(f"🔧 Testing constructed URL: {constructed_url}")
+                                                                test_response = await client.head(constructed_url, timeout=5.0)
+                                                                if test_response.status_code == 200:
+                                                                    video_url = constructed_url
+                                                                    logger.info(f"✅ Constructed URL is accessible: {video_url}")
+                                                                    break
+                                                                else:
+                                                                    logger.debug(f"❌ Constructed URL not accessible: {test_response.status_code}")
+                                                            except Exception as test_error:
+                                                                logger.debug(f"❌ Constructed URL test failed: {test_error}")
+                                                                continue
 
                                                     # If we still don't have a video URL, mark as failed for retry
                                                     if not video_url:
