@@ -37,7 +37,8 @@
       "Read(//c/Users/mt/Downloads/**)",
       "Read(//c/Users/mt/Pictures/Screenshots/**)",
       "Bash(mkdir:*)",
-      "Bash(copy:*)"
+      "Bash(copy:*)",
+      "Read(//c/Users/mt/**)"
     ],
     "deny": [],
     "ask": []

@@ -1161,24 +1161,74 @@ class QueueManager:
                                                             if status_response.status_code == 200:
                                                                 status_data = status_response.json()
                                                                 logger.info(f"🔍 Status endpoint response: {status_data}")
+                                                                logger.info(f"🔍 Status endpoint keys: {list(status_data.keys()) if isinstance(status_data, dict) else 'Not a dict'}")
 
                                                                 # Look for video URL in various places in status response
                                                                 if "output" in status_data:
                                                                     output = status_data["output"]
+                                                                    logger.info(f"🔍 Found output in status: {output}")
                                                                     if isinstance(output, dict) and "video" in output:
                                                                         if isinstance(output["video"], dict) and "url" in output["video"]:
                                                                             video_url = output["video"]["url"]
+                                                                            logger.info(f"✅ Found video URL in output.video.url: {video_url}")
                                                                         elif isinstance(output["video"], str):
                                                                             video_url = output["video"]
+                                                                            logger.info(f"✅ Found video URL in output.video: {video_url}")
 
                                                                 if not video_url and "result" in status_data:
                                                                     result = status_data["result"]
+                                                                    logger.info(f"🔍 Found result in status: {result}")
                                                                     if isinstance(result, dict) and "video" in result:
                                                                         if isinstance(result["video"], dict) and "url" in result["video"]:
                                                                             video_url = result["video"]["url"]
+                                                                            logger.info(f"✅ Found video URL in result.video.url: {video_url}")
+
+                                                                # NEW: Try to look for video URL in the logs or any other field
+                                                                if not video_url:
+                                                                    logger.info(f"🔍 Searching entire response for video URLs...")
+                                                                    import json
+                                                                    response_str = json.dumps(status_data)
+
+                                                                    # Look for any fal.media URLs (FAL AI's CDN)
+                                                                    import re
+                                                                    fal_urls = re.findall(r'https://fal\.media/files/[^\s"\']+', response_str)
+                                                                    if fal_urls:
+                                                                        video_url = fal_urls[0]  # Take the first one
+                                                                        logger.info(f"✅ Found video URL via regex search: {video_url}")
+
+                                                                    # Also look for any other video URLs
+                                                                    if not video_url:
+                                                                        video_urls = re.findall(r'https://[^\s"\']+\.(mp4|mov|avi|webm)', response_str)
+                                                                        if video_urls:
+                                                                            video_url = video_urls[0]
+                                                                            logger.info(f"✅ Found video URL via video extension search: {video_url}")
 
                                                         except Exception as status_error:
                                                             logger.warning(f"⚠️ Status endpoint failed: {status_error}")
+
+                                                        # Method 1.5: Try the logs endpoint which sometimes has the video URL
+                                                        if not video_url:
+                                                            try:
+                                                                logs_url = f"https://queue.fal.run/fal-ai/kling-video/requests/{request_id}/status?logs=true"
+                                                                logs_response = await client.get(logs_url, headers=headers)
+
+                                                                if logs_response.status_code == 200:
+                                                                    logs_data = logs_response.json()
+                                                                    logger.info(f"🔍 Logs endpoint response: {logs_data}")
+
+                                                                    # Look for video URL in logs
+                                                                    import json
+                                                                    logs_str = json.dumps(logs_data)
+                                                                    import re
+
+                                                                    # Look for fal.media URLs in logs
+                                                                    fal_urls = re.findall(r'https://fal\.media/files/[^\s"\']+', logs_str)
+                                                                    if fal_urls:
+                                                                        video_url = fal_urls[0]
+                                                                        logger.info(f"✅ Found video URL in logs: {video_url}")
+
+                                                            except Exception as logs_error:
+                                                                logger.warning(f"⚠️ Logs endpoint failed: {logs_error}")
 
                                                         # Method 2: Try the actual result endpoint but catch 422 and extract from error
                                                         if not video_url:
@@ -1217,9 +1267,58 @@ class QueueManager:
                                                         "video_source": "extracted_from_fal_api"
                                                     }
                                                 else:
-                                                    logger.warning(f"⚠️ Could not extract video URL, job may need to be retried")
-                                                    # Don't use placeholder - mark as failed so user can retry
-                                                    raise Exception("Could not extract video URL from completed FAL AI job")
+                                                    logger.warning(f"⚠️ Could not extract video URL from standard methods")
+                                                    logger.info(f"🔄 Attempting alternative video URL extraction...")
+
+                                                    # FALLBACK: Try to use the FAL client result method with error handling
+                                                    try:
+                                                        from .ai_models.fal_adapter import FalAdapter
+                                                        adapter = FalAdapter()
+
+                                                        # Try to get ANY result - even if it fails, the error might contain video URL
+                                                        try:
+                                                            result = await adapter.get_async_result(request_id, job["module"])
+                                                            if result and result.get("video_url"):
+                                                                video_url = result["video_url"]
+                                                                logger.info(f"✅ Extracted video URL via adapter fallback: {video_url}")
+                                                        except Exception as adapter_error:
+                                                            logger.warning(f"⚠️ Adapter fallback also failed: {adapter_error}")
+
+                                                    except Exception as fallback_error:
+                                                        logger.warning(f"⚠️ Alternative extraction failed: {fallback_error}")
+
+                                                    # LAST RESORT: Create a working video URL using request pattern
+                                                    if not video_url:
+                                                        logger.warning(f"⚠️ All extraction methods failed - creating constructed URL")
+                                                        # FAL AI typically follows this pattern for successful video generations
+                                                        constructed_url = f"https://fal.media/files/{request_id[:8]}-video.mp4"
+                                                        logger.info(f"🔧 Constructed URL: {constructed_url}")
+
+                                                        # Test if constructed URL is accessible
+                                                        try:
+                                                            test_response = await client.head(constructed_url)
+                                                            if test_response.status_code == 200:
+                                                                video_url = constructed_url
+                                                                logger.info(f"✅ Constructed URL is accessible: {video_url}")
+                                                            else:
+                                                                logger.warning(f"⚠️ Constructed URL not accessible: {test_response.status_code}")
+                                                        except:
+                                                            logger.warning(f"⚠️ Could not test constructed URL")
+
+                                                    # If we still don't have a video URL, mark as failed for retry
+                                                    if not video_url:
+                                                        logger.error(f"❌ All video URL extraction methods failed")
+                                                        raise Exception("Could not extract video URL from completed FAL AI job - all methods exhausted")
+                                                    else:
+                                                        # Update mock_payload with the extracted video URL
+                                                        mock_payload = {
+                                                            "video": {"url": video_url},
+                                                            "status": "completed",
+                                                            "request_id": request_id,
+                                                            "manual_retrieval": True,
+                                                            "video_source": "fallback_extraction"
+                                                        }
+                                                        logger.info(f"✅ Successfully extracted video URL via fallback: {video_url}")
 
                                                 # Import and call our webhook handler directly
                                                 from .routes.webhooks import process_fal_completion_direct
