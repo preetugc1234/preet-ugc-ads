@@ -399,16 +399,17 @@ class QueueManager:
                                 if cloudinary_result and cloudinary_result.get("secure_url"):
                                     base_cloudinary_url = cloudinary_result["secure_url"]
 
-                                    # Create resized URL using Cloudinary transformations to meet FAL AI requirements
-                                    # FAL AI requires minimum 300x300, so we'll use 512x512 for better quality
+                                    # Create resized URL preserving aspect ratio while meeting FAL AI requirements
+                                    # Strategy: Scale image so shortest side is at least 512px, maintaining aspect ratio
+                                    # For landscape: scale to w_768,h_512, for portrait: scale to w_512,h_768
                                     cloudinary_url = base_cloudinary_url.replace(
                                         "/upload/",
-                                        "/upload/w_512,h_512,c_fill,g_center,q_auto:good/"
+                                        "/upload/c_scale,if_w_gt_h,w_768,h_512/c_scale,if_h_gt_w,w_512,h_768/c_scale,if_ar_1.0,w_512,h_512/q_auto:good/"
                                     )
 
                                     processed_params["image_url"] = cloudinary_url
                                     logger.info(f"✅ Base64 converted to Cloudinary URL: {base_cloudinary_url}")
-                                    logger.info(f"🎯 Image automatically resized to 512x512 for FAL AI: {cloudinary_url}")
+                                    logger.info(f"🎯 Image resized preserving aspect ratio - landscape(768x512), portrait(512x768), square(512x512): {cloudinary_url}")
                                     logger.info(f"🚫 422 ERROR PREVENTION: Using properly sized Cloudinary URL")
                                 else:
                                     logger.warning(f"⚠️ Cloudinary upload failed, using base64 (may cause 422 error)")
@@ -1489,25 +1490,70 @@ class QueueManager:
 
                                             return
 
-                                # Update job to completed
-                                db.jobs.update_one(
-                                    {"_id": job_id},
-                                    {
-                                        "$set": {
-                                            "status": JobStatus.COMPLETED.value,
-                                            "completedAt": datetime.now(timezone.utc),
-                                            "finalUrls": final_urls,
-                                            "workerMeta": {
-                                                "video_url": poll_result.get('video_url'),
-                                                "processing_complete": True,
-                                                "model": poll_result.get("model", "kling-v2.5-turbo-pro"),
-                                                "completed_at": datetime.now(timezone.utc).isoformat(),
-                                                "completed_on_poll": poll_attempt
-                                            },
-                                            "updatedAt": datetime.now(timezone.utc)
-                                        }
-                                    }
+                                # Process video through AssetHandler for Cloudinary upload
+                                logger.info(f"☁️ Processing video through AssetHandler for Cloudinary upload...")
+                                from .ai_models.asset_handler import AssetHandler
+                                asset_handler = AssetHandler()
+
+                                # Create video result structure for AssetHandler
+                                video_result = {
+                                    "success": True,
+                                    "video_url": poll_result.get('video_url'),
+                                    "model": "kling-v2.5-turbo-pro",
+                                    "has_audio": False
+                                }
+
+                                # Process video through AssetHandler (downloads from FAL AI and uploads to Cloudinary)
+                                asset_data = await asset_handler.handle_video_result(
+                                    video_result, str(job_id), user_id, False  # is_preview = False (final video)
                                 )
+
+                                if asset_data and asset_data.get("success"):
+                                    cloudinary_urls = asset_data.get("urls", [])
+                                    logger.info(f"✅ Cloudinary upload successful via polling! URLs: {cloudinary_urls}")
+
+                                    # Update job to completed with Cloudinary URLs
+                                    db.jobs.update_one(
+                                        {"_id": job_id},
+                                        {
+                                            "$set": {
+                                                "status": JobStatus.COMPLETED.value,
+                                                "completedAt": datetime.now(timezone.utc),
+                                                "finalUrls": cloudinary_urls,  # These are now Cloudinary URLs
+                                                "workerMeta": {
+                                                    "fal_video_url": poll_result.get('video_url'),  # Keep original FAL AI URL
+                                                    "cloudinary_urls": cloudinary_urls,  # Cloudinary URLs
+                                                    "processing_complete": True,
+                                                    "model": poll_result.get("model", "kling-v2.5-turbo-pro"),
+                                                    "completed_at": datetime.now(timezone.utc).isoformat(),
+                                                    "completed_on_poll": poll_attempt
+                                                },
+                                                "updatedAt": datetime.now(timezone.utc)
+                                            }
+                                        }
+                                    )
+                                else:
+                                    logger.error(f"❌ Cloudinary upload failed, using FAL AI URL as fallback")
+                                    # Fallback to FAL AI URL if Cloudinary upload fails
+                                    db.jobs.update_one(
+                                        {"_id": job_id},
+                                        {
+                                            "$set": {
+                                                "status": JobStatus.COMPLETED.value,
+                                                "completedAt": datetime.now(timezone.utc),
+                                                "finalUrls": final_urls,  # FAL AI URL as fallback
+                                                "workerMeta": {
+                                                    "fal_video_url": poll_result.get('video_url'),
+                                                    "cloudinary_upload_failed": True,
+                                                    "processing_complete": True,
+                                                    "model": poll_result.get("model", "kling-v2.5-turbo-pro"),
+                                                    "completed_at": datetime.now(timezone.utc).isoformat(),
+                                                    "completed_on_poll": poll_attempt
+                                                },
+                                                "updatedAt": datetime.now(timezone.utc)
+                                            }
+                                        }
+                                    )
 
                                 # Clean up processing lock
                                 job_id_str = str(job_id)
