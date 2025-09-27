@@ -34,7 +34,7 @@ class FalAdapter:
         # 🚨 CRITICAL: Track active submissions to prevent money-wasting duplicates
         self.active_submissions = set()  # Track request IDs to prevent loops
         self.submission_hashes = set()  # Track parameter hashes to prevent duplicates
-        self.active_handlers = {}  # Track WAN v2.2-5B handlers by request_id
+        self.active_handlers = {}  # Track Kling v2.5 Turbo Pro handlers by request_id
 
         # Initialize fal client - always use general FAL API key
         try:
@@ -119,123 +119,59 @@ class FalAdapter:
             self.submission_hashes.add(submission_hash)
             logger.info(f"🔒 Tracking submission hash: {submission_hash[:8]}...")
 
-            # Enhanced parameters for WAN v2.2-5B model
+            # Parameters for Kling v2.5 Turbo Pro model
             arguments = {
                 "prompt": prompt,
                 "image_url": image_url,
-                "num_frames": params.get("num_frames", 120),  # 120 frames = 5 seconds (to get 4 seconds output)
-                "frames_per_second": params.get("frames_per_second", 24),  # 4-60 FPS
-                "duration": duration,  # Explicit duration parameter
-                "negative_prompt": params.get("negative_prompt", ""),
-                "seed": params.get("seed", None),
-                "resolution": params.get("resolution", "720p"),  # 580p or 720p
-                "aspect_ratio": params.get("aspect_ratio", "auto"),  # auto, 16:9, 9:16, 1:1
-                "num_inference_steps": params.get("num_inference_steps", 40),
-                "enable_safety_checker": params.get("enable_safety_checker", True),
-                "enable_prompt_expansion": params.get("enable_prompt_expansion", False),
-                "guidance_scale": params.get("guidance_scale", 3.5),
-                "shift": params.get("shift", 5),
-                "interpolator_model": params.get("interpolator_model", "film"),  # none, film, rife
-                "num_interpolated_frames": params.get("num_interpolated_frames", 0),  # 0-4
-                "adjust_fps_for_interpolation": params.get("adjust_fps_for_interpolation", True),
-                "video_quality": params.get("video_quality", "high"),  # low, medium, high, maximum
-                "video_write_mode": params.get("video_write_mode", "balanced")  # fast, balanced, small
+                "duration": str(duration),  # Must be string "5" or "10"
+                "negative_prompt": params.get("negative_prompt", "blur, distort, and low quality"),
+                "cfg_scale": params.get("cfg_scale", 0.5)
             }
 
             logger.info(f"🚀 Submitting to FAL AI - Model: {self.models['img2vid_noaudio']}")
-            logger.info(f"🚀 Resolution: {arguments.get('resolution')} (must be 580p or 720p)")
+            logger.info(f"🚀 Duration: {arguments.get('duration')} seconds")
             logger.info(f"🚀 API Key (first 20): {self.api_key[:20]}...")
             logger.info(f"🚀 Webhook: {webhook_url}")
             logger.info(f"🚀 Full submission URL will be: https://queue.fal.run/{self.models['img2vid_noaudio']}")
 
-            # 🚨 WAN v2.2-5B: Use special submission method with FAL_KEY
+            # Kling v2.5 Turbo Pro: Use standard submission method
             try:
-                logger.info("🚀 Using WAN v2.2-5B submission method")
+                logger.info("🚀 Using Kling v2.5 Turbo Pro submission method")
 
                 # 🚨 CLEAN UP OLD HANDLERS to prevent interference
                 old_count = len(self.active_handlers)
                 self.active_handlers.clear()
                 logger.info(f"🧹 Cleared {old_count} old handlers to prevent interference")
 
-                # 🚨 CRITICAL: Ensure correct API key is set for WAN v2.2-5B
+                # Set FAL API key
                 import os
-                os.environ["FAL_KEY"] = self.api_key  # Always override
-                logger.info(f"✅ FAL_KEY set for WAN v2.2-5B: {self.api_key[:20]}...")
+                os.environ["FAL_KEY"] = self.api_key
+                logger.info(f"✅ FAL_KEY set for Kling v2.5 Turbo Pro: {self.api_key[:20]}...")
                 logger.info(f"✅ Using model: {self.models['img2vid_noaudio']}")
 
-                # 🚨 FIXED: Use direct HTTP API call to ensure correct endpoint
-                logger.info(f"🚀 Using direct HTTP API to ensure correct WAN v2.2-5B endpoint...")
+                # Use fal_client for Kling v2.5 Turbo Pro
+                logger.info(f"🚀 Using fal_client.submit for Kling v2.5 Turbo Pro...")
                 logger.info(f"🚀 Model: {self.models['img2vid_noaudio']}")
                 logger.info(f"🚀 Arguments keys: {list(arguments.keys())}")
 
-                # Use direct HTTP call to the correct endpoint
-                import httpx
-                import json
-
-                # Construct the correct API URL
-                api_url = f"https://queue.fal.run/{self.models['img2vid_noaudio']}"
-                logger.info(f"🚀 Direct API URL: {api_url}")
-
-                # Prepare headers with your API key
-                headers = {
-                    "Authorization": f"Key {self.api_key}",
-                    "Content-Type": "application/json"
-                }
-
-                try:
-                    # Make direct HTTP POST request
-                    async with httpx.AsyncClient(timeout=30.0) as client:
-                        response = await client.post(
-                            api_url,
-                            headers=headers,
-                            json=arguments
-                        )
-
-                    logger.info(f"🔍 Direct API response status: {response.status_code}")
-
-                    if response.status_code == 200:
-                        result = response.json()
-                        logger.info(f"✅ Direct API submission successful!")
-
-                        # Create a mock handler with the request_id
-                        class DirectRequestHandle:
-                            def __init__(self, request_id, api_key, model):
-                                self.request_id = request_id
-                                self._api_key = api_key
-                                self._model = model
-
-                            def get(self):
-                                # This will be used later for status checking
-                                return None  # Will be handled by our direct API status check
-
-                        request_id = result.get("request_id")
-                        handler = DirectRequestHandle(request_id, self.api_key, self.models["img2vid_noaudio"])
-
-                    else:
-                        logger.error(f"❌ Direct API submission failed: {response.status_code}")
-                        logger.error(f"❌ Response: {response.text}")
-                        raise Exception(f"Direct API submission failed: {response.status_code} - {response.text}")
-
-                except asyncio.TimeoutError:
-                    logger.error("❌ Direct API call timed out after 30 seconds")
-                    raise Exception("Direct API submission timed out - check API key and model access")
-                except Exception as submit_exception:
-                    logger.error(f"❌ Direct API submission failed: {submit_exception}")
-                    logger.error(f"❌ Exception type: {type(submit_exception).__name__}")
-                    raise
+                # Use fal_client.submit for Kling v2.5 Turbo Pro
+                handler = self.fal.submit(
+                    self.models['img2vid_noaudio'],
+                    arguments=arguments,
+                    webhook_url=webhook_url
+                )
 
                 logger.info(f"🎉 fal_client.submit completed! Handler type: {type(handler)}")
-
-                logger.info(f"🎉 WAN v2.2-5B submission successful - Handler: {handler}")
+                logger.info(f"🎉 Kling v2.5 Turbo Pro submission successful - Handler: {handler}")
 
                 # Store handler for later use in result retrieval
                 if hasattr(handler, 'request_id'):
                     request_id = handler.request_id
                     self.active_handlers[request_id] = handler
-                    logger.info(f"📦 Stored WAN v2.2-5B handler for request: {request_id}")
+                    logger.info(f"📦 Stored Kling v2.5 Turbo Pro handler for request: {request_id}")
 
             except Exception as submit_error:
-                logger.error(f"❌ WAN v2.2-5B submission failed: {submit_error}")
+                logger.error(f"❌ Kling v2.5 Turbo Pro submission failed: {submit_error}")
                 logger.error(f"❌ Error type: {type(submit_error).__name__}")
                 raise submit_error
 
@@ -262,12 +198,12 @@ class FalAdapter:
                 "model": "kling-v2.5-turbo-pro",
                 "estimated_processing_time": "3-4 minutes",
                 "quality": arguments.get("resolution", "720p"),
-                "duration": 4,  # Fixed 4-second duration for WAN v2.2-5B
+                "duration": 5,  # Fixed 5-second duration for Kling v2.5 Turbo Pro
                 "submission_hash": submission_hash[:8]  # For debugging
             }
 
         except Exception as e:
-            logger.error(f"🚨 CRITICAL: WAN 2.2 async submission failed: {e}")
+            logger.error(f"🚨 CRITICAL: Kling v2.5 Turbo Pro async submission failed: {e}")
             logger.error(f"🔍 Error type: {type(e).__name__}")
             logger.error(f"🔍 Error details: {str(e)}")
 
@@ -324,19 +260,19 @@ class FalAdapter:
             status_result = None
 
             try:
-                # 🚨 ENHANCED: Use proper FAL client method for WAN v2.2-5B status checking
-                logger.info(f"🔍 Checking status for WAN v2.2-5B request {request_id}")
+                # Use proper FAL client method for Kling v2.5 Turbo Pro status checking
+                logger.info(f"🔍 Checking status for Kling v2.5 Turbo Pro request {request_id}")
 
-                # 🚨 WAN v2.2-5B: Use stored handler to check completion
-                logger.info(f"🔍 Using stored handler for WAN v2.2-5B status check")
+                # Kling v2.5 Turbo Pro: Use stored handler to check completion
+                logger.info(f"🔍 Using stored handler for Kling v2.5 Turbo Pro status check")
 
                 # Try to get result from stored handler
                 handler = self.active_handlers.get(request_id)
                 if handler:
                     logger.info(f"📦 Found stored handler for request: {request_id}")
                     try:
-                        # 🚨 FIXED: Use proper fal_client.status method for WAN v2.2-5B
-                        logger.info(f"🔍 Using fal_client.status for WAN v2.2-5B...")
+                        # Use proper fal_client.status method for Kling v2.5 Turbo Pro
+                        logger.info(f"🔍 Using fal_client.status for Kling v2.5 Turbo Pro...")
 
                         # Use the proper FAL client status method
                         status_obj = await asyncio.to_thread(
@@ -383,27 +319,27 @@ class FalAdapter:
                 if parsed_status.get('status') == 'completed' or parsed_status.get('success'):
                     logger.info(f"✅ Job completed, attempting to get result...")
                     try:
-                        # 🚨 FIXED: Handle Completed object properly
+                        # Handle Completed object for Kling v2.5 Turbo Pro
                         if hasattr(status_result, '__class__') and status_result.__class__.__name__ == 'Completed':
-                            logger.info(f"🔍 Using Completed object directly as result")
-                            # For Completed objects, get the result directly from handler OR fallback
-                            handler = self.active_handlers.get(request_id)
-                            if handler:
-                                result = await asyncio.to_thread(handler.get)
-                                logger.info(f"✅ Got result from Completed handler: {type(result)}")
-                            else:
-                                logger.warning(f"⚠️ No handler for completed job, using direct FAL result fetch")
-                                # Fallback: use fal_client.result to get completed result without handler
-                                try:
-                                    result = await asyncio.to_thread(
-                                        fal_client.result,
-                                        self.models["img2vid_noaudio"],
-                                        request_id
-                                    )
-                                    logger.info(f"✅ Got result via direct FAL result fetch: {type(result)}")
-                                except Exception as result_fetch_error:
-                                    logger.error(f"❌ Direct result fetch failed: {result_fetch_error}")
-                                    result = status_result
+                            logger.info(f"🔍 Job completed, fetching result for Kling v2.5 Turbo Pro...")
+
+                            # Always use fal_client.result to get the actual result for Kling models
+                            try:
+                                result = await asyncio.to_thread(
+                                    fal_client.result,
+                                    self.models["img2vid_noaudio"],
+                                    request_id
+                                )
+                                logger.info(f"✅ Got Kling result via fal_client.result: {type(result)}")
+                                logger.info(f"🎬 Kling result content: {result}")
+                            except Exception as result_fetch_error:
+                                logger.error(f"❌ Kling result fetch failed: {result_fetch_error}")
+                                return {
+                                    "success": False,
+                                    "status": "failed",
+                                    "error": f"Failed to fetch Kling result: {result_fetch_error}",
+                                    "request_id": request_id
+                                }
                         elif isinstance(status_result, dict) and status_result.get("result"):
                             logger.info(f"🔍 Using result from status_result dict")
                             result = status_result["result"]
@@ -523,7 +459,7 @@ class FalAdapter:
                     "success": True,
                     "video_url": video_url,
                     "thumbnail_url": thumbnail_url,
-                    "duration": 4,  # Fixed 4-second duration for WAN v2.2-5B
+                    "duration": 5,  # Fixed 5-second duration for Kling v2.5 Turbo Pro
                     "seed": result.get("seed") if isinstance(result, dict) else None,
                     "actual_prompt": result.get("actual_prompt") if isinstance(result, dict) else None,
                     "model": "kling-v2.5-turbo-pro",
@@ -539,7 +475,7 @@ class FalAdapter:
                 }
 
         except Exception as e:
-            logger.error(f"Failed to get WAN 2.5 Preview result for {request_id}: {e}")
+            logger.error(f"Failed to get Kling v2.5 Turbo Pro result for {request_id}: {e}")
 
             # Enhanced error handling for stuck jobs
             error_message = str(e).lower()
@@ -1184,14 +1120,14 @@ class FalAdapter:
             if not image_url:
                 raise Exception("Image URL is required")
 
-            logger.info(f"🎬 Starting img2vid_noaudio generation with WAN 2.2 Preview")
+            logger.info(f"🎬 Starting img2vid_noaudio generation with Kling v2.5 Turbo Pro")
             logger.info(f"📷 Input: image_url length: {len(image_url)}, prompt: '{prompt}'")
 
-            # WAN 2.2 Preview parameters (fixed 5 seconds)
+            # Kling v2.5 Turbo Pro Preview parameters (fixed 5 seconds)
             arguments = {
                 "prompt": prompt if prompt else "The image stays still, eyes full of determination and strength. The camera slowly moves closer or circles around, highlighting the powerful presence and character.",
                 "image_url": image_url,
-                "resolution": params.get("resolution", "720p"),  # 580p, 720p for WAN v2.2-5B
+                "resolution": params.get("resolution", "720p"),  # Standard HD resolution for Kling v2.5 Turbo Pro
                 "negative_prompt": params.get("negative_prompt", "low resolution, error, worst quality, low quality, defects"),
                 "enable_prompt_expansion": params.get("enable_prompt_expansion", True),
                 "seed": params.get("seed", None)
@@ -1200,7 +1136,7 @@ class FalAdapter:
             logger.info(f"🔧 FAL AI arguments: {arguments}")
 
             # ALWAYS use general FAL API key (matches working local setup)
-            logger.info(f"🔑 Using general FAL API key for WAN 2.2 Preview (matching local setup)")
+            logger.info(f"🔑 Using general FAL API key for Kling v2.5 Turbo Pro (matching local setup)")
 
             # Ensure general FAL API key is set in environment
             if not self.api_key:
@@ -1209,7 +1145,7 @@ class FalAdapter:
             os.environ["FAL_KEY"] = self.api_key
 
             # Submit async request to WAN 2.2 Preview using general FAL API key
-            logger.info(f"📤 Submitting async request to WAN 2.2 Preview...")
+            logger.info(f"📤 Submitting async request to Kling v2.5 Turbo Pro...")
             submit_result = await asyncio.to_thread(
                 fal_client.submit,
                 self.models["img2vid_noaudio"],
@@ -1222,7 +1158,7 @@ class FalAdapter:
             # Handle different response formats - DO NOT WAIT, RETURN REQUEST ID
             if hasattr(submit_result, 'request_id'):
                 request_id = submit_result.request_id
-                logger.info(f"✅ WAN 2.2 Preview request submitted: {request_id}")
+                logger.info(f"✅ Kling v2.5 Turbo Pro request submitted: {request_id}")
                 logger.info(f"🔄 Returning request_id for async processing (queue will handle completion)")
 
                 # RETURN IMMEDIATELY - DO NOT BLOCK
@@ -1237,7 +1173,7 @@ class FalAdapter:
 
             elif isinstance(submit_result, dict) and 'request_id' in submit_result:
                 request_id = submit_result['request_id']
-                logger.info(f"✅ WAN 2.2 Preview request submitted (dict): {request_id}")
+                logger.info(f"✅ Kling v2.5 Turbo Pro request submitted (dict): {request_id}")
                 logger.info(f"🔄 Returning request_id for async processing (queue will handle completion)")
 
                 # RETURN IMMEDIATELY - DO NOT BLOCK
@@ -1252,7 +1188,7 @@ class FalAdapter:
 
             else:
                 # Direct result case (shouldn't happen with async)
-                logger.info(f"✅ WAN 2.2 Preview direct result received")
+                logger.info(f"✅ Kling v2.5 Turbo Pro direct result received")
                 result = submit_result
 
             logger.info(f"📊 FAL AI response: {result}")
@@ -1280,14 +1216,14 @@ class FalAdapter:
                 raise Exception(f"FAL AI returned no video. Response: {result}")
 
         except Exception as e:
-            logger.error(f"❌ WAN 2.2 Preview img2vid_noaudio failed: {e}")
+            logger.error(f"❌ Kling v2.5 Turbo Pro img2vid_noaudio failed: {e}")
             logger.error(f"❌ Error type: {type(e).__name__}")
 
             # Enhanced error categorization for better debugging
             error_message = str(e).lower()
             if "timeout" in error_message:
                 error_category = "timeout_error"
-                user_message = "Video generation timed out (WAN 2.2 needs 3+ minutes). Please try again."
+                user_message = "Video generation timed out (Kling v2.5 Turbo Pro needs 3+ minutes). Please try again."
             elif "api key" in error_message or "unauthorized" in error_message:
                 error_category = "auth_error"
                 user_message = "Authentication failed. Please check API key configuration."
