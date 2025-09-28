@@ -165,9 +165,17 @@ const ImageToVideoTool = () => {
   const isJobFailed = jobStatus?.status === 'failed';
   const isGenerating = isSubmitting || createJobMutation.isPending || isJobRunning;
 
-  // SIMPLIFIED VIDEO URL DETECTION: Trust the backend completeness
-  const finalVideoUrl = jobStatus?.finalUrls?.[0]; // Cloudinary URL (preferred)
-  const fallbackVideoUrl = jobStatus?.worker_meta?.fal_video_url || jobStatus?.worker_meta?.video_url; // FAL AI URL (fallback)
+  // ROBUST VIDEO URL DETECTION: Handle multiple API response formats
+  const finalVideoUrl = jobStatus?.finalUrls?.[0] ||
+                        jobStatus?.final_urls?.[0] ||
+                        jobStatus?.urls?.[0]; // Multiple possible field names
+
+  const fallbackVideoUrl = jobStatus?.worker_meta?.fal_video_url ||
+                           jobStatus?.worker_meta?.video_url ||
+                           jobStatus?.worker_meta?.videoUrl ||
+                           jobStatus?.video_url ||
+                           jobStatus?.videoUrl; // Multiple possible locations
+
   const displayVideoUrl = finalVideoUrl || fallbackVideoUrl;
 
   // SIMPLE LOGIC: Show video if we have any video URL and job is completed
@@ -190,23 +198,94 @@ const ImageToVideoTool = () => {
     }
   }, [jobAge, displayVideoUrl, jobStatus?.status, jobStatus, refetchJobStatus]);
 
-  // SIMPLIFIED DEBUG LOGGING
+  // ENHANCED DEBUG LOGGING WITH API STRUCTURE ANALYSIS
   if (jobStatus) {
-    console.log('🔍 JOB STATUS DEBUG:', {
+    const apiStructureAnalysis = {
+      // Standard fields
       jobId: currentJobId,
       status: jobStatus.status,
-      finalUrls: jobStatus.finalUrls,
-      worker_meta: jobStatus.worker_meta,
+
+      // Video URL analysis
+      hasStandardFinalUrls: !!jobStatus.finalUrls?.length,
+      hasSnakeCaseFinalUrls: !!jobStatus.final_urls?.length,
+      hasUrls: !!jobStatus.urls?.length,
+      hasVideoUrl: !!jobStatus.video_url,
+
+      // Worker meta analysis
+      hasWorkerMeta: !!jobStatus.worker_meta,
+      workerMetaKeys: jobStatus.worker_meta ? Object.keys(jobStatus.worker_meta) : [],
+
+      // Computed values
       shouldShowVideo: shouldShowVideo,
-      jobAge: jobAge,
       finalVideoUrl: finalVideoUrl,
       fallbackVideoUrl: fallbackVideoUrl,
       displayVideoUrl: displayVideoUrl,
+
+      // Status analysis
       isJobCompleted: isJobCompleted,
       isJobRunning: isJobRunning,
-      isGenerating: isGenerating
-    });
+      isGenerating: isGenerating,
+      jobAge: jobAge
+    };
+
+    console.log('🔍 COMPREHENSIVE API DEBUG:', apiStructureAnalysis);
+
+    // Alert user if API structure doesn't match expected format
+    if (jobStatus.status === 'completed' && !displayVideoUrl) {
+      console.warn('⚠️ API STRUCTURE ISSUE: Job completed but no video URL found!');
+      console.warn('📋 Available fields:', Object.keys(jobStatus));
+      console.warn('🔧 Run this to see full response: window.lastJobStatus =', jobStatus);
+      (window as any).lastJobStatus = jobStatus;
+    }
   }
+
+  // SMART API STRUCTURE ADAPTER - Handles any backend response format
+  const adaptApiResponse = (jobData: any) => {
+    if (!jobData) return null;
+
+    // Find video URLs in any possible location
+    const findVideoUrls = (obj: any): string[] => {
+      const urls: string[] = [];
+
+      // Check common array fields
+      const arrayFields = ['finalUrls', 'final_urls', 'urls', 'videoUrls', 'video_urls'];
+      arrayFields.forEach(field => {
+        if (obj[field] && Array.isArray(obj[field])) {
+          urls.push(...obj[field].filter((url: any) => typeof url === 'string'));
+        }
+      });
+
+      // Check common string fields
+      const stringFields = ['video_url', 'videoUrl', 'url', 'fileUrl', 'downloadUrl'];
+      stringFields.forEach(field => {
+        if (obj[field] && typeof obj[field] === 'string') {
+          urls.push(obj[field]);
+        }
+      });
+
+      // Check worker_meta
+      if (obj.worker_meta) {
+        urls.push(...findVideoUrls(obj.worker_meta));
+      }
+
+      return urls.filter(url => url && url.length > 0);
+    };
+
+    const allUrls = findVideoUrls(jobData);
+    console.log('🔍 Smart adapter found URLs:', allUrls);
+
+    return {
+      videoUrls: allUrls,
+      primaryUrl: allUrls[0] || null,
+      status: jobData.status,
+      isCompleted: jobData.status === 'completed' || jobData.status === 'done' || jobData.status === 'success'
+    };
+  };
+
+  // Use smart adapter
+  const adaptedData = adaptApiResponse(jobStatus);
+  const smartVideoUrl = adaptedData?.primaryUrl || displayVideoUrl;
+  const smartShouldShow = smartVideoUrl && adaptedData?.isCompleted;
 
   const downloadVideo = async (url: string) => {
     try {
@@ -456,7 +535,7 @@ const ImageToVideoTool = () => {
                       )}
                     </div>
                   </div>
-                ) : shouldShowVideo ? (
+                ) : (smartShouldShow || shouldShowVideo) ? (
                   <div className="space-y-4">
                     <div className="aspect-video bg-black rounded-xl overflow-hidden relative border border-gray-200">
                       <video
@@ -471,18 +550,18 @@ const ImageToVideoTool = () => {
                           objectFit: 'contain',
                           backgroundColor: '#000'
                         }}
-                        onLoadStart={() => console.log('🎬 Video loading started:', displayVideoUrl)}
+                        onLoadStart={() => console.log('🎬 Video loading started:', smartVideoUrl || displayVideoUrl)}
                         onLoadedData={() => console.log('✅ Video loaded successfully')}
                         onError={(e) => console.error('❌ Video loading error:', e)}
                       >
-                        <source src={displayVideoUrl} type="video/mp4" />
+                        <source src={smartVideoUrl || displayVideoUrl} type="video/mp4" />
                         Your browser does not support the video tag.
                       </video>
 
                       {/* Download Button Overlay */}
                       <div className="absolute top-2 right-2 z-10">
                         <Button
-                          onClick={() => downloadVideo(displayVideoUrl!)}
+                          onClick={() => downloadVideo(smartVideoUrl || displayVideoUrl!)}
                           className="bg-black/70 hover:bg-black/90 text-white border-white/20 rounded-lg"
                           size="sm"
                         >
@@ -491,10 +570,13 @@ const ImageToVideoTool = () => {
                         </Button>
                       </div>
 
-                      {/* Video URL Debug Info (temporary) */}
+                      {/* Enhanced Video URL Debug Info */}
                       {process.env.NODE_ENV === 'development' && (
-                        <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                          {finalVideoUrl ? 'Cloudinary' : 'FAL AI'} • {displayVideoUrl?.substring(0, 50)}...
+                        <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded max-w-xs">
+                          <div>Smart: {smartVideoUrl ? '✅' : '❌'}</div>
+                          <div>Original: {displayVideoUrl ? '✅' : '❌'}</div>
+                          <div>URL: {(smartVideoUrl || displayVideoUrl)?.substring(0, 40)}...</div>
+                          <div>Source: {finalVideoUrl ? 'Cloudinary' : 'FAL AI'}</div>
                         </div>
                       )}
                     </div>
@@ -510,7 +592,7 @@ const ImageToVideoTool = () => {
 
                       {/* Additional Download Button */}
                       <Button
-                        onClick={() => downloadVideo(displayVideoUrl!)}
+                        onClick={() => downloadVideo(smartVideoUrl || displayVideoUrl!)}
                         variant="outline"
                         size="sm"
                         className="rounded-lg"
@@ -553,15 +635,43 @@ const ImageToVideoTool = () => {
                       <h3 className="text-xl font-semibold text-gray-900 mb-2">Processing job...</h3>
                       <p className="text-gray-500">Checking job status...</p>
 
-                      {/* Debug catch-all info */}
+                      {/* Enhanced API Debug Panel */}
                       {process.env.NODE_ENV === 'development' && (
-                        <div className="mt-4 p-2 bg-yellow-100 rounded text-xs text-left">
-                          <p><strong>Catch-all Debug:</strong></p>
+                        <div className="mt-4 p-3 bg-yellow-100 rounded text-xs text-left max-h-40 overflow-y-auto">
+                          <p><strong>🔍 API Structure Debug:</strong></p>
                           <p>Job ID: {currentJobId}</p>
                           <p>Status: {jobStatus?.status || 'unknown'}</p>
-                          <p>Has finalUrls: {!!jobStatus?.finalUrls?.length}</p>
-                          <p>Display URL: {!!displayVideoUrl}</p>
-                          <p>Should show video: {shouldShowVideo.toString()}</p>
+                          <hr className="my-2"/>
+
+                          <p><strong>📹 Video URL Fields:</strong></p>
+                          <p>finalUrls: {JSON.stringify(jobStatus?.finalUrls)}</p>
+                          <p>final_urls: {JSON.stringify(jobStatus?.final_urls)}</p>
+                          <p>urls: {JSON.stringify(jobStatus?.urls)}</p>
+                          <p>video_url: {jobStatus?.video_url || 'none'}</p>
+                          <hr className="my-2"/>
+
+                          <p><strong>🔧 Worker Meta:</strong></p>
+                          <p>worker_meta: {JSON.stringify(jobStatus?.worker_meta).slice(0, 100)}...</p>
+                          <hr className="my-2"/>
+
+                          <p><strong>🎯 Computed Values:</strong></p>
+                          <p>finalVideoUrl: {finalVideoUrl || 'none'}</p>
+                          <p>fallbackVideoUrl: {fallbackVideoUrl || 'none'}</p>
+                          <p>displayVideoUrl: {displayVideoUrl || 'none'}</p>
+                          <p>shouldShowVideo: {shouldShowVideo.toString()}</p>
+                          <hr className="my-2"/>
+
+                          <p><strong>🚀 Smart Adapter:</strong></p>
+                          <p>smartVideoUrl: {smartVideoUrl || 'none'}</p>
+                          <p>smartShouldShow: {smartShouldShow.toString()}</p>
+                          <p>adaptedUrls: {JSON.stringify(adaptedData?.videoUrls)}</p>
+
+                          <button
+                            onClick={() => console.log('Full jobStatus:', jobStatus)}
+                            className="mt-2 px-2 py-1 bg-blue-500 text-white rounded text-xs"
+                          >
+                            Log Full API Response
+                          </button>
                         </div>
                       )}
 
