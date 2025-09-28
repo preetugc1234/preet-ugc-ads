@@ -467,11 +467,6 @@ const ImageToVideoTool = () => {
                       <p className="text-sm text-gray-400 mt-2">
                         It usually takes ~4 minutes
                       </p>
-                      {jobStatus?.created_at && (
-                        <p className="text-xs text-gray-400 mt-2">
-                          Started: {new Date(jobStatus.created_at).toLocaleTimeString()}
-                        </p>
-                      )}
 
                       {/* Debug info - remove after testing */}
                       {process.env.NODE_ENV === 'development' && (
