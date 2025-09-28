@@ -171,25 +171,9 @@ const ImageToVideoTool = () => {
   const isJobFailed = jobStatus?.status === 'failed';
   const isGenerating = isSubmitting || createJobMutation.isPending || isJobRunning;
 
-  // ROBUST VIDEO URL DETECTION: Handle multiple API response formats
-  const finalVideoUrl = jobStatus?.finalUrls?.[0] ||
-                        jobStatus?.final_urls?.[0] ||
-                        jobStatus?.urls?.[0]; // Multiple possible field names
-
-  const fallbackVideoUrl = jobStatus?.worker_meta?.fal_video_url ||
-                           jobStatus?.worker_meta?.video_url ||
-                           jobStatus?.worker_meta?.videoUrl ||
-                           jobStatus?.video_url ||
-                           jobStatus?.videoUrl; // Multiple possible locations
-
-  const displayVideoUrl = finalVideoUrl || fallbackVideoUrl;
-
-  // SIMPLE LOGIC: Show video if we have any video URL and job is completed
-  const shouldShowVideo = displayVideoUrl && (
-    isJobCompleted ||
-    jobStatus?.status === 'completed' ||
-    (jobStatus?.worker_meta?.processing_complete && displayVideoUrl)
-  );
+  // SIMPLE VIDEO DETECTION: Just check finalUrls from Cloudinary upload
+  const videoUrl = jobStatus?.finalUrls?.[0]; // Cloudinary URL after upload
+  const showVideo = videoUrl && jobStatus?.status === 'completed';
 
   // AUTO-REFRESH for old jobs without video URLs
   const jobAge = jobStatus?.created_at ? (Date.now() - new Date(jobStatus.created_at).getTime()) / 1000 : 0;
@@ -245,61 +229,12 @@ const ImageToVideoTool = () => {
     }
   }
 
-  // SMART API STRUCTURE ADAPTER - Handles any backend response format
-  const adaptApiResponse = (jobData: any) => {
-    if (!jobData) return null;
-
-    // Find video URLs in any possible location
-    const findVideoUrls = (obj: any): string[] => {
-      const urls: string[] = [];
-
-      // Check common array fields
-      const arrayFields = ['finalUrls', 'final_urls', 'urls', 'videoUrls', 'video_urls'];
-      arrayFields.forEach(field => {
-        if (obj[field] && Array.isArray(obj[field])) {
-          urls.push(...obj[field].filter((url: any) => typeof url === 'string'));
-        }
-      });
-
-      // Check common string fields
-      const stringFields = ['video_url', 'videoUrl', 'url', 'fileUrl', 'downloadUrl'];
-      stringFields.forEach(field => {
-        if (obj[field] && typeof obj[field] === 'string') {
-          urls.push(obj[field]);
-        }
-      });
-
-      // Check worker_meta
-      if (obj.worker_meta) {
-        urls.push(...findVideoUrls(obj.worker_meta));
-      }
-
-      return urls.filter(url => url && url.length > 0);
-    };
-
-    const allUrls = findVideoUrls(jobData);
-    console.log('🔍 Smart adapter found URLs:', allUrls);
-
-    return {
-      videoUrls: allUrls,
-      primaryUrl: allUrls[0] || null,
-      status: jobData.status,
-      isCompleted: jobData.status === 'completed' || jobData.status === 'done' || jobData.status === 'success'
-    };
-  };
-
-  // Use smart adapter
-  const adaptedData = adaptApiResponse(jobStatus);
-  const smartVideoUrl = adaptedData?.primaryUrl || displayVideoUrl;
-  const smartShouldShow = smartVideoUrl && adaptedData?.isCompleted;
-
-  // EMERGENCY: Force video display if ANY video URL exists after 2+ minutes
-  const emergencyShowVideo = jobAge > 120 && (smartVideoUrl || displayVideoUrl); // 2 minutes
-  const forceVideoMode = (window as any).forceVideoDisplay; // Manual force mode
-
-  // EMERGENCY: Combined video display logic
-  const finalShouldShowVideo = forceVideoMode || emergencyShowVideo || smartShouldShow || shouldShowVideo;
-  const ultimateVideoUrl = smartVideoUrl || displayVideoUrl;
+  // SIMPLE: No complex logic, just check if video exists and job completed
+  console.log('🔍 Simple check:', {
+    videoUrl,
+    status: jobStatus?.status,
+    showVideo
+  });
 
   const downloadVideo = async (url: string) => {
     try {
@@ -549,7 +484,7 @@ const ImageToVideoTool = () => {
                       )}
                     </div>
                   </div>
-                ) : finalShouldShowVideo ? (
+                ) : showVideo ? (
                   <div className="space-y-4">
                     <div className="aspect-video bg-black rounded-xl overflow-hidden relative border border-gray-200">
                       <video
@@ -564,18 +499,18 @@ const ImageToVideoTool = () => {
                           objectFit: 'contain',
                           backgroundColor: '#000'
                         }}
-                        onLoadStart={() => console.log('🎬 Video loading started:', ultimateVideoUrl)}
+                        onLoadStart={() => console.log('🎬 Video loading started:', videoUrl)}
                         onLoadedData={() => console.log('✅ Video loaded successfully')}
                         onError={(e) => console.error('❌ Video loading error:', e)}
                       >
-                        <source src={ultimateVideoUrl} type="video/mp4" />
+                        <source src={videoUrl} type="video/mp4" />
                         Your browser does not support the video tag.
                       </video>
 
                       {/* Download Button Overlay */}
                       <div className="absolute top-2 right-2 z-10">
                         <Button
-                          onClick={() => downloadVideo(ultimateVideoUrl!)}
+                          onClick={() => downloadVideo(videoUrl!)}
                           className="bg-black/70 hover:bg-black/90 text-white border-white/20 rounded-lg"
                           size="sm"
                         >
@@ -584,14 +519,12 @@ const ImageToVideoTool = () => {
                         </Button>
                       </div>
 
-                      {/* Enhanced Video URL Debug Info */}
+                      {/* Simple Debug Info */}
                       {process.env.NODE_ENV === 'development' && (
-                        <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded max-w-xs">
-                          <div>Smart: {smartVideoUrl ? '✅' : '❌'}</div>
-                          <div>Original: {displayVideoUrl ? '✅' : '❌'}</div>
-                          <div>Emergency: {emergencyShowVideo ? '✅' : '❌'}</div>
-                          <div>URL: {ultimateVideoUrl?.substring(0, 40)}...</div>
-                          <div>Age: {Math.floor(jobAge)}s</div>
+                        <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                          <div>Status: {jobStatus?.status}</div>
+                          <div>Video: {videoUrl ? '✅' : '❌'}</div>
+                          <div>Show: {showVideo ? '✅' : '❌'}</div>
                         </div>
                       )}
                     </div>
@@ -607,7 +540,7 @@ const ImageToVideoTool = () => {
 
                       {/* Additional Download Button */}
                       <Button
-                        onClick={() => downloadVideo(ultimateVideoUrl!)}
+                        onClick={() => downloadVideo(videoUrl!)}
                         variant="outline"
                         size="sm"
                         className="rounded-lg"
@@ -617,7 +550,7 @@ const ImageToVideoTool = () => {
                       </Button>
                     </div>
                   </div>
-                ) : isJobCompleted && !displayVideoUrl ? (
+                ) : isJobCompleted && !videoUrl ? (
                   <div className="flex items-center justify-center h-96">
                     <div className="text-center">
                       <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
@@ -650,76 +583,24 @@ const ImageToVideoTool = () => {
                       <h3 className="text-xl font-semibold text-gray-900 mb-2">Processing job...</h3>
                       <p className="text-gray-500">Checking job status...</p>
 
-                      {/* Enhanced API Debug Panel */}
+                      {/* Simple Debug Panel */}
                       {process.env.NODE_ENV === 'development' && (
-                        <div className="mt-4 p-3 bg-yellow-100 rounded text-xs text-left max-h-40 overflow-y-auto">
-                          <p><strong>🔍 API Structure Debug:</strong></p>
-                          <p>Job ID: {currentJobId}</p>
+                        <div className="mt-4 p-2 bg-yellow-100 rounded text-xs">
+                          <p><strong>Simple Debug:</strong></p>
                           <p>Status: {jobStatus?.status || 'unknown'}</p>
-                          <hr className="my-2"/>
-
-                          <p><strong>📹 Video URL Fields:</strong></p>
                           <p>finalUrls: {JSON.stringify(jobStatus?.finalUrls)}</p>
-                          <p>final_urls: {JSON.stringify(jobStatus?.final_urls)}</p>
-                          <p>urls: {JSON.stringify(jobStatus?.urls)}</p>
-                          <p>video_url: {jobStatus?.video_url || 'none'}</p>
-                          <hr className="my-2"/>
-
-                          <p><strong>🔧 Worker Meta:</strong></p>
-                          <p>worker_meta: {JSON.stringify(jobStatus?.worker_meta).slice(0, 100)}...</p>
-                          <hr className="my-2"/>
-
-                          <p><strong>🎯 Computed Values:</strong></p>
-                          <p>originalFinalUrl: {finalVideoUrl || 'none'}</p>
-                          <p>fallbackVideoUrl: {fallbackVideoUrl || 'none'}</p>
-                          <p>displayVideoUrl: {displayVideoUrl || 'none'}</p>
-                          <p>shouldShowVideo: {shouldShowVideo.toString()}</p>
-                          <hr className="my-2"/>
-
-                          <p><strong>🚀 Smart Adapter:</strong></p>
-                          <p>smartVideoUrl: {smartVideoUrl || 'none'}</p>
-                          <p>smartShouldShow: {smartShouldShow.toString()}</p>
-                          <p>adaptedUrls: {JSON.stringify(adaptedData?.videoUrls)}</p>
-                          <hr className="my-2"/>
-
-                          <p><strong>🚨 Emergency Mode:</strong></p>
-                          <p>Job Age: {Math.floor(jobAge)}s (need 120s)</p>
-                          <p>emergencyShowVideo: {emergencyShowVideo.toString()}</p>
-                          <p>finalShouldShowVideo: {finalShouldShowVideo.toString()}</p>
-                          <p>ultimateVideoUrl: {ultimateVideoUrl || 'none'}</p>
-
-                          <button
-                            onClick={() => console.log('Full jobStatus:', jobStatus)}
-                            className="mt-2 px-2 py-1 bg-blue-500 text-white rounded text-xs"
-                          >
-                            Log Full API Response
-                          </button>
+                          <p>videoUrl: {videoUrl || 'none'}</p>
+                          <p>showVideo: {showVideo.toString()}</p>
                         </div>
                       )}
 
-                      <div className="flex gap-2 mt-4">
-                        <Button
-                          variant="outline"
-                          onClick={() => refetchJobStatus()}
-                          className="rounded-lg"
-                        >
-                          Refresh Status
-                        </Button>
-                        {(smartVideoUrl || displayVideoUrl) && (
-                          <Button
-                            onClick={() => {
-                              console.log('🚨 EMERGENCY: Forcing video display');
-                              console.log('Video URL found:', smartVideoUrl || displayVideoUrl);
-                              // Force emergency mode
-                              (window as any).forceVideoDisplay = true;
-                              window.location.reload();
-                            }}
-                            className="bg-red-500 hover:bg-red-600 text-white rounded-lg"
-                          >
-                            🚨 Force Video
-                          </Button>
-                        )}
-                      </div>
+                      <Button
+                        variant="outline"
+                        onClick={() => refetchJobStatus()}
+                        className="mt-4 rounded-lg"
+                      >
+                        Refresh Status
+                      </Button>
                     </div>
                   </div>
                 )}
