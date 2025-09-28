@@ -390,7 +390,7 @@ const ImageToVideoTool = () => {
 
           {/* Preview Panel - Full Width Below */}
           <div className="w-full">
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm min-h-[500px]">
               <div className="p-6 border-b border-gray-100">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-semibold text-gray-900">Generated Video</h2>
@@ -402,7 +402,7 @@ const ImageToVideoTool = () => {
                 </div>
               </div>
 
-              <div className="p-6">
+              <div className="p-6 min-h-[400px]">
                 {!currentJobId ? (
                   <div className="flex items-center justify-center h-96">
                     <div className="text-center">
