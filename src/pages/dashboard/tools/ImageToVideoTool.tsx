@@ -21,7 +21,13 @@ const ImageToVideoTool = () => {
   const createJobMutation = useCreateJob();
   const { data: jobStatus, refetch: refetchJobStatus } = useJobStatus(currentJobId || '', {
     enabled: !!currentJobId,
-    refetchInterval: 10000, // Poll every 10 seconds for WAN 2.2 (3-4min duration)
+    refetchInterval: (data) => {
+      // Aggressive polling for stuck jobs
+      if (data?.status === 'completed' || data?.status === 'failed') {
+        return false; // Stop polling
+      }
+      return 5000; // Poll every 5 seconds instead of 10
+    },
   });
 
 
@@ -287,6 +293,14 @@ const ImageToVideoTool = () => {
   const smartVideoUrl = adaptedData?.primaryUrl || displayVideoUrl;
   const smartShouldShow = smartVideoUrl && adaptedData?.isCompleted;
 
+  // EMERGENCY: Force video display if ANY video URL exists after 2+ minutes
+  const emergencyShowVideo = jobAge > 120 && (smartVideoUrl || displayVideoUrl); // 2 minutes
+  const forceVideoMode = (window as any).forceVideoDisplay; // Manual force mode
+
+  // EMERGENCY: Combined video display logic
+  const finalShouldShowVideo = forceVideoMode || emergencyShowVideo || smartShouldShow || shouldShowVideo;
+  const ultimateVideoUrl = smartVideoUrl || displayVideoUrl;
+
   const downloadVideo = async (url: string) => {
     try {
       // Generate descriptive filename
@@ -535,7 +549,7 @@ const ImageToVideoTool = () => {
                       )}
                     </div>
                   </div>
-                ) : (smartShouldShow || shouldShowVideo) ? (
+                ) : finalShouldShowVideo ? (
                   <div className="space-y-4">
                     <div className="aspect-video bg-black rounded-xl overflow-hidden relative border border-gray-200">
                       <video
@@ -550,18 +564,18 @@ const ImageToVideoTool = () => {
                           objectFit: 'contain',
                           backgroundColor: '#000'
                         }}
-                        onLoadStart={() => console.log('🎬 Video loading started:', smartVideoUrl || displayVideoUrl)}
+                        onLoadStart={() => console.log('🎬 Video loading started:', ultimateVideoUrl)}
                         onLoadedData={() => console.log('✅ Video loaded successfully')}
                         onError={(e) => console.error('❌ Video loading error:', e)}
                       >
-                        <source src={smartVideoUrl || displayVideoUrl} type="video/mp4" />
+                        <source src={ultimateVideoUrl} type="video/mp4" />
                         Your browser does not support the video tag.
                       </video>
 
                       {/* Download Button Overlay */}
                       <div className="absolute top-2 right-2 z-10">
                         <Button
-                          onClick={() => downloadVideo(smartVideoUrl || displayVideoUrl!)}
+                          onClick={() => downloadVideo(ultimateVideoUrl!)}
                           className="bg-black/70 hover:bg-black/90 text-white border-white/20 rounded-lg"
                           size="sm"
                         >
@@ -575,8 +589,9 @@ const ImageToVideoTool = () => {
                         <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded max-w-xs">
                           <div>Smart: {smartVideoUrl ? '✅' : '❌'}</div>
                           <div>Original: {displayVideoUrl ? '✅' : '❌'}</div>
-                          <div>URL: {(smartVideoUrl || displayVideoUrl)?.substring(0, 40)}...</div>
-                          <div>Source: {finalVideoUrl ? 'Cloudinary' : 'FAL AI'}</div>
+                          <div>Emergency: {emergencyShowVideo ? '✅' : '❌'}</div>
+                          <div>URL: {ultimateVideoUrl?.substring(0, 40)}...</div>
+                          <div>Age: {Math.floor(jobAge)}s</div>
                         </div>
                       )}
                     </div>
@@ -592,7 +607,7 @@ const ImageToVideoTool = () => {
 
                       {/* Additional Download Button */}
                       <Button
-                        onClick={() => downloadVideo(smartVideoUrl || displayVideoUrl!)}
+                        onClick={() => downloadVideo(ultimateVideoUrl!)}
                         variant="outline"
                         size="sm"
                         className="rounded-lg"
@@ -655,7 +670,7 @@ const ImageToVideoTool = () => {
                           <hr className="my-2"/>
 
                           <p><strong>🎯 Computed Values:</strong></p>
-                          <p>finalVideoUrl: {finalVideoUrl || 'none'}</p>
+                          <p>originalFinalUrl: {finalVideoUrl || 'none'}</p>
                           <p>fallbackVideoUrl: {fallbackVideoUrl || 'none'}</p>
                           <p>displayVideoUrl: {displayVideoUrl || 'none'}</p>
                           <p>shouldShowVideo: {shouldShowVideo.toString()}</p>
@@ -665,6 +680,13 @@ const ImageToVideoTool = () => {
                           <p>smartVideoUrl: {smartVideoUrl || 'none'}</p>
                           <p>smartShouldShow: {smartShouldShow.toString()}</p>
                           <p>adaptedUrls: {JSON.stringify(adaptedData?.videoUrls)}</p>
+                          <hr className="my-2"/>
+
+                          <p><strong>🚨 Emergency Mode:</strong></p>
+                          <p>Job Age: {Math.floor(jobAge)}s (need 120s)</p>
+                          <p>emergencyShowVideo: {emergencyShowVideo.toString()}</p>
+                          <p>finalShouldShowVideo: {finalShouldShowVideo.toString()}</p>
+                          <p>ultimateVideoUrl: {ultimateVideoUrl || 'none'}</p>
 
                           <button
                             onClick={() => console.log('Full jobStatus:', jobStatus)}
@@ -675,13 +697,29 @@ const ImageToVideoTool = () => {
                         </div>
                       )}
 
-                      <Button
-                        variant="outline"
-                        onClick={() => refetchJobStatus()}
-                        className="mt-4 rounded-lg"
-                      >
-                        Refresh Status
-                      </Button>
+                      <div className="flex gap-2 mt-4">
+                        <Button
+                          variant="outline"
+                          onClick={() => refetchJobStatus()}
+                          className="rounded-lg"
+                        >
+                          Refresh Status
+                        </Button>
+                        {(smartVideoUrl || displayVideoUrl) && (
+                          <Button
+                            onClick={() => {
+                              console.log('🚨 EMERGENCY: Forcing video display');
+                              console.log('Video URL found:', smartVideoUrl || displayVideoUrl);
+                              // Force emergency mode
+                              (window as any).forceVideoDisplay = true;
+                              window.location.reload();
+                            }}
+                            className="bg-red-500 hover:bg-red-600 text-white rounded-lg"
+                          >
+                            🚨 Force Video
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
