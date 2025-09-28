@@ -80,14 +80,19 @@ export interface JobResponse {
 }
 
 export interface JobStatus {
-  id: string
+  success: boolean
+  job_id: string
+  client_job_id: string
   status: 'queued' | 'processing' | 'completed' | 'failed'
+  module: string
+  params: Record<string, any>
+  used_credits: number
   preview_url?: string
-  finalUrls?: string[]
-  progress?: number
-  error_message?: string
+  finalUrls: string[]
+  worker_meta: Record<string, any>
   created_at: string
   updated_at: string
+  error_message?: string
 }
 
 export interface ApiError {
