@@ -171,7 +171,11 @@ const ImageToVideoTool = () => {
   const displayVideoUrl = finalVideoUrl || fallbackVideoUrl;
 
   // SIMPLE LOGIC: Show video if we have any video URL and job is completed
-  const shouldShowVideo = displayVideoUrl && (isJobCompleted || jobStatus?.status === 'completed');
+  const shouldShowVideo = displayVideoUrl && (
+    isJobCompleted ||
+    jobStatus?.status === 'completed' ||
+    (jobStatus?.worker_meta?.processing_complete && displayVideoUrl)
+  );
 
   // AUTO-REFRESH for old jobs without video URLs
   const jobAge = jobStatus?.created_at ? (Date.now() - new Date(jobStatus.created_at).getTime()) / 1000 : 0;
@@ -413,25 +417,42 @@ const ImageToVideoTool = () => {
                       <p className="text-gray-500">Upload an image and describe the motion to create your video</p>
                     </div>
                   </div>
-                ) : isGenerating ? (
+                ) : (currentJobId && (isGenerating || !jobStatus)) ? (
                   <div className="flex items-center justify-center h-96">
                     <div className="text-center">
                       <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
                       <h3 className="text-xl font-semibold text-gray-900 mb-2">
                         {isSubmitting || createJobMutation.isPending ? 'Submitting job...' :
+                         !jobStatus ? 'Loading job status...' :
                          jobStatus?.status === 'queued' ? 'Queued for processing...' :
                          jobStatus?.status === 'processing' ? 'Generating video...' :
+                         jobStatus?.status === 'submitted' ? 'Job submitted, starting...' :
                          'Processing...'}
                       </h3>
                       <p className="text-gray-500">
                         {isSubmitting || createJobMutation.isPending ? 'Setting up your video generation...' :
+                         !jobStatus ? 'Retrieving job information from server...' :
                          jobStatus?.status === 'queued' ? 'Your job is in the queue, processing will start soon...' :
-                         'This usually takes 2-4 minutes for high-quality results'}
+                         jobStatus?.status === 'processing' ? 'This usually takes 2-4 minutes for high-quality results' :
+                         'Initializing video generation process...'}
                       </p>
                       {jobStatus?.created_at && (
                         <p className="text-xs text-gray-400 mt-2">
                           Started: {new Date(jobStatus.created_at).toLocaleTimeString()}
                         </p>
+                      )}
+
+                      {/* Debug info - remove after testing */}
+                      {process.env.NODE_ENV === 'development' && (
+                        <div className="mt-4 p-2 bg-gray-100 rounded text-xs text-left">
+                          <p><strong>Debug:</strong></p>
+                          <p>Job ID: {currentJobId || 'none'}</p>
+                          <p>Status: {jobStatus?.status || 'no status'}</p>
+                          <p>isGenerating: {isGenerating.toString()}</p>
+                          <p>isSubmitting: {isSubmitting.toString()}</p>
+                          <p>isPending: {createJobMutation.isPending.toString()}</p>
+                          <p>finalUrls: {jobStatus?.finalUrls?.length || 0} URLs</p>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -525,7 +546,35 @@ const ImageToVideoTool = () => {
                       Try Again
                     </Button>
                   </div>
-                ) : null}
+                ) : (
+                  <div className="flex items-center justify-center h-96">
+                    <div className="text-center">
+                      <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">Processing job...</h3>
+                      <p className="text-gray-500">Checking job status...</p>
+
+                      {/* Debug catch-all info */}
+                      {process.env.NODE_ENV === 'development' && (
+                        <div className="mt-4 p-2 bg-yellow-100 rounded text-xs text-left">
+                          <p><strong>Catch-all Debug:</strong></p>
+                          <p>Job ID: {currentJobId}</p>
+                          <p>Status: {jobStatus?.status || 'unknown'}</p>
+                          <p>Has finalUrls: {!!jobStatus?.finalUrls?.length}</p>
+                          <p>Display URL: {!!displayVideoUrl}</p>
+                          <p>Should show video: {shouldShowVideo.toString()}</p>
+                        </div>
+                      )}
+
+                      <Button
+                        variant="outline"
+                        onClick={() => refetchJobStatus()}
+                        className="mt-4 rounded-lg"
+                      >
+                        Refresh Status
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
