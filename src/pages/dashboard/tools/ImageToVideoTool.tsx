@@ -557,11 +557,11 @@ const ImageToVideoTool = () => {
                       <h3 className="text-xl font-semibold text-gray-900 mb-2">Finalizing video...</h3>
                       <p className="text-gray-500">Processing completed, preparing video for download...</p>
                       <Button
-                        variant="outline"
+                        variant={jobAge >= 240 ? "default" : "outline"}
                         onClick={() => refetchJobStatus()}
-                        className="mt-4 rounded-lg"
+                        className={`mt-4 rounded-lg ${jobAge >= 240 ? "bg-green-600 hover:bg-green-700 text-white animate-pulse" : ""}`}
                       >
-                        Refresh Status
+                        {jobAge >= 240 ? "🎬 Video is ready! Click here" : "Refresh Status"}
                       </Button>
                     </div>
                   </div>
@@ -595,11 +595,11 @@ const ImageToVideoTool = () => {
                       )}
 
                       <Button
-                        variant="outline"
+                        variant={jobAge >= 240 ? "default" : "outline"}
                         onClick={() => refetchJobStatus()}
-                        className="mt-4 rounded-lg"
+                        className={`mt-4 rounded-lg ${jobAge >= 240 ? "bg-green-600 hover:bg-green-700 text-white animate-pulse" : ""}`}
                       >
-                        Refresh Status
+                        {jobAge >= 240 ? "🎬 Video is ready! Click here" : "Refresh Status"}
                       </Button>
                     </div>
                   </div>
