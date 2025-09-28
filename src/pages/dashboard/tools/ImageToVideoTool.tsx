@@ -461,8 +461,11 @@ const ImageToVideoTool = () => {
                         {isSubmitting || createJobMutation.isPending ? 'Setting up your video generation...' :
                          !jobStatus ? 'Retrieving job information from server...' :
                          jobStatus?.status === 'queued' ? 'Your job is in the queue, processing will start soon...' :
-                         jobStatus?.status === 'processing' ? 'This usually takes 2-4 minutes for high-quality results' :
+                         jobStatus?.status === 'processing' ? 'High-quality video generation in progress...' :
                          'Initializing video generation process...'}
+                      </p>
+                      <p className="text-sm text-gray-400 mt-2">
+                        It usually takes ~4 minutes
                       </p>
                       {jobStatus?.created_at && (
                         <p className="text-xs text-gray-400 mt-2">
