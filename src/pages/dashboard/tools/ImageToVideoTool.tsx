@@ -170,10 +170,8 @@ const ImageToVideoTool = () => {
   const fallbackVideoUrl = jobStatus?.worker_meta?.fal_video_url || jobStatus?.worker_meta?.video_url; // FAL AI URL (fallback)
   const displayVideoUrl = finalVideoUrl || fallbackVideoUrl;
 
-  // SIMPLE LOGIC: Show video if job completed OR if we have any video URL
-  const shouldShowVideo = (isJobCompleted && displayVideoUrl) ||
-                         (jobStatus?.worker_meta?.processing_complete && displayVideoUrl) ||
-                         (displayVideoUrl && jobStatus?.status === 'completed');
+  // SIMPLE LOGIC: Show video if we have any video URL and job is completed
+  const shouldShowVideo = displayVideoUrl && (isJobCompleted || jobStatus?.status === 'completed');
 
   // AUTO-REFRESH for old jobs without video URLs
   const jobAge = jobStatus?.created_at ? (Date.now() - new Date(jobStatus.created_at).getTime()) / 1000 : 0;
@@ -186,7 +184,7 @@ const ImageToVideoTool = () => {
 
       return () => clearTimeout(timer);
     }
-  }, [jobAge, displayVideoUrl, jobStatus?.status, refetchJobStatus]);
+  }, [jobAge, displayVideoUrl, jobStatus?.status, jobStatus, refetchJobStatus]);
 
   // SIMPLIFIED DEBUG LOGGING
   if (jobStatus) {
@@ -215,76 +213,78 @@ const ImageToVideoTool = () => {
         : 'motion_video';
       const filename = `${promptSlug}_5s_${timestamp}.mp4`;
 
-      // Use video URL directly without transformations to avoid corruption
-      let downloadUrl = url;
-      console.log('🎬 Downloading video directly from source');
+      console.log(`⬇️ Starting video download: ${filename}`);
+      console.log(`🔗 Video URL: ${url}`);
 
-      console.log(`⬇️ Starting download: ${filename}`);
-
-      // Fetch the video with progress tracking
-      const response = await fetch(downloadUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch video: ${response.statusText}`);
+      // Try different download methods based on URL type
+      if (url.includes('cloudinary')) {
+        // Cloudinary URL - try direct download first
+        await downloadDirectLink(url, filename);
+      } else {
+        // FAL AI or other URL - use fetch method
+        await downloadWithFetch(url, filename);
       }
-
-      // Get file size for progress
-      const contentLength = response.headers.get('content-length');
-      const totalSize = contentLength ? parseInt(contentLength, 10) : 0;
-
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error('Failed to read video stream');
-      }
-
-      // Read the stream
-      const chunks: Uint8Array[] = [];
-      let receivedLength = 0;
-
-      while (true) {
-        const { done, value } = await reader.read();
-
-        if (done) break;
-
-        chunks.push(value);
-        receivedLength += value.length;
-
-        // Log progress for large files
-        if (totalSize > 0 && totalSize > 5 * 1024 * 1024) { // > 5MB
-          const progress = ((receivedLength / totalSize) * 100).toFixed(1);
-          console.log(`📥 Download progress: ${progress}%`);
-        }
-      }
-
-      // Combine chunks
-      const allChunks = new Uint8Array(receivedLength);
-      let position = 0;
-      for (const chunk of chunks) {
-        allChunks.set(chunk, position);
-        position += chunk.length;
-      }
-
-      // Create blob and download
-      const blob = new Blob([allChunks], { type: 'video/mp4' });
-      const objectUrl = URL.createObjectURL(blob);
-
-      const link = document.createElement('a');
-      link.href = objectUrl;
-      link.download = filename;
-      link.style.display = 'none';
-
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      URL.revokeObjectURL(objectUrl);
-
-      const fileSizeMB = (blob.size / 1024 / 1024).toFixed(2);
-      console.log(`✅ Video downloaded successfully: ${filename} (${fileSizeMB}MB)`);
 
     } catch (error) {
       console.error('❌ Video download failed:', error);
-      alert(`Failed to download video: ${error instanceof Error ? error.message : 'Unknown error'}`);
+
+      // Fallback: try opening in new tab
+      console.log('🔄 Trying fallback method: opening video in new tab');
+      try {
+        const link = document.createElement('a');
+        link.href = url;
+        link.target = '_blank';
+        link.download = filename;
+        link.click();
+        console.log('✅ Fallback download initiated');
+      } catch (fallbackError) {
+        console.error('❌ Fallback download also failed:', fallbackError);
+        alert(`Failed to download video. You can try right-clicking the video and selecting "Save video as..."`);
+      }
     }
+  };
+
+  // Direct download method for cloudinary and compatible URLs
+  const downloadDirectLink = async (url: string, filename: string) => {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.style.display = 'none';
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    console.log(`✅ Direct download initiated: ${filename}`);
+  };
+
+  // Fetch-based download method for CORS-enabled URLs
+  const downloadWithFetch = async (url: string, filename: string) => {
+    const response = await fetch(url, {
+      mode: 'cors',
+      credentials: 'omit'
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = filename;
+    link.style.display = 'none';
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    URL.revokeObjectURL(objectUrl);
+
+    const fileSizeMB = (blob.size / 1024 / 1024).toFixed(2);
+    console.log(`✅ Video downloaded successfully: ${filename} (${fileSizeMB}MB)`);
   };
 
   return (
@@ -346,7 +346,12 @@ const ImageToVideoTool = () => {
                   disabled={!uploadedImage || !motionPrompt.trim() || isGenerating}
                   className="bg-black text-white hover:bg-gray-800 disabled:bg-gray-300 rounded-lg px-6 py-2 font-medium"
                 >
-                  {isGenerating ? "Generating..." : "Generate"}
+                  {isGenerating && (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  )}
+                  {isSubmitting || createJobMutation.isPending ? "Submitting..." :
+                   isJobRunning ? "Generating..." :
+                   "Generate"}
                 </Button>
               </div>
 
@@ -411,13 +416,23 @@ const ImageToVideoTool = () => {
                 ) : isGenerating ? (
                   <div className="flex items-center justify-center h-96">
                     <div className="text-center">
-                      <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                      <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
                       <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                        {isSubmitting ? 'Starting generation...' :
+                        {isSubmitting || createJobMutation.isPending ? 'Submitting job...' :
                          jobStatus?.status === 'queued' ? 'Queued for processing...' :
-                         'Generating video...'}
+                         jobStatus?.status === 'processing' ? 'Generating video...' :
+                         'Processing...'}
                       </h3>
-                      <p className="text-gray-500">This usually takes ~4 minutes</p>
+                      <p className="text-gray-500">
+                        {isSubmitting || createJobMutation.isPending ? 'Setting up your video generation...' :
+                         jobStatus?.status === 'queued' ? 'Your job is in the queue, processing will start soon...' :
+                         'This usually takes 2-4 minutes for high-quality results'}
+                      </p>
+                      {jobStatus?.created_at && (
+                        <p className="text-xs text-gray-400 mt-2">
+                          Started: {new Date(jobStatus.created_at).toLocaleTimeString()}
+                        </p>
+                      )}
                     </div>
                   </div>
                 ) : shouldShowVideo ? (
@@ -435,9 +450,11 @@ const ImageToVideoTool = () => {
                           objectFit: 'contain',
                           backgroundColor: '#000'
                         }}
+                        onLoadStart={() => console.log('🎬 Video loading started:', displayVideoUrl)}
+                        onLoadedData={() => console.log('✅ Video loaded successfully')}
+                        onError={(e) => console.error('❌ Video loading error:', e)}
                       >
                         <source src={displayVideoUrl} type="video/mp4" />
-                        <source src={displayVideoUrl} type="video/webm" />
                         Your browser does not support the video tag.
                       </video>
 
@@ -452,16 +469,49 @@ const ImageToVideoTool = () => {
                           Download
                         </Button>
                       </div>
+
+                      {/* Video URL Debug Info (temporary) */}
+                      {process.env.NODE_ENV === 'development' && (
+                        <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                          {finalVideoUrl ? 'Cloudinary' : 'FAL AI'} • {displayVideoUrl?.substring(0, 50)}...
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex items-center justify-between">
                       <div className="text-sm text-gray-600">
-                        <p><strong>Duration:</strong> 4 seconds</p>
+                        <p><strong>Duration:</strong> 5 seconds</p>
                         <p><strong>Quality:</strong> {qualities.find(q => q.value === quality)?.label}</p>
                         {jobStatus?.created_at && (
                           <p><strong>Generated:</strong> {new Date(jobStatus.created_at).toLocaleString()}</p>
                         )}
                       </div>
+
+                      {/* Additional Download Button */}
+                      <Button
+                        onClick={() => downloadVideo(displayVideoUrl!)}
+                        variant="outline"
+                        size="sm"
+                        className="rounded-lg"
+                      >
+                        <Download className="w-4 h-4 mr-1" />
+                        Download MP4
+                      </Button>
+                    </div>
+                  </div>
+                ) : isJobCompleted && !displayVideoUrl ? (
+                  <div className="flex items-center justify-center h-96">
+                    <div className="text-center">
+                      <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">Finalizing video...</h3>
+                      <p className="text-gray-500">Processing completed, preparing video for download...</p>
+                      <Button
+                        variant="outline"
+                        onClick={() => refetchJobStatus()}
+                        className="mt-4 rounded-lg"
+                      >
+                        Refresh Status
+                      </Button>
                     </div>
                   </div>
                 ) : isJobFailed ? (
