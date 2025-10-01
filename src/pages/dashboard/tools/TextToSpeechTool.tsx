@@ -50,7 +50,7 @@ interface VoiceInfo {
 const TextToSpeechTool = () => {
   const { isAuthenticated } = useAuth();
   const [text, setText] = useState("");
-  const [voice, setVoice] = useState("Rachel");
+  const [voice, setVoice] = useState("Aria");
   const [speed, setSpeed] = useState("1.0");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -67,12 +67,26 @@ const TextToSpeechTool = () => {
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const voices = [
-    { value: "Rachel", label: "Rachel (Female)" },
-    { value: "Drew", label: "Drew (Male)" },
-    { value: "Paul", label: "Paul (British)" },
-    { value: "Adam", label: "Adam (Deep)" },
-    { value: "Nicole", label: "Nicole (Professional)" },
-    { value: "Sam", label: "Sam (Casual)" }
+    { value: "Aria", label: "Aria" },
+    { value: "Roger", label: "Roger" },
+    { value: "Sarah", label: "Sarah" },
+    { value: "Laura", label: "Laura" },
+    { value: "Charlie", label: "Charlie" },
+    { value: "George", label: "George" },
+    { value: "Callum", label: "Callum" },
+    { value: "River", label: "River" },
+    { value: "Liam", label: "Liam" },
+    { value: "Charlotte", label: "Charlotte" },
+    { value: "Alice", label: "Alice" },
+    { value: "Matilda", label: "Matilda" },
+    { value: "Will", label: "Will" },
+    { value: "Jessica", label: "Jessica" },
+    { value: "Eric", label: "Eric" },
+    { value: "Chris", label: "Chris" },
+    { value: "Brian", label: "Brian" },
+    { value: "Daniel", label: "Daniel" },
+    { value: "Lily", label: "Lily" },
+    { value: "Bill", label: "Bill" }
   ];
 
   const speeds = [
