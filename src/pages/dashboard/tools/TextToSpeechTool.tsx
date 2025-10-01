@@ -4,7 +4,8 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { api } from "@/lib/api";
+import { apiHelpers } from "@/lib/api";
+import { useCreateJob, useJobStatus } from "@/hooks/useJobs";
 import { useAuth } from "@/contexts/AuthContext";
 
 // API Types
@@ -52,10 +53,11 @@ const TextToSpeechTool = () => {
   const [text, setText] = useState("");
   const [voice, setVoice] = useState("Aria");
   const [speed, setSpeed] = useState("1.0");
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const [generatedAudio, setGeneratedAudio] = useState<{
     id: string;
     url: string;
@@ -65,6 +67,18 @@ const TextToSpeechTool = () => {
   } | null>(null);
 
   const audioRef = useRef<HTMLAudioElement>(null);
+
+  // Job management hooks
+  const createJobMutation = useCreateJob();
+  const { data: jobStatus, refetch: refetchJobStatus } = useJobStatus(currentJobId || '', {
+    enabled: !!currentJobId,
+    refetchInterval: (data) => {
+      if (data?.status === 'completed' || data?.status === 'failed') {
+        return false; // Stop polling
+      }
+      return 3000; // Poll every 3 seconds for TTS
+    },
+  });
 
   const voices = [
     { value: "Aria", label: "Aria" },
@@ -98,6 +112,28 @@ const TextToSpeechTool = () => {
     { value: "2.0", label: "2.0x Very Fast" }
   ];
 
+  // Handle job completion
+  useEffect(() => {
+    if (jobStatus?.status === 'completed' && jobStatus.finalUrls?.[0]) {
+      const audioUrl = jobStatus.finalUrls[0];
+
+      const newAudio = {
+        id: jobStatus.job_id,
+        url: audioUrl,
+        text: text,
+        voice: voice,
+        timestamp: new Date(jobStatus.created_at)
+      };
+
+      setGeneratedAudio(newAudio);
+      console.log('✅ Audio generated successfully:', audioUrl);
+    } else if (jobStatus?.status === 'failed') {
+      console.error('❌ TTS job failed:', jobStatus.error_message);
+      alert(`Audio generation failed: ${jobStatus.error_message || 'Unknown error'}`);
+      setCurrentJobId(null);
+    }
+  }, [jobStatus, text, voice]);
+
   const handleGenerate = async () => {
     if (!text.trim()) return;
 
@@ -106,37 +142,78 @@ const TextToSpeechTool = () => {
       return;
     }
 
-    setIsGenerating(true);
-
-    try {
-      const result = await api.generateAudio({
-        text: text,
-        voice: voice,
-        speed: parseFloat(speed)
-      });
-
-      if (result.success && result.audio_url) {
-        const newAudio = {
-          id: Date.now().toString(),
-          url: result.audio_url,
-          text: text,
-          voice: voice,
-          timestamp: new Date()
-        };
-
-        setGeneratedAudio(newAudio);
-        console.log('✅ Audio generated successfully');
-      } else {
-        const errorMessage = result.error || 'Audio generation failed';
-        console.error('❌ Audio generation failed:', errorMessage);
-        alert(`Audio generation failed: ${errorMessage}`);
-      }
-    } catch (error) {
-      console.error('❌ Audio generation error:', error);
-      alert(`Network error: ${error instanceof Error ? error.message : 'Unable to connect to audio generation service'}`);
+    // Prevent double API calls
+    if (isSubmitting || createJobMutation.isPending) {
+      console.warn('🚫 Generation already in progress - preventing double API call');
+      return;
     }
 
-    setIsGenerating(false);
+    setIsSubmitting(true);
+    setGeneratedAudio(null);
+    setCurrentJobId(null);
+
+    try {
+      console.log('🎵 Starting text-to-speech generation...');
+
+      // Create job for TTS generation
+      const clientJobId = apiHelpers.generateClientJobId();
+
+      const jobData = {
+        client_job_id: clientJobId,
+        module: 'tts' as const,
+        params: {
+          text: text,
+          voice: voice,
+          speed: parseFloat(speed)
+        }
+      };
+
+      console.log('🎵 Creating TTS job:', {
+        client_job_id: clientJobId,
+        module: jobData.module,
+        params: jobData.params
+      });
+
+      const result = await createJobMutation.mutateAsync(jobData);
+
+      // Handle both possible response formats (job_id or id)
+      const jobId = result.job_id || result.id;
+
+      if (jobId) {
+        setCurrentJobId(jobId);
+        console.log('✅ TTS Job created successfully:', {
+          job_id: jobId,
+          client_job_id: result.client_job_id,
+          status: result.status,
+          estimated_cost: result.estimated_cost
+        });
+      } else {
+        console.error('❌ Job creation response missing job ID:', result);
+        throw new Error(`Job creation failed: ${result.message || 'No job ID returned'}`);
+      }
+    } catch (error) {
+      console.error('❌ Text-to-speech generation failed:', error);
+
+      // Extract meaningful error message
+      let errorMessage = 'Unknown error occurred';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
+      // Check for specific error patterns
+      if (errorMessage.includes('insufficient credits')) {
+        errorMessage = 'Insufficient credits. Please check your account balance.';
+      } else if (errorMessage.includes('already exists')) {
+        errorMessage = 'Job already exists. Please try again.';
+      } else if (errorMessage.includes('authentication')) {
+        errorMessage = 'Please sign in again to continue.';
+      }
+
+      alert(`Failed to start audio generation: ${errorMessage}`);
+    } finally {
+      console.log('🔄 Resetting submitting state...');
+      setIsSubmitting(false);
+    }
   };
 
   const playPauseAudio = () => {
@@ -248,10 +325,13 @@ const TextToSpeechTool = () => {
               {/* Generate Button */}
               <Button
                 onClick={handleGenerate}
-                disabled={!text.trim() || isGenerating}
+                disabled={!text.trim() || isSubmitting || createJobMutation.isPending || (jobStatus?.status === 'queued' || jobStatus?.status === 'processing')}
                 className="bg-black text-white hover:bg-gray-800 disabled:bg-gray-300 rounded-lg px-8 py-2 font-medium"
               >
-                {isGenerating ? "Generating..." : "Generate"}
+                {(isSubmitting || createJobMutation.isPending) ? "Submitting..." :
+                 (jobStatus?.status === 'queued') ? "Queued..." :
+                 (jobStatus?.status === 'processing') ? "Generating..." :
+                 "Generate"}
               </Button>
             </div>
           </div>
@@ -281,7 +361,7 @@ const TextToSpeechTool = () => {
               </div>
 
               <div className="p-6">
-                {!generatedAudio && !isGenerating ? (
+                {!currentJobId && !generatedAudio ? (
                   <div className="flex items-center justify-center h-32">
                     <div className="text-center">
                       <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -291,15 +371,30 @@ const TextToSpeechTool = () => {
                       <p className="text-gray-500">Enter text and click Generate to create your first audio</p>
                     </div>
                   </div>
-                ) : isGenerating ? (
+                ) : currentJobId && !generatedAudio ? (
                   <div className="flex items-center justify-center h-32">
                     <div className="text-center">
                       <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                      <h3 className="text-xl font-semibold text-gray-900 mb-2">Generating audio...</h3>
-                      <p className="text-gray-500">This usually takes ~1 minute</p>
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                        {(isSubmitting || createJobMutation.isPending) ? 'Submitting job...' :
+                         !jobStatus ? 'Loading job status...' :
+                         jobStatus?.status === 'queued' ? 'Queued for processing...' :
+                         jobStatus?.status === 'processing' ? 'Generating speech...' :
+                         'Processing...'}
+                      </h3>
+                      <p className="text-gray-500">
+                        {(isSubmitting || createJobMutation.isPending) ? 'Setting up your speech generation...' :
+                         !jobStatus ? 'Retrieving job information from server...' :
+                         jobStatus?.status === 'queued' ? 'Your job is in the queue, processing will start soon...' :
+                         jobStatus?.status === 'processing' ? 'Converting your text to natural speech...' :
+                         'Initializing speech generation process...'}
+                      </p>
+                      <p className="text-sm text-gray-400 mt-2">
+                        It usually takes ~30 seconds
+                      </p>
                     </div>
                   </div>
-                ) : (
+                ) : generatedAudio ? (
                   <div className="space-y-4">
                     {/* Slim Audio Player */}
                     <div className="bg-black rounded-lg p-4 flex items-center space-x-4">
@@ -373,7 +468,7 @@ const TextToSpeechTool = () => {
                       preload="metadata"
                     />
                   </div>
-                )}
+                ) : null}
               </div>
             </div>
           </div>
