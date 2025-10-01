@@ -219,7 +219,7 @@ const UGCVideoTool = () => {
       if (mode === "audio-to-video") {
         jobData = {
           client_job_id: clientJobId,
-          module: 'audio2video' as const,
+          module: 'audio2vid' as const,
           params: {
             audio_url: uploadedAudioUrl,
             avatar_model: selectedModel,
