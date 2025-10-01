@@ -192,22 +192,15 @@ const TextToSpeechTool = () => {
         </div>
 
         <div className="flex-1 p-6 space-y-8">
-          {/* Input Controls - Large Input Panel */}
+          {/* Controls Panel - Above Input Field */}
           <div className="w-full">
-            <div className="relative">
-              <textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder="Enter the text you want to convert to natural speech..."
-                className="min-h-[350px] flex h-full w-full flex-col justify-between gap-4 rounded-lg bg-white outline-none transition-colors focus-within:border-gray-300 border border-gray-300 p-6 text-gray-900 placeholder-gray-500 resize-none"
-              />
-
-              {/* Top Controls in Input Window */}
-              <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  {/* Voice Model Selector */}
+            <div className="flex items-center justify-between bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <div className="flex items-center space-x-4">
+                {/* Voice Model Selector */}
+                <div className="flex flex-col space-y-1">
+                  <label className="text-xs font-medium text-gray-600">Voice</label>
                   <Select value={voice} onValueChange={setVoice}>
-                    <SelectTrigger className="w-32 h-10 bg-gray-50 border-gray-300 rounded-full text-xs font-medium hover:bg-gray-100 transition-colors">
+                    <SelectTrigger className="w-40 h-10 bg-white border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-white border border-gray-200 rounded-xl shadow-lg">
@@ -218,10 +211,13 @@ const TextToSpeechTool = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
 
-                  {/* Speed Selector */}
+                {/* Speed Selector */}
+                <div className="flex flex-col space-y-1">
+                  <label className="text-xs font-medium text-gray-600">Speed</label>
                   <Select value={speed} onValueChange={setSpeed}>
-                    <SelectTrigger className="w-24 h-10 bg-gray-50 border-gray-300 rounded-full text-xs font-medium hover:bg-gray-100 transition-colors">
+                    <SelectTrigger className="w-32 h-10 bg-white border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-white border border-gray-200 rounded-xl shadow-lg">
@@ -233,17 +229,27 @@ const TextToSpeechTool = () => {
                     </SelectContent>
                   </Select>
                 </div>
-
-                {/* Generate Button */}
-                <Button
-                  onClick={handleGenerate}
-                  disabled={!text.trim() || isGenerating}
-                  className="bg-black text-white hover:bg-gray-800 disabled:bg-gray-300 rounded-lg px-6 py-2 font-medium"
-                >
-                  {isGenerating ? "Generating..." : "Generate"}
-                </Button>
               </div>
+
+              {/* Generate Button */}
+              <Button
+                onClick={handleGenerate}
+                disabled={!text.trim() || isGenerating}
+                className="bg-black text-white hover:bg-gray-800 disabled:bg-gray-300 rounded-lg px-8 py-2 font-medium"
+              >
+                {isGenerating ? "Generating..." : "Generate"}
+              </Button>
             </div>
+          </div>
+
+          {/* Input Text Area - Clean and Simple */}
+          <div className="w-full">
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Enter the text you want to convert to natural speech..."
+              className="min-h-[350px] w-full rounded-lg bg-white outline-none transition-colors focus-within:border-gray-300 border border-gray-300 p-6 text-gray-900 placeholder-gray-500 resize-none"
+            />
           </div>
 
           {/* Audio Preview Panel - Slim */}
