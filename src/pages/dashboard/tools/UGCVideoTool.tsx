@@ -4,6 +4,7 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCreateJob, useJobStatus } from "@/hooks/useJobs";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiHelpers } from "@/lib/api";
@@ -16,11 +17,88 @@ const UGCVideoTool = () => {
   const [uploadedAudio, setUploadedAudio] = useState<string | null>(null);
   const [uploadedAudioUrl, setUploadedAudioUrl] = useState<string | null>(null);
   const [motionPrompt, setMotionPrompt] = useState("");
+  const [selectedModel, setSelectedModel] = useState("marcus_primary");
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [audioDuration, setAudioDuration] = useState(0);
 
   const audioRef = useRef<HTMLAudioElement>(null);
+
+  // Model options for veed/avatars/audio-to-video
+  const audioVideoModels = [
+    {
+      id: "marcus_side",
+      name: "Marcus Side",
+      description: "Professional male avatar (side view)",
+      category: "Male"
+    },
+    {
+      id: "aisha_walking",
+      name: "Aisha Walking",
+      description: "Dynamic female avatar with walking motion",
+      category: "Female"
+    },
+    {
+      id: "elena_primary",
+      name: "Elena Primary",
+      description: "Professional female avatar (primary view)",
+      category: "Female"
+    },
+    {
+      id: "elena_side",
+      name: "Elena Side",
+      description: "Professional female avatar (side view)",
+      category: "Female"
+    },
+    {
+      id: "any_male_primary",
+      name: "Any Male Primary",
+      description: "Generic male avatar (primary view)",
+      category: "Male"
+    },
+    {
+      id: "any_female_primary",
+      name: "Any Female Primary",
+      description: "Generic female avatar (primary view)",
+      category: "Female"
+    },
+    {
+      id: "any_male_side",
+      name: "Any Male Side",
+      description: "Generic male avatar (side view)",
+      category: "Male"
+    },
+    {
+      id: "any_female_side",
+      name: "Any Female Side",
+      description: "Generic female avatar (side view)",
+      category: "Female"
+    },
+    {
+      id: "emily_vertical_primary",
+      name: "Emily Vertical Primary",
+      description: "Professional female avatar (vertical primary)",
+      category: "Female"
+    },
+    {
+      id: "marcus_vertical_primary",
+      name: "Marcus Vertical Primary",
+      description: "Professional male avatar (vertical primary)",
+      category: "Male"
+    },
+    {
+      id: "emily_primary",
+      name: "Emily Primary",
+      description: "Professional female avatar (primary view)",
+      category: "Female"
+    },
+    {
+      id: "marcus_primary",
+      name: "Marcus Primary",
+      description: "Professional male avatar (primary view)",
+      category: "Male"
+    }
+  ];
 
   // Job management hooks
   const createJobMutation = useCreateJob();
@@ -144,7 +222,8 @@ const UGCVideoTool = () => {
           module: 'audio2video' as const,
           params: {
             audio_url: uploadedAudioUrl,
-            prompt: motionPrompt || "Professional AI avatar speaking with natural expressions and movements"
+            avatar_model: selectedModel,
+            prompt: "Professional AI avatar speaking with natural expressions and movements"
           }
         };
       } else {
@@ -352,49 +431,65 @@ const UGCVideoTool = () => {
                 </div>
               </div>
 
-              {/* Slim UGC Model Selection Button */}
+              {/* Avatar Model Selection */}
               <div className="w-full">
-                <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-200 p-4">
-                  <div className="flex items-center justify-between">
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                  <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
                         <Video className="w-6 h-6 text-white" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-gray-900">UGC AI Avatar Model</h3>
-                        <p className="text-sm text-gray-600">Professional video generation with realistic avatars</p>
+                        <h3 className="font-semibold text-gray-900">AI Avatar Model</h3>
+                        <p className="text-sm text-gray-600">Choose your avatar for audio-to-video generation</p>
                       </div>
                     </div>
                     <Badge className="bg-green-100 text-green-700 border-0 rounded-full px-3 py-1">
-                      Premium Quality
+                      VEED Models
                     </Badge>
+                  </div>
+
+                  <div className="space-y-3">
+                    <label className="text-sm font-medium text-gray-700">Select Avatar Model</label>
+                    <Select value={selectedModel} onValueChange={setSelectedModel}>
+                      <SelectTrigger className="w-full h-12 bg-gray-50 border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white border border-gray-200 rounded-xl shadow-lg max-h-60">
+                        {audioVideoModels.map((model) => (
+                          <SelectItem key={model.id} value={model.id} className="hover:bg-gray-50 rounded-lg p-3">
+                            <div className="flex flex-col">
+                              <span className="font-medium text-gray-900">{model.name}</span>
+                              <span className="text-xs text-gray-500">{model.description}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>
 
-              {/* Main Prompt Input */}
-              <div className="relative">
-                <textarea
-                  value={motionPrompt}
-                  onChange={(e) => setMotionPrompt(e.target.value)}
-                  placeholder="Describe the style and setting for your AI avatar video..."
-                  className="min-h-[268px] flex h-full w-full flex-col justify-between gap-4 rounded-lg bg-white outline-none transition-colors focus-within:border-gray-300 border border-gray-300 p-6 text-gray-900 placeholder-gray-500 resize-none"
-                />
-
-                {/* Generate Button */}
-                <div className="absolute bottom-4 right-4">
+              {/* Generate Button Section */}
+              <div className="w-full">
+                <div className="bg-gray-50 rounded-xl border border-gray-200 p-6 text-center">
                   <Button
                     onClick={handleGenerate}
-                    disabled={!uploadedAudio || !motionPrompt.trim() || isGenerating}
-                    className="bg-black text-white hover:bg-gray-800 disabled:bg-gray-300 rounded-lg px-6 py-2 font-medium"
+                    disabled={!uploadedAudio || isGenerating}
+                    className="bg-black text-white hover:bg-gray-800 disabled:bg-gray-300 rounded-lg px-8 py-3 font-medium text-lg"
                   >
                     {isGenerating && (
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
                     )}
                     {isSubmitting || createJobMutation.isPending ? "Submitting..." :
                      isJobRunning ? "Generating..." :
-                     "Generate"}
+                     "Generate AI Avatar Video"}
                   </Button>
+                  {uploadedAudio && (
+                    <p className="text-sm text-gray-600 mt-3">
+                      Ready to generate {audioDuration}s video with {audioVideoModels.find(m => m.id === selectedModel)?.name} avatar
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
