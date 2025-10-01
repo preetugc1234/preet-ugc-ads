@@ -175,6 +175,12 @@ const ImageToVideoTool = () => {
   const videoUrl = jobStatus?.finalUrls?.[0]; // Cloudinary URL after upload
   const showVideo = videoUrl && jobStatus?.status === 'completed';
 
+  // Define missing variables for video URL handling
+  const finalVideoUrl = jobStatus?.finalUrls?.[0] || jobStatus?.final_urls?.[0];
+  const fallbackVideoUrl = jobStatus?.video_url || jobStatus?.urls?.[0];
+  const displayVideoUrl = finalVideoUrl || fallbackVideoUrl || videoUrl;
+  const shouldShowVideo = displayVideoUrl && jobStatus?.status === 'completed';
+
   // AUTO-REFRESH for old jobs without video URLs
   const jobAge = jobStatus?.created_at ? (Date.now() - new Date(jobStatus.created_at).getTime()) / 1000 : 0;
   useEffect(() => {
@@ -225,7 +231,7 @@ const ImageToVideoTool = () => {
       console.warn('⚠️ API STRUCTURE ISSUE: Job completed but no video URL found!');
       console.warn('📋 Available fields:', Object.keys(jobStatus));
       console.warn('🔧 Run this to see full response: window.lastJobStatus =', jobStatus);
-      (window as any).lastJobStatus = jobStatus;
+      (window as typeof window & { lastJobStatus?: typeof jobStatus }).lastJobStatus = jobStatus;
     }
   }
 
