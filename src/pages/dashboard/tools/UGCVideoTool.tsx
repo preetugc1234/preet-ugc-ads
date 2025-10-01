@@ -1,14 +1,16 @@
 import { useState, useRef } from "react";
-import { Video, Upload, Download, Plus, X } from "lucide-react";
+import { Video, Upload, Download, Plus, X, Music, Image } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCreateJob, useJobStatus } from "@/hooks/useJobs";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiHelpers } from "@/lib/api";
 
 const UGCVideoTool = () => {
   const { isAuthenticated } = useAuth();
+  const [mode, setMode] = useState("audio-to-video");
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
   const [uploadedAudio, setUploadedAudio] = useState<string | null>(null);
@@ -112,39 +114,62 @@ const UGCVideoTool = () => {
       return;
     }
 
-    if (!uploadedImageUrl || !uploadedAudioUrl || !isAuthenticated) {
-      alert('Please sign in and upload both image and audio files');
-      return;
+    // Validation based on mode
+    if (mode === "audio-to-video") {
+      if (!uploadedAudioUrl || !isAuthenticated) {
+        alert('Please sign in and upload an audio file');
+        return;
+      }
+    } else {
+      if (!uploadedImageUrl || !uploadedAudioUrl || !isAuthenticated) {
+        alert('Please sign in and upload both image and audio files');
+        return;
+      }
     }
 
     // Set submitting state immediately to prevent multiple clicks
     setIsSubmitting(true);
 
     try {
-      console.log('🎬 Starting image+audio to video generation...');
+      console.log(`🎬 Starting ${mode} generation...`);
 
-      // Create job for image+audio-to-video generation
+      // Create job for video generation
       const clientJobId = apiHelpers.generateClientJobId();
 
-      const jobData = {
-        client_job_id: clientJobId,
-        module: 'img2vid_audio' as const,
-        params: {
-          image_url: uploadedImageUrl,
-          audio_url: uploadedAudioUrl,
-          prompt: motionPrompt || "Professional lip-sync video with natural expressions and movements",
-          audio_duration: audioDuration
-        }
-      };
+      let jobData;
 
-      console.log('🎬 Creating image+audio-to-video job:', {
+      if (mode === "audio-to-video") {
+        jobData = {
+          client_job_id: clientJobId,
+          module: 'audio2video' as const,
+          params: {
+            audio_url: uploadedAudioUrl,
+            prompt: motionPrompt || "Professional AI avatar speaking with natural expressions and movements"
+          }
+        };
+      } else {
+        jobData = {
+          client_job_id: clientJobId,
+          module: 'img2vid_audio' as const,
+          params: {
+            image_url: uploadedImageUrl,
+            audio_url: uploadedAudioUrl,
+            prompt: motionPrompt || "Professional lip-sync video with natural expressions and movements",
+            audio_duration: audioDuration
+          }
+        };
+      }
+
+      console.log(`🎬 Creating ${mode} job:`, {
         client_job_id: clientJobId,
         module: jobData.module,
         params: {
           ...jobData.params,
-          image_url: uploadedImageUrl.startsWith('data:')
-            ? `[Base64 Image: ${uploadedImageUrl.split(',')[0]}]`
-            : uploadedImageUrl,
+          ...(uploadedImageUrl && {
+            image_url: uploadedImageUrl.startsWith('data:')
+              ? `[Base64 Image: ${uploadedImageUrl.split(',')[0]}]`
+              : uploadedImageUrl
+          }),
           audio_url: uploadedAudioUrl.startsWith('data:')
             ? `[Base64 Audio: ${uploadedAudioUrl.split(',')[0]}]`
             : uploadedAudioUrl
@@ -169,7 +194,7 @@ const UGCVideoTool = () => {
         throw new Error(`Job creation failed: ${result.message || 'No job ID returned'}`);
       }
     } catch (error) {
-      console.error('❌ Image+Audio-to-video generation failed:', error);
+      console.error(`❌ ${mode} generation failed:`, error);
 
       // Extract meaningful error message
       let errorMessage = 'Unknown error occurred';
@@ -257,12 +282,28 @@ const UGCVideoTool = () => {
             <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
               <Video className="w-5 h-5 text-white" />
             </div>
-            <h1 className="text-xl font-semibold text-gray-900">Image to Video + Audio</h1>
+            <h1 className="text-xl font-semibold text-gray-900">UGC Video Generator</h1>
             <Badge className="bg-blue-100 text-blue-600 border-0 rounded-full">0 Credits</Badge>
           </div>
         </div>
 
         <div className="flex-1 p-6 space-y-8">
+          {/* Mode Switcher */}
+          <div className="w-full">
+            <Tabs value={mode} onValueChange={setMode} className="w-full">
+              <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto mb-6">
+                <TabsTrigger value="audio-to-video" className="text-sm">
+                  <Music className="w-4 h-4 mr-2" />
+                  Audio → Video
+                </TabsTrigger>
+                <TabsTrigger value="image-to-video-audio" className="text-sm">
+                  <Image className="w-4 h-4 mr-2" />
+                  Image → Video + Audio
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+
           {/* Input Controls - Full Width */}
           <div className="w-full space-y-6">
             {/* Main Prompt Input */}
@@ -270,25 +311,31 @@ const UGCVideoTool = () => {
               <textarea
                 value={motionPrompt}
                 onChange={(e) => setMotionPrompt(e.target.value)}
-                placeholder="Describe how you want your image to move and sync with the audio..."
+                placeholder={mode === "audio-to-video"
+                  ? "Describe the style and setting for your AI avatar video..."
+                  : "Describe how you want your image to move and sync with the audio..."}
                 className="min-h-[268px] flex h-full w-full flex-col justify-between gap-4 rounded-lg bg-white outline-none transition-colors focus-within:border-gray-300 border border-gray-300 p-6 text-gray-900 placeholder-gray-500 resize-none"
               />
 
               {/* Bottom Controls in Prompt Window */}
               <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  {/* Image Upload Button */}
-                  <Button
-                    onClick={() => document.getElementById('image-upload')?.click()}
-                    className="w-10 h-10 p-0 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center border border-gray-300"
-                  >
-                    <Plus className="w-5 h-5 text-gray-600" />
-                  </Button>
+                  {/* Image Upload Button - Only for image+audio mode */}
+                  {mode === "image-to-video-audio" && (
+                    <Button
+                      onClick={() => document.getElementById('image-upload')?.click()}
+                      className="w-10 h-10 p-0 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center border border-gray-300"
+                      title="Upload Image"
+                    >
+                      <Plus className="w-5 h-5 text-gray-600" />
+                    </Button>
+                  )}
 
                   {/* Audio Upload Button */}
                   <Button
                     onClick={() => document.getElementById('audio-upload')?.click()}
                     className="w-10 h-10 p-0 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center border border-gray-300"
+                    title="Upload Audio"
                   >
                     <Plus className="w-5 h-5 text-gray-600" />
                   </Button>
@@ -297,7 +344,11 @@ const UGCVideoTool = () => {
                 {/* Generate Button */}
                 <Button
                   onClick={handleGenerate}
-                  disabled={!uploadedImage || !uploadedAudio || !motionPrompt.trim() || isGenerating}
+                  disabled={
+                    mode === "audio-to-video"
+                      ? (!uploadedAudio || !motionPrompt.trim() || isGenerating)
+                      : (!uploadedImage || !uploadedAudio || !motionPrompt.trim() || isGenerating)
+                  }
                   className="bg-black text-white hover:bg-gray-800 disabled:bg-gray-300 rounded-lg px-6 py-2 font-medium"
                 >
                   {isGenerating && (
@@ -328,8 +379,8 @@ const UGCVideoTool = () => {
 
             {/* Uploaded Media Display */}
             <div className="flex gap-4">
-              {/* Uploaded Image Display */}
-              {uploadedImage && (
+              {/* Uploaded Image Display - Only for image+audio mode */}
+              {mode === "image-to-video-audio" && uploadedImage && (
                 <div className="relative bg-gray-50 rounded-lg border border-gray-200 p-4 max-w-md">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-gray-700">Source Image</span>
@@ -403,7 +454,11 @@ const UGCVideoTool = () => {
                         <Video className="w-8 h-8 text-gray-400" />
                       </div>
                       <h3 className="text-xl font-semibold text-gray-900 mb-2">Ready to create</h3>
-                      <p className="text-gray-500">Upload an image, audio file, and describe the motion to create your video</p>
+                      <p className="text-gray-500">
+                        {mode === "audio-to-video"
+                          ? "Upload an audio file and describe the style to create your AI avatar video"
+                          : "Upload an image, audio file, and describe the motion to create your video"}
+                      </p>
                     </div>
                   </div>
                 ) : (currentJobId && (isGenerating || !jobStatus)) ? (
@@ -414,7 +469,8 @@ const UGCVideoTool = () => {
                         {isSubmitting || createJobMutation.isPending ? 'Submitting job...' :
                          !jobStatus ? 'Loading job status...' :
                          jobStatus?.status === 'queued' ? 'Queued for processing...' :
-                         jobStatus?.status === 'processing' ? 'Creating video with audio sync...' :
+                         jobStatus?.status === 'processing' ?
+                           (mode === "audio-to-video" ? 'Creating AI avatar video...' : 'Creating video with audio sync...') :
                          jobStatus?.status === 'submitted' ? 'Job submitted, starting...' :
                          'Processing...'}
                       </h3>
@@ -422,11 +478,12 @@ const UGCVideoTool = () => {
                         {isSubmitting || createJobMutation.isPending ? 'Setting up your video generation...' :
                          !jobStatus ? 'Retrieving job information from server...' :
                          jobStatus?.status === 'queued' ? 'Your job is in the queue, processing will start soon...' :
-                         jobStatus?.status === 'processing' ? 'High-quality video with lip-sync generation in progress...' :
+                         jobStatus?.status === 'processing' ?
+                           (mode === "audio-to-video" ? 'High-quality AI avatar generation in progress...' : 'High-quality video with lip-sync generation in progress...') :
                          'Initializing video generation process...'}
                       </p>
                       <p className="text-sm text-gray-400 mt-2">
-                        It usually takes ~6 minutes
+                        {mode === "audio-to-video" ? "It usually takes ~4 minutes" : "It usually takes ~6 minutes"}
                       </p>
                     </div>
                   </div>
@@ -469,7 +526,7 @@ const UGCVideoTool = () => {
                     <div className="flex items-center justify-between">
                       <div className="text-sm text-gray-600">
                         <p><strong>Duration:</strong> {audioDuration} seconds</p>
-                        <p><strong>Type:</strong> Image + Audio Sync</p>
+                        <p><strong>Type:</strong> {mode === "audio-to-video" ? "AI Avatar" : "Image + Audio Sync"}</p>
                         {jobStatus?.created_at && (
                           <p><strong>Generated:</strong> {new Date(jobStatus.created_at).toLocaleString()}</p>
                         )}
