@@ -471,9 +471,7 @@ export const apiHelpers = {
       case 'img2vid_audio':
         return 0 // Free during testing mode
       case 'audio2vid':
-        const durationSeconds = params.duration || 30
-        const duration30SecIncrements = Math.ceil(durationSeconds / 30) // Convert to 30-second increments
-        return 100 * duration30SecIncrements // 100 per 30 seconds, rounded up
+        return 0 // Free during testing mode
       default:
         return 0
     }

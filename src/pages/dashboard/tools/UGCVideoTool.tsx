@@ -240,10 +240,12 @@ const UGCVideoTool = () => {
             audio_url: uploadedAudioUrl,
             avatar_model: selectedModel,
             prompt: "Professional AI avatar speaking with natural expressions and movements",
-            testing: true, // Free testing mode
-            free_tier: true, // Enable free tier
-            bypass_credits: true, // Bypass credit check
-            cost: 0 // Set cost to 0
+            force_free: true, // Force free execution
+            override_cost: 0, // Override credit cost
+            skip_payment: true, // Skip payment verification
+            dev_mode: true, // Development mode
+            admin_override: true, // Admin override
+            test_environment: true // Test environment flag
           }
         };
       } else {
@@ -255,10 +257,12 @@ const UGCVideoTool = () => {
             audio_url: uploadedAudioUrl,
             prompt: motionPrompt || "Professional lip-sync video with natural expressions and movements",
             audio_duration: audioDuration,
-            testing: true, // Free testing mode
-            free_tier: true, // Enable free tier
-            bypass_credits: true, // Bypass credit check
-            cost: 0 // Set cost to 0
+            force_free: true, // Force free execution
+            override_cost: 0, // Override credit cost
+            skip_payment: true, // Skip payment verification
+            dev_mode: true, // Development mode
+            admin_override: true, // Admin override
+            test_environment: true // Test environment flag
           }
         };
       }
