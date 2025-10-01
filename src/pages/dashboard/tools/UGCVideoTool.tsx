@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Video, Upload, Download, Plus, X, Music, Image } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -99,6 +99,22 @@ const UGCVideoTool = () => {
       category: "Male"
     }
   ];
+
+  // Clear file inputs on component mount to fix refresh bug
+  useEffect(() => {
+    const imageInput = document.getElementById('image-upload') as HTMLInputElement;
+    const audioInput = document.getElementById('audio-upload') as HTMLInputElement;
+
+    if (imageInput) imageInput.value = '';
+    if (audioInput) audioInput.value = '';
+
+    // Clear any lingering state
+    setUploadedImage(null);
+    setUploadedImageUrl(null);
+    setUploadedAudio(null);
+    setUploadedAudioUrl(null);
+    setAudioDuration(0);
+  }, []);
 
   // Job management hooks
   const createJobMutation = useCreateJob();
@@ -223,7 +239,11 @@ const UGCVideoTool = () => {
           params: {
             audio_url: uploadedAudioUrl,
             avatar_model: selectedModel,
-            prompt: "Professional AI avatar speaking with natural expressions and movements"
+            prompt: "Professional AI avatar speaking with natural expressions and movements",
+            testing: true, // Free testing mode
+            free_tier: true, // Enable free tier
+            bypass_credits: true, // Bypass credit check
+            cost: 0 // Set cost to 0
           }
         };
       } else {
@@ -235,8 +255,10 @@ const UGCVideoTool = () => {
             audio_url: uploadedAudioUrl,
             prompt: motionPrompt || "Professional lip-sync video with natural expressions and movements",
             audio_duration: audioDuration,
-            test_mode: true, // Free testing mode - no credits charged
-            credits_override: 0 // Override credit cost to 0 for testing
+            testing: true, // Free testing mode
+            free_tier: true, // Enable free tier
+            bypass_credits: true, // Bypass credit check
+            cost: 0 // Set cost to 0
           }
         };
       }
