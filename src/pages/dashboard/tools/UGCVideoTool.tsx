@@ -1,84 +1,80 @@
-import { useState, useEffect } from "react";
-import { Film, Upload, Play, Download, Music, Image, Sparkles, User, Clock } from "lucide-react";
+import { useState, useRef } from "react";
+import { Video, Upload, Download, Plus, X } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
-import ToolEditorLayout from "@/components/dashboard/ToolEditorLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Slider } from "@/components/ui/slider";
-import { API_BASE_URL } from "@/lib/supabase";
+import { useCreateJob, useJobStatus } from "@/hooks/useJobs";
+import { useAuth } from "@/contexts/AuthContext";
+import { apiHelpers } from "@/lib/api";
 
 const UGCVideoTool = () => {
-  const [mode, setMode] = useState("audio-to-video");
-  const [uploadedAudio, setUploadedAudio] = useState<string | null>(null);
+  const { isAuthenticated } = useAuth();
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
-  const [duration, setDuration] = useState("5");
-  const [template, setTemplate] = useState("default");
-  const [avatarId, setAvatarId] = useState("emily_vertical_primary");
-  const [audioDuration, setAudioDuration] = useState(30); // in seconds
+  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
+  const [uploadedAudio, setUploadedAudio] = useState<string | null>(null);
+  const [uploadedAudioUrl, setUploadedAudioUrl] = useState<string | null>(null);
   const [motionPrompt, setMotionPrompt] = useState("");
-  const [intensity, setIntensity] = useState([0.7]);
-  const [availableAvatars, setAvailableAvatars] = useState([]);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedVideo, setGeneratedVideo] = useState<{
-    id: string;
-    previewUrl: string;
-    finalUrl: string;
-    mode: string;
-    timestamp: Date;
-    status: 'preview' | 'final';
-  } | null>(null);
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [audioDuration, setAudioDuration] = useState(0);
 
-  // Fetch available avatars on component mount
-  useEffect(() => {
-    const fetchAvatars = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/generate/audio2video/avatars`);
-        const data = await response.json();
-        if (data.success) {
-          setAvailableAvatars(data.avatars);
-        }
-      } catch (error) {
-        console.error('Failed to fetch avatars:', error);
-        // Fallback avatars if API fails
-        setAvailableAvatars([
-          { id: "emily_vertical_primary", name: "Emily (Vertical Primary)", gender: "female", orientation: "vertical" },
-          { id: "marcus_vertical_primary", name: "Marcus (Vertical Primary)", gender: "male", orientation: "vertical" },
-          { id: "any_female_vertical_primary", name: "Generic Female (Vertical)", gender: "female", orientation: "vertical" }
-        ]);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  // Job management hooks
+  const createJobMutation = useCreateJob();
+  const { data: jobStatus, refetch: refetchJobStatus } = useJobStatus(currentJobId || '', {
+    enabled: !!currentJobId,
+    refetchInterval: (data) => {
+      if (data?.status === 'completed' || data?.status === 'failed') {
+        return false; // Stop polling
       }
-    };
-    fetchAvatars();
-  }, []);
+      return 5000; // Poll every 5 seconds
+    },
+  });
 
-  const audioTemplates = [
-    { value: "podcast", label: "Podcast Style", description: "Audio waveforms with podcast branding" },
-    { value: "music", label: "Music Visualizer", description: "Dynamic music visualization" },
-    { value: "speech", label: "Speech Bubbles", description: "Animated text with speech bubbles" },
-    { value: "minimal", label: "Minimal Wave", description: "Clean, minimal audio waves" },
-    { value: "corporate", label: "Corporate", description: "Professional business style" }
-  ];
-
-  const durations = [
-    { value: "5", label: "5 seconds", credits: 200 },
-    { value: "10", label: "10 seconds", credits: 400 }
-  ];
-
-  const motionTemplates = [
-    "Gentle camera pan from left to right",
-    "Slow zoom in towards the center",
-    "Subtle parallax effect on background elements",
-    "Cinematic dolly movement forward",
-    "Smooth rotation around the main subject"
-  ];
-
-  const handleAudioUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // Check file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        alert('Image file size should be less than 10MB');
+        return;
+      }
+
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please upload a valid image file');
+        return;
+      }
+
+      console.log(`📸 Uploading image: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const base64Result = e.target?.result as string;
+        setUploadedImage(base64Result);
+        setUploadedImageUrl(base64Result);
+        console.log(`✅ Image loaded successfully: ${file.type}, ${(file.size / 1024).toFixed(1)}KB`);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAudioUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Check file size (max 25MB)
+      if (file.size > 25 * 1024 * 1024) {
+        alert('Audio file size should be less than 25MB');
+        return;
+      }
+
+      // Check file type
+      if (!file.type.startsWith('audio/')) {
+        alert('Please upload a valid audio file');
+        return;
+      }
+
       const url = URL.createObjectURL(file);
 
       // Create audio element to detect duration
@@ -86,727 +82,459 @@ const UGCVideoTool = () => {
       audio.addEventListener('loadedmetadata', () => {
         const duration = Math.round(audio.duration);
 
-        // Check if duration exceeds 5 minutes (300 seconds)
-        if (duration > 300) {
-          alert('Audio duration cannot exceed 5 minutes. Please upload a shorter audio file.');
+        // Check if duration exceeds 2 minutes (120 seconds)
+        if (duration > 120) {
+          alert('Audio duration cannot exceed 2 minutes. Please upload a shorter audio file.');
           event.target.value = ''; // Clear the file input
+          URL.revokeObjectURL(url);
           return;
         }
 
-        setUploadedAudio(url);
         setAudioDuration(duration);
+        console.log(`🎵 Audio uploaded: ${file.name}, Duration: ${duration}s`);
       });
 
-      audio.addEventListener('error', () => {
-        alert('Error loading audio file. Please try a different file.');
-      });
-    }
-  };
-
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
       const reader = new FileReader();
       reader.onload = (e) => {
-        setUploadedImage(e.target?.result as string);
+        const base64Result = e.target?.result as string;
+        setUploadedAudio(base64Result);
+        setUploadedAudioUrl(base64Result);
+        console.log(`✅ Audio loaded successfully: ${file.type}, Duration: ${audioDuration}s`);
       };
       reader.readAsDataURL(file);
     }
   };
 
   const handleGenerate = async () => {
-    const canGenerate = mode === "audio-to-video" ? uploadedAudio : uploadedImage && uploadedAudio;
-    if (!canGenerate) return;
+    // Prevent double API calls
+    if (isSubmitting || createJobMutation.isPending) {
+      console.warn('🚫 Generation already in progress - preventing double API call');
+      return;
+    }
 
-    setIsGenerating(true);
-    setGeneratedVideo(null);
+    if (!uploadedImageUrl || !uploadedAudioUrl || !isAuthenticated) {
+      alert('Please sign in and upload both image and audio files');
+      return;
+    }
+
+    // Set submitting state immediately to prevent multiple clicks
+    setIsSubmitting(true);
 
     try {
-      if (mode === "audio-to-video") {
-        // Step 1: Upload audio file to FAL storage
-        const audioFile = await fetch(uploadedAudio!).then(r => r.blob());
-        const formData = new FormData();
-        formData.append('file', audioFile, 'audio.mp3');
+      console.log('🎬 Starting image+audio to video generation...');
 
-        const uploadResponse = await fetch(`${API_BASE_URL}/api/generate/audio2video/upload-audio`, {
-          method: 'POST',
-          body: formData,
-          credentials: 'include'
+      // Create job for image+audio-to-video generation
+      const clientJobId = apiHelpers.generateClientJobId();
+
+      const jobData = {
+        client_job_id: clientJobId,
+        module: 'img2vid_audio' as const,
+        params: {
+          image_url: uploadedImageUrl,
+          audio_url: uploadedAudioUrl,
+          prompt: motionPrompt || "Professional lip-sync video with natural expressions and movements",
+          audio_duration: audioDuration
+        }
+      };
+
+      console.log('🎬 Creating image+audio-to-video job:', {
+        client_job_id: clientJobId,
+        module: jobData.module,
+        params: {
+          ...jobData.params,
+          image_url: uploadedImageUrl.startsWith('data:')
+            ? `[Base64 Image: ${uploadedImageUrl.split(',')[0]}]`
+            : uploadedImageUrl,
+          audio_url: uploadedAudioUrl.startsWith('data:')
+            ? `[Base64 Audio: ${uploadedAudioUrl.split(',')[0]}]`
+            : uploadedAudioUrl
+        }
+      });
+
+      const result = await createJobMutation.mutateAsync(jobData);
+
+      // Handle both possible response formats (job_id or id)
+      const jobId = result.job_id || result.id;
+
+      if (jobId) {
+        setCurrentJobId(jobId);
+        console.log('✅ Job created successfully:', {
+          job_id: jobId,
+          client_job_id: result.client_job_id,
+          status: result.status,
+          estimated_cost: result.estimated_cost
         });
-
-        if (!uploadResponse.ok) {
-          throw new Error('Failed to upload audio file');
-        }
-
-        const uploadResult = await uploadResponse.json();
-        const audioUrl = uploadResult.audio_url;
-
-        // Step 2: Submit audio-to-video generation
-        const generateResponse = await fetch(`${API_BASE_URL}/api/generate/audio2video/submit`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            audio_url: audioUrl,
-            avatar_id: avatarId,
-            audio_duration_seconds: audioDuration
-          }),
-          credentials: 'include'
-        });
-
-        if (!generateResponse.ok) {
-          throw new Error('Failed to submit generation request');
-        }
-
-        const generateResult = await generateResponse.json();
-
-        if (generateResult.success) {
-          setGeneratedVideo({
-            id: generateResult.request_id || Date.now().toString(),
-            previewUrl: generateResult.video_url,
-            finalUrl: generateResult.video_url,
-            mode: mode,
-            timestamp: new Date(),
-            status: 'final'
-          });
-        } else {
-          throw new Error(generateResult.error || 'Generation failed');
-        }
       } else {
-        // Image-to-video+audio mode using our new implementation
-        if (!uploadedImage || !uploadedAudio) {
-          throw new Error('Both image and audio are required for image-to-video generation');
-        }
-
-        // Step 1: Upload image file to FAL storage
-        const imageFile = await fetch(uploadedImage!).then(r => r.blob());
-        const imageFormData = new FormData();
-        imageFormData.append('file', imageFile, 'image.jpg');
-
-        const imageUploadResponse = await fetch(`${API_BASE_URL}/api/generate/upload-file`, {
-          method: 'POST',
-          body: imageFormData,
-          credentials: 'include'
-        });
-
-        if (!imageUploadResponse.ok) {
-          throw new Error('Failed to upload image file');
-        }
-
-        const imageUploadResult = await imageUploadResponse.json();
-        const imageUrl = imageUploadResult.file_url;
-
-        // Step 2: Upload audio file to FAL storage
-        const audioFile = await fetch(uploadedAudio!).then(r => r.blob());
-        const audioFormData = new FormData();
-        audioFormData.append('file', audioFile, 'audio.mp3');
-
-        const audioUploadResponse = await fetch(`${API_BASE_URL}/api/generate/upload-file`, {
-          method: 'POST',
-          body: audioFormData,
-          credentials: 'include'
-        });
-
-        if (!audioUploadResponse.ok) {
-          throw new Error('Failed to upload audio file');
-        }
-
-        const audioUploadResult = await audioUploadResponse.json();
-        const audioUrl = audioUploadResult.file_url;
-
-        // Step 3: Submit image+audio-to-video generation using new endpoint
-        const generateResponse = await fetch(`${API_BASE_URL}/api/generate/img2vid-audio/submit`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            image_url: imageUrl,
-            audio_url: audioUrl,
-            prompt: motionPrompt || 'Professional avatar speaking with natural expressions',
-            user_id: 'anonymous'
-          }),
-          credentials: 'include'
-        });
-
-        if (!generateResponse.ok) {
-          throw new Error('Failed to submit image-to-video generation request');
-        }
-
-        const generateResult = await generateResponse.json();
-
-        if (generateResult.success) {
-          setGeneratedVideo({
-            id: generateResult.job_id || Date.now().toString(),
-            previewUrl: generateResult.video_url,
-            finalUrl: generateResult.video_url,
-            mode: mode,
-            timestamp: new Date(),
-            status: 'final'
-          });
-        } else {
-          throw new Error(generateResult.error || 'Image-to-video generation failed');
-        }
+        console.error('❌ Job creation response missing job ID:', result);
+        throw new Error(`Job creation failed: ${result.message || 'No job ID returned'}`);
       }
     } catch (error) {
-      console.error('Generation failed:', error);
-      alert(`Generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
+      console.error('❌ Image+Audio-to-video generation failed:', error);
 
-  const calculateCost = () => {
-    if (mode === "audio-to-video") {
-      // 0 credits for testing - normally would be 100 credits per 30 seconds of audio
-      const clampedDuration = Math.min(audioDuration, 300); // Ensure max 5 minutes
-      const thirtySecondChunks = Math.ceil(clampedDuration / 30);
-      return 0; // Set to 0 for testing - normally: thirtySecondChunks * 100
-    } else {
-      // Image to Video with Audio
-      const baseCost = durations.find(d => d.value === duration)?.credits || 200;
-      return baseCost;
-    }
-  };
-
-  const calculateProcessingTime = () => {
-    if (mode === "audio-to-video") {
-      // 200 seconds for 30 seconds of audio (approximately 6.67 seconds per audio second)
-      // Maximum 5 minutes (300 seconds) audio
-      const clampedDuration = Math.min(audioDuration, 300); // Ensure max 5 minutes
-      const processingSeconds = Math.round((clampedDuration / 30) * 200);
-      // Add 4-minute buffer for safety
-      const totalSeconds = processingSeconds + 240;
-      const minutes = Math.floor(totalSeconds / 60);
-      const seconds = totalSeconds % 60;
-
-      if (minutes > 0) {
-        return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
+      // Extract meaningful error message
+      let errorMessage = 'Unknown error occurred';
+      if (error instanceof Error) {
+        errorMessage = error.message;
       }
-      return `${seconds}s`;
-    } else {
-      // Image to Video with Audio (existing logic)
-      return duration === "5" ? "7-8m" : "7-8m";
+
+      // Check for specific error patterns
+      if (errorMessage.includes('insufficient credits')) {
+        errorMessage = 'Insufficient credits. Please check your account balance.';
+      } else if (errorMessage.includes('already exists')) {
+        errorMessage = 'Job already exists. Please try again.';
+      } else if (errorMessage.includes('authentication')) {
+        errorMessage = 'Please sign in again to continue.';
+      }
+
+      alert(`Failed to start video generation: ${errorMessage}`);
+    } finally {
+      console.log('🔄 Resetting submitting state...');
+      setIsSubmitting(false);
     }
   };
 
-  const handleAudioDurationDetected = (detectedDuration: number) => {
-    setAudioDuration(Math.round(detectedDuration));
+  const removeUploadedImage = () => {
+    setUploadedImage(null);
+    setUploadedImageUrl(null);
+    // Clear the file input
+    const fileInput = document.getElementById('image-upload') as HTMLInputElement;
+    if (fileInput) fileInput.value = '';
   };
 
-  const costBreakdown = {
-    baseCost: mode === "audio-to-video" ? calculateCost() : (duration === "5" ? 200 : 400),
-    additionalCosts: mode === "image-to-video-audio" ? [] : undefined,
-    total: calculateCost()
+  const removeUploadedAudio = () => {
+    setUploadedAudio(null);
+    setUploadedAudioUrl(null);
+    setAudioDuration(0);
+    // Clear the file input
+    const fileInput = document.getElementById('audio-upload') as HTMLInputElement;
+    if (fileInput) fileInput.value = '';
   };
 
-  const canGenerate = mode === "audio-to-video"
-    ? (uploadedAudio && audioDuration <= 300)
-    : (uploadedImage && uploadedAudio && audioDuration <= 300);
+  // Helper functions for job status
+  const isJobRunning = jobStatus?.status === 'queued' || jobStatus?.status === 'processing';
+  const isJobCompleted = jobStatus?.status === 'completed';
+  const isJobFailed = jobStatus?.status === 'failed';
+  const isGenerating = isSubmitting || createJobMutation.isPending || isJobRunning;
 
-  const previewPane = (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg font-medium flex items-center">
-          <Film className="w-5 h-5 mr-2" />
-          UGC Video Preview
-          <Badge variant="secondary" className="ml-2 capitalize">
-            {mode.replace("-", "→").replace("to", "→")}
-          </Badge>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {!generatedVideo && !isGenerating && (
-          <div className="text-center py-12">
-            <Film className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500 dark:text-gray-400 mb-2">
-              No video generated yet
-            </p>
-            <p className="text-sm text-gray-400">
-              Upload {mode === "audio-to-video" ? "audio" : "image + audio"} and click Generate
-            </p>
-          </div>
-        )}
+  // Video detection
+  const videoUrl = jobStatus?.finalUrls?.[0] || jobStatus?.final_urls?.[0] || jobStatus?.video_url;
+  const showVideo = videoUrl && jobStatus?.status === 'completed';
 
-        {isGenerating && (
-          <div className="text-center py-12">
-            <div className="space-y-4">
-              <div className="inline-flex items-center space-x-2">
-                <div className="w-6 h-6 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
-                <span className="text-red-600 font-medium">Creating UGC video...</span>
-              </div>
-              <div className="space-y-2">
-                <div className="text-sm text-gray-500">
-                  {generatedVideo?.status === 'preview' ? 'Finalizing high-quality version...' : 'Processing media files...'}
-                </div>
-                <div className="w-64 bg-gray-200 rounded-full h-2 mx-auto">
-                  <div
-                    className="bg-red-600 h-2 rounded-full transition-all duration-1000"
-                    style={{
-                      width: generatedVideo?.status === 'preview' ? '70%' : '35%'
-                    }}
-                  ></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+  const jobAge = jobStatus?.created_at ? (Date.now() - new Date(jobStatus.created_at).getTime()) / 1000 : 0;
 
-        {generatedVideo && (
-          <div className="space-y-4">
-            <div className="aspect-video bg-black rounded-lg overflow-hidden relative group">
-              <video
-                controls
-                controlsList="nodownload"
-                className="w-full h-full"
-                poster={mode === "image-to-video-audio" ? uploadedImage || undefined : undefined}
-                onContextMenu={(e) => e.preventDefault()}
-              >
-                <source
-                  src={generatedVideo.status === 'final' ? generatedVideo.finalUrl : generatedVideo.previewUrl}
-                  type="video/mp4"
-                />
-                Your browser does not support the video tag.
-              </video>
+  const downloadVideo = async (url: string) => {
+    try {
+      const timestamp = new Date().toISOString().split('T')[0];
+      const promptSlug = motionPrompt
+        ? motionPrompt.slice(0, 30).replace(/[^a-zA-Z0-9]/g, '_')
+        : 'ugc_video';
+      const filename = `${promptSlug}_${audioDuration}s_${timestamp}.mp4`;
 
-              {/* Custom video overlay controls */}
-              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
-                <div className="flex items-center space-x-4 bg-black bg-opacity-70 px-4 py-2 rounded-full">
-                  <button
-                    onClick={() => {
-                      const video = document.querySelector('video');
-                      if (video) {
-                        if (video.paused) {
-                          video.play();
-                        } else {
-                          video.pause();
-                        }
-                      }
-                    }}
-                    className="text-white hover:text-gray-300 transition-colors"
-                  >
-                    <Play className="w-6 h-6" />
-                  </button>
-                </div>
-              </div>
-            </div>
+      console.log(`⬇️ Starting video download: ${filename}`);
 
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                <p><strong>Mode:</strong> {generatedVideo.mode.replace("-", " → ").replace("to", " → ")}</p>
-                <p><strong>Avatar:</strong> {mode === "audio-to-video" ?
-                  availableAvatars.find((a: any) => a.id === avatarId)?.name || avatarId :
-                  "Image + Audio Sync"
-                }</p>
-                <p><strong>Generated:</strong> {generatedVideo.timestamp.toLocaleString()}</p>
-                <p><strong>Quality:</strong> HD 1080p MP4</p>
-              </div>
-              <div className="flex flex-col space-y-2">
-                {generatedVideo.status === 'final' ? (
-                  <>
-                    <Button
-                      onClick={async () => {
-                        try {
-                          const link = document.createElement('a');
-                          link.href = generatedVideo.finalUrl;
-                          link.download = `audio-to-video-${avatarId}-${Date.now()}.mp4`;
-                          link.target = '_blank';
-                          document.body.appendChild(link);
-                          link.click();
-                          document.body.removeChild(link);
-                        } catch (error) {
-                          console.error('Download failed:', error);
-                          // Fallback: open in new tab
-                          window.open(generatedVideo.finalUrl, '_blank');
-                        }
-                      }}
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      Download MP4
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        navigator.clipboard.writeText(generatedVideo.finalUrl);
-                        // You could add a toast notification here
-                        alert('Video URL copied to clipboard!');
-                      }}
-                    >
-                      Copy URL
-                    </Button>
-                  </>
-                ) : (
-                  <Button variant="outline" disabled>
-                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
-                    Processing...
-                  </Button>
-                )}
-              </div>
-            </div>
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.style.display = 'none';
 
-            {/* Video metadata and sharing options */}
-            <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div>
-                  <span className="font-medium text-gray-500">Credits Used:</span>
-                  <p className="font-semibold">{calculateCost()}</p>
-                </div>
-                <div>
-                  <span className="font-medium text-gray-500">Processing Time:</span>
-                  <p className="font-semibold">{calculateProcessingTime()}</p>
-                </div>
-                <div>
-                  <span className="font-medium text-gray-500">Audio Duration:</span>
-                  <p className="font-semibold">{audioDuration}s</p>
-                </div>
-                <div>
-                  <span className="font-medium text-gray-500">Model:</span>
-                  <p className="font-semibold">Veed Avatars</p>
-                </div>
-              </div>
-            </div>
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
 
-            {generatedVideo.status !== 'final' && (
-              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
-                <div className="flex items-start space-x-3">
-                  <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mt-0.5" />
-                  <div>
-                    <p className="font-semibold text-blue-800 dark:text-blue-200 mb-1">
-                      🎬 Processing Your Avatar Video
-                    </p>
-                    <p className="text-sm text-blue-700 dark:text-blue-300">
-                      Your audio-to-video generation is in progress. The AI avatar is learning to speak your audio content with natural lip-sync and expressions.
-                    </p>
-                    <div className="mt-2 text-xs text-blue-600 dark:text-blue-400">
-                      This typically takes {calculateProcessingTime()} - hang tight!
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
+      console.log(`✅ Download initiated: ${filename}`);
+    } catch (error) {
+      console.error('❌ Video download failed:', error);
+      alert(`Failed to download video. You can try right-clicking the video and selecting "Save video as..."`);
+    }
+  };
 
   return (
     <DashboardLayout>
-      <ToolEditorLayout
-        toolName="UGC Video Generator"
-        toolIcon={Film}
-        credits={mode === "audio-to-video" ? "FREE FOR TESTING" : "200-400/video"}
-        estimatedTime={calculateProcessingTime()}
-        onGenerate={handleGenerate}
-        isGenerating={isGenerating}
-        canGenerate={canGenerate}
-        costBreakdown={costBreakdown}
-        previewPane={previewPane}
-      >
-        {/* Mode Selection */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center">
-              <Sparkles className="w-4 h-4 mr-2" />
-              Choose UGC Mode
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Tabs value={mode} onValueChange={setMode} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="audio-to-video" className="text-xs">
-                  <Music className="w-4 h-4 mr-1" />
-                  Audio→Video
-                </TabsTrigger>
-                <TabsTrigger value="image-to-video-audio" className="text-xs">
-                  <Image className="w-4 h-4 mr-1" />
-                  Image→Video+Audio
-                </TabsTrigger>
-              </TabsList>
+      <div className="flex flex-col h-full bg-white">
+        {/* Header */}
+        <div className="border-b border-gray-200 px-6 py-3">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
+              <Video className="w-5 h-5 text-white" />
+            </div>
+            <h1 className="text-xl font-semibold text-gray-900">Image to Video + Audio</h1>
+            <Badge className="bg-blue-100 text-blue-600 border-0 rounded-full">0 Credits</Badge>
+          </div>
+        </div>
 
-              <TabsContent value="audio-to-video" className="space-y-4 mt-4">
-                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-                  <p className="text-sm text-blue-800 dark:text-blue-200">
-                    <strong>Audio→Video:</strong> Create engaging videos with AI avatars that speak your audio content using veed/avatars/audio-to-video.
-                  </p>
-                  <div className="flex items-center mt-2 text-xs text-blue-700 dark:text-blue-300">
-                    <Clock className="w-3 h-3 mr-1" />
-                    Processing: ~200 seconds for 30 seconds of audio (includes 4m buffer)
-                  </div>
+        <div className="flex-1 p-6 space-y-8">
+          {/* Input Controls - Full Width */}
+          <div className="w-full space-y-6">
+            {/* Main Prompt Input */}
+            <div className="relative">
+              <textarea
+                value={motionPrompt}
+                onChange={(e) => setMotionPrompt(e.target.value)}
+                placeholder="Describe how you want your image to move and sync with the audio..."
+                className="min-h-[268px] flex h-full w-full flex-col justify-between gap-4 rounded-lg bg-white outline-none transition-colors focus-within:border-gray-300 border border-gray-300 p-6 text-gray-900 placeholder-gray-500 resize-none"
+              />
+
+              {/* Bottom Controls in Prompt Window */}
+              <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  {/* Image Upload Button */}
+                  <Button
+                    onClick={() => document.getElementById('image-upload')?.click()}
+                    className="w-10 h-10 p-0 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center border border-gray-300"
+                  >
+                    <Plus className="w-5 h-5 text-gray-600" />
+                  </Button>
+
+                  {/* Audio Upload Button */}
+                  <Button
+                    onClick={() => document.getElementById('audio-upload')?.click()}
+                    className="w-10 h-10 p-0 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center border border-gray-300"
+                  >
+                    <Plus className="w-5 h-5 text-gray-600" />
+                  </Button>
                 </div>
-              </TabsContent>
 
-              <TabsContent value="image-to-video-audio" className="space-y-4 mt-4">
-                <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg">
-                  <p className="text-sm text-purple-800 dark:text-purple-200">
-                    <strong>Image→Video+Audio:</strong> Bring your images to life with custom motion and synchronized audio using advanced models.
-                  </p>
-                </div>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-
-        {/* File Uploads */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Upload Media</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Audio Upload (both modes) */}
-            <div>
-              <Label className="flex items-center mb-2">
-                <Music className="w-4 h-4 mr-1" />
-                Audio File {mode === "image-to-video-audio" && "(Required)"}
-              </Label>
-              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4">
-                {uploadedAudio ? (
-                  <div className="text-center">
-                    <Music className="w-8 h-8 text-blue-500 mx-auto mb-2" />
-                    <p className="text-sm font-medium mb-2">Audio uploaded successfully</p>
-                    <audio controls className="w-full max-w-xs mx-auto">
-                      <source src={uploadedAudio} />
-                    </audio>
-                    <div className="mt-2 space-x-2">
-                      <Button variant="outline" size="sm" onClick={() => document.getElementById('audio-upload')?.click()}>
-                        Change
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => setUploadedAudio(null)}>
-                        Remove
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center">
-                    <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                      Upload audio file
-                    </p>
-                    <p className="text-xs text-gray-500 mb-3">
-                      MP3, WAV, M4A up to 5 minutes • FREE FOR TESTING (normally 100 credits per 30s)
-                    </p>
-                    <Button size="sm" onClick={() => document.getElementById('audio-upload')?.click()}>
-                      <Upload className="w-4 h-4 mr-1" />
-                      Upload Audio
-                    </Button>
-                  </div>
-                )}
-                <input
-                  id="audio-upload"
-                  type="file"
-                  accept="audio/*"
-                  onChange={handleAudioUpload}
-                  className="hidden"
-                />
+                {/* Generate Button */}
+                <Button
+                  onClick={handleGenerate}
+                  disabled={!uploadedImage || !uploadedAudio || !motionPrompt.trim() || isGenerating}
+                  className="bg-black text-white hover:bg-gray-800 disabled:bg-gray-300 rounded-lg px-6 py-2 font-medium"
+                >
+                  {isGenerating && (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  )}
+                  {isSubmitting || createJobMutation.isPending ? "Submitting..." :
+                   isJobRunning ? "Generating..." :
+                   "Generate"}
+                </Button>
               </div>
+
+              {/* Hidden file inputs */}
+              <input
+                id="image-upload"
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
+              <input
+                id="audio-upload"
+                type="file"
+                accept="audio/*"
+                onChange={handleAudioUpload}
+                className="hidden"
+              />
             </div>
 
-            {/* Image Upload (only for image-to-video-audio mode) */}
-            {mode === "image-to-video-audio" && (
-              <div>
-                <Label className="flex items-center mb-2">
-                  <Image className="w-4 h-4 mr-1" />
-                  Image File (Required)
-                </Label>
-                <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4">
-                  {uploadedImage ? (
-                    <div className="text-center">
-                      <img
-                        src={uploadedImage}
-                        alt="Uploaded"
-                        className="mx-auto max-h-32 rounded-lg shadow-md mb-2"
-                      />
-                      <div className="space-x-2">
-                        <Button variant="outline" size="sm" onClick={() => document.getElementById('image-upload')?.click()}>
-                          Change
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => setUploadedImage(null)}>
-                          Remove
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center">
-                      <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                        Upload image file
-                      </p>
-                      <p className="text-xs text-gray-500 mb-3">
-                        JPG, PNG, WebP up to 10MB
-                      </p>
-                      <Button size="sm" onClick={() => document.getElementById('image-upload')?.click()}>
-                        <Upload className="w-4 h-4 mr-1" />
-                        Upload Image
-                      </Button>
-                    </div>
-                  )}
-                  <input
-                    id="image-upload"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
+            {/* Uploaded Media Display */}
+            <div className="flex gap-4">
+              {/* Uploaded Image Display */}
+              {uploadedImage && (
+                <div className="relative bg-gray-50 rounded-lg border border-gray-200 p-4 max-w-md">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-700">Source Image</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={removeUploadedImage}
+                      className="p-1 h-auto text-gray-500 hover:text-gray-700"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <img
+                    src={uploadedImage}
+                    alt="Source"
+                    className="w-full max-h-32 object-contain rounded"
                   />
+                </div>
+              )}
+
+              {/* Uploaded Audio Display */}
+              {uploadedAudio && (
+                <div className="relative bg-gray-50 rounded-lg border border-gray-200 p-4 max-w-md">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-700">Audio File</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={removeUploadedAudio}
+                      className="p-1 h-auto text-gray-500 hover:text-gray-700"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <audio
+                    ref={audioRef}
+                    controls
+                    className="w-full"
+                    style={{ maxWidth: '250px' }}
+                  >
+                    <source src={uploadedAudio} />
+                    Your browser does not support the audio element.
+                  </audio>
+                  <div className="mt-1 text-xs text-gray-500">
+                    Duration: {audioDuration}s (max 2 minutes)
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Preview Panel - Full Width Below */}
+          <div className="w-full">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm min-h-[500px]">
+              <div className="p-6 border-b border-gray-100">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-gray-900">Generated Video</h2>
+                  {jobStatus && (
+                    <Badge variant="secondary" className="bg-gray-100 text-gray-600">
+                      {jobStatus.status.charAt(0).toUpperCase() + jobStatus.status.slice(1)}
+                    </Badge>
+                  )}
                 </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
 
-        {/* Settings */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Video Settings</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {mode === "audio-to-video" ? (
-              <>
-                <div>
-                  <Label className="flex items-center mb-2">
-                    <User className="w-4 h-4 mr-1" />
-                    Avatar Selection
-                  </Label>
-                  <Select value={avatarId} onValueChange={setAvatarId}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableAvatars.map((avatar: any) => (
-                        <SelectItem key={avatar.id} value={avatar.id}>
-                          <div>
-                            <div className="font-medium">{avatar.name}</div>
-                            <div className="text-xs text-gray-500">
-                              {avatar.gender} • {avatar.orientation} • {avatar.style}
-                            </div>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Choose an AI avatar that will speak your audio content
-                  </p>
-                </div>
-
-                {uploadedAudio && (
-                  <div className={`p-3 rounded-lg ${
-                    audioDuration > 300
-                      ? "bg-red-50 dark:bg-red-900/20"
-                      : "bg-green-50 dark:bg-green-900/20"
-                  }`}>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className={`text-sm font-medium ${
-                          audioDuration > 300
-                            ? "text-red-800 dark:text-red-200"
-                            : "text-green-800 dark:text-green-200"
-                        }`}>
-                          Audio Duration: {audioDuration} seconds
-                          {audioDuration > 300 && " (exceeds 5 min limit)"}
-                        </p>
-                        <p className={`text-xs ${
-                          audioDuration > 300
-                            ? "text-red-600 dark:text-red-300"
-                            : "text-green-600 dark:text-green-300"
-                        }`}>
-                          Processing Time: ~{calculateProcessingTime()}
-                        </p>
+              <div className="p-6 min-h-[400px]">
+                {!currentJobId ? (
+                  <div className="flex items-center justify-center h-96">
+                    <div className="text-center">
+                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Video className="w-8 h-8 text-gray-400" />
                       </div>
-                      <div className="text-right">
-                        <p className={`text-sm font-medium ${
-                          audioDuration > 300
-                            ? "text-red-800 dark:text-red-200"
-                            : "text-green-800 dark:text-green-200"
-                        }`}>
-                          Cost: {calculateCost()} credits
-                        </p>
-                        <p className={`text-xs ${
-                          audioDuration > 300
-                            ? "text-red-600 dark:text-red-300"
-                            : "text-green-600 dark:text-green-300"
-                        }`}>
-                          {Math.ceil(Math.min(audioDuration, 300) / 30)} × 30s chunks • FREE FOR TESTING
-                          {audioDuration > 300 && " (max 10 chunks)"}
-                        </p>
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">Ready to create</h3>
+                      <p className="text-gray-500">Upload an image, audio file, and describe the motion to create your video</p>
+                    </div>
+                  </div>
+                ) : (currentJobId && (isGenerating || !jobStatus)) ? (
+                  <div className="flex items-center justify-center h-96">
+                    <div className="text-center">
+                      <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                        {isSubmitting || createJobMutation.isPending ? 'Submitting job...' :
+                         !jobStatus ? 'Loading job status...' :
+                         jobStatus?.status === 'queued' ? 'Queued for processing...' :
+                         jobStatus?.status === 'processing' ? 'Creating video with audio sync...' :
+                         jobStatus?.status === 'submitted' ? 'Job submitted, starting...' :
+                         'Processing...'}
+                      </h3>
+                      <p className="text-gray-500">
+                        {isSubmitting || createJobMutation.isPending ? 'Setting up your video generation...' :
+                         !jobStatus ? 'Retrieving job information from server...' :
+                         jobStatus?.status === 'queued' ? 'Your job is in the queue, processing will start soon...' :
+                         jobStatus?.status === 'processing' ? 'High-quality video with lip-sync generation in progress...' :
+                         'Initializing video generation process...'}
+                      </p>
+                      <p className="text-sm text-gray-400 mt-2">
+                        It usually takes ~6 minutes
+                      </p>
+                    </div>
+                  </div>
+                ) : showVideo ? (
+                  <div className="space-y-4">
+                    <div className="aspect-video bg-black rounded-xl overflow-hidden relative border border-gray-200">
+                      <video
+                        controls
+                        preload="auto"
+                        playsInline
+                        muted={false}
+                        className="w-full h-full"
+                        poster={uploadedImage || undefined}
+                        key={videoUrl}
+                        style={{
+                          objectFit: 'contain',
+                          backgroundColor: '#000'
+                        }}
+                        onLoadStart={() => console.log('🎬 Video loading started:', videoUrl)}
+                        onLoadedData={() => console.log('✅ Video loaded successfully')}
+                        onError={(e) => console.error('❌ Video loading error:', e)}
+                      >
+                        <source src={videoUrl} type="video/mp4" />
+                        Your browser does not support the video tag.
+                      </video>
+
+                      {/* Download Button Overlay */}
+                      <div className="absolute top-2 right-2 z-10">
+                        <Button
+                          onClick={() => downloadVideo(videoUrl!)}
+                          className="bg-black/70 hover:bg-black/90 text-white border-white/20 rounded-lg"
+                          size="sm"
+                        >
+                          <Download className="w-4 h-4 mr-1" />
+                          Download
+                        </Button>
                       </div>
                     </div>
-                    {audioDuration > 300 && (
-                      <div className="mt-2 p-2 bg-red-100 dark:bg-red-900/40 rounded text-xs text-red-700 dark:text-red-300">
-                        ⚠️ Audio exceeds 5-minute limit. Please upload a shorter file or trim your audio.
+
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-gray-600">
+                        <p><strong>Duration:</strong> {audioDuration} seconds</p>
+                        <p><strong>Type:</strong> Image + Audio Sync</p>
+                        {jobStatus?.created_at && (
+                          <p><strong>Generated:</strong> {new Date(jobStatus.created_at).toLocaleString()}</p>
+                        )}
                       </div>
-                    )}
+
+                      {/* Additional Download Button */}
+                      <Button
+                        onClick={() => downloadVideo(videoUrl!)}
+                        variant="outline"
+                        size="sm"
+                        className="rounded-lg"
+                      >
+                        <Download className="w-4 h-4 mr-1" />
+                        Download MP4
+                      </Button>
+                    </div>
+                  </div>
+                ) : isJobCompleted && !videoUrl ? (
+                  <div className="flex items-center justify-center h-96">
+                    <div className="text-center">
+                      <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">Finalizing video...</h3>
+                      <p className="text-gray-500">Processing completed, preparing video for download...</p>
+                      <Button
+                        variant={jobAge >= 360 ? "default" : "outline"}
+                        onClick={() => refetchJobStatus()}
+                        className={`mt-4 rounded-lg ${jobAge >= 360 ? "bg-green-600 hover:bg-green-700 text-white animate-pulse" : ""}`}
+                      >
+                        {jobAge >= 360 ? "🎬 Video is ready! Click here" : "Refresh Status"}
+                      </Button>
+                    </div>
+                  </div>
+                ) : isJobFailed ? (
+                  <div className="text-center py-12">
+                    <div className="text-red-500 mb-4">
+                      <Video className="w-16 h-16 mx-auto mb-4" />
+                      <p className="font-medium text-xl">Video generation failed</p>
+                      <p className="text-sm mt-2">{jobStatus?.error_message || 'Unknown error occurred'}</p>
+                    </div>
+                    <Button variant="outline" onClick={() => setCurrentJobId(null)} className="rounded-lg">
+                      Try Again
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-96">
+                    <div className="text-center">
+                      <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">Processing job...</h3>
+                      <p className="text-gray-500">Checking job status...</p>
+
+                      <Button
+                        variant={jobAge >= 360 ? "default" : "outline"}
+                        onClick={() => refetchJobStatus()}
+                        className={`mt-4 rounded-lg ${jobAge >= 360 ? "bg-green-600 hover:bg-green-700 text-white animate-pulse" : ""}`}
+                      >
+                        {jobAge >= 360 ? "🎬 Video is ready! Click here" : "Refresh Status"}
+                      </Button>
+                    </div>
                   </div>
                 )}
-              </>
-            ) : (
-              <>
-                <div>
-                  <Label>Duration</Label>
-                  <Select value={duration} onValueChange={setDuration}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {durations.map((d) => (
-                        <SelectItem key={d.value} value={d.value}>
-                          <div className="flex justify-between w-full">
-                            <span>{d.label}</span>
-                            <span className="text-xs text-gray-500 ml-4">{d.credits} credits</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label>Motion Intensity: {intensity[0]}</Label>
-                  <Slider
-                    value={intensity}
-                    onValueChange={setIntensity}
-                    max={1}
-                    min={0.1}
-                    step={0.1}
-                    className="mt-2"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Lower = subtle motion, Higher = dramatic motion
-                  </p>
-                </div>
-
-                <div>
-                  <Label htmlFor="motionPrompt">Motion Description (Optional)</Label>
-                  <Textarea
-                    id="motionPrompt"
-                    placeholder="Describe how you want the image to move..."
-                    value={motionPrompt}
-                    onChange={(e) => setMotionPrompt(e.target.value)}
-                    className="min-h-[60px]"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Motion Templates</Label>
-                  {motionTemplates.slice(0, 3).map((template, index) => (
-                    <Button
-                      key={index}
-                      variant="outline"
-                      size="sm"
-                      className="justify-start text-left h-auto py-2 text-xs w-full"
-                      onClick={() => setMotionPrompt(template)}
-                    >
-                      {template}
-                    </Button>
-                  ))}
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </ToolEditorLayout>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </DashboardLayout>
   );
 };
