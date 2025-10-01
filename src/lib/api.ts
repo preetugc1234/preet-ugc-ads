@@ -469,8 +469,7 @@ export const apiHelpers = {
       case 'tts':
         return 0 // Free during testing mode
       case 'img2vid_audio':
-        const duration2 = params.duration || 5
-        return duration2 <= 5 ? 200 : 400 // 200/5s or 400/10s
+        return 0 // Free during testing mode
       case 'audio2vid':
         const durationSeconds = params.duration || 30
         const duration30SecIncrements = Math.ceil(durationSeconds / 30) // Convert to 30-second increments

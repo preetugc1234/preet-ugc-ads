@@ -261,10 +261,7 @@ const TextToSpeechTool = () => {
   };
 
   const handleCheckAudio = async () => {
-    if (!currentJobId) {
-      alert('No active job to check');
-      return;
-    }
+    if (!currentJobId) return;
 
     try {
       console.log('🎵 Manually checking audio for job:', currentJobId);
@@ -272,18 +269,23 @@ const TextToSpeechTool = () => {
       // Manually refetch the job status
       await refetchJobStatus();
 
-      // If still no audio after refetch, let user know
-      if (!generatedAudio) {
-        console.log('🎵 Checking job status:', jobStatus);
-        if (jobStatus?.status === 'completed') {
-          alert('Job completed but audio not available yet. Please try again in a few seconds.');
-        } else {
-          alert('Audio is still being processed. Please wait a bit longer.');
+      // If job is completed, force load the audio
+      if (jobStatus?.status === 'completed') {
+        const audioUrl = jobStatus.finalUrls?.[0] || jobStatus.final_urls?.[0] || jobStatus.audio_url;
+        if (audioUrl && !generatedAudio) {
+          // Directly set the audio without popup
+          setGeneratedAudio({
+            id: jobStatus.job_id,
+            url: audioUrl,
+            text,
+            voice,
+            timestamp: new Date()
+          });
+          setShowCheckAudioButton(false);
         }
       }
     } catch (error) {
       console.error('🎵 Error checking audio:', error);
-      alert('Failed to check audio status. Please try again.');
     }
   };
 
@@ -606,16 +608,6 @@ const TextToSpeechTool = () => {
                     <div className="text-center">
                       <p className="text-sm text-gray-700 truncate">{generatedAudio.text}</p>
                       <p className="text-xs text-gray-500 mt-1">{generatedAudio.timestamp.toLocaleTimeString()}</p>
-                      {/* Debug Info - Remove in production */}
-                      <details className="text-xs text-gray-400 mt-2">
-                        <summary className="cursor-pointer">Debug Info</summary>
-                        <div className="mt-1 p-2 bg-gray-100 rounded text-left">
-                          <p><strong>URL:</strong> {generatedAudio.url}</p>
-                          <p><strong>Loading:</strong> {audioLoading ? 'Yes' : 'No'}</p>
-                          <p><strong>Ready State:</strong> {audioRef.current?.readyState || 'N/A'}</p>
-                          <p><strong>Network State:</strong> {audioRef.current?.networkState || 'N/A'}</p>
-                        </div>
-                      </details>
                     </div>
 
                     {/* Hidden audio element for playback */}

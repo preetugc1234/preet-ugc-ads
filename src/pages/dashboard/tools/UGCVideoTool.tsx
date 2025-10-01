@@ -304,24 +304,118 @@ const UGCVideoTool = () => {
             </Tabs>
           </div>
 
-          {/* Input Controls - Full Width */}
-          <div className="w-full space-y-6">
-            {/* Main Prompt Input */}
-            <div className="relative">
-              <textarea
-                value={motionPrompt}
-                onChange={(e) => setMotionPrompt(e.target.value)}
-                placeholder={mode === "audio-to-video"
-                  ? "Describe the style and setting for your AI avatar video..."
-                  : "Describe how you want your image to move and sync with the audio..."}
-                className="min-h-[268px] flex h-full w-full flex-col justify-between gap-4 rounded-lg bg-white outline-none transition-colors focus-within:border-gray-300 border border-gray-300 p-6 text-gray-900 placeholder-gray-500 resize-none"
-              />
+          {/* Audio→Video Mode UI */}
+          {mode === "audio-to-video" && (
+            <div className="w-full space-y-6">
+              {/* Big Audio Upload Panel */}
+              <div className="w-full">
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm min-h-[200px] relative">
+                  {!uploadedAudio ? (
+                    <div
+                      onClick={() => document.getElementById('audio-upload')?.click()}
+                      className="flex flex-col items-center justify-center h-[200px] cursor-pointer hover:bg-gray-50 transition-colors rounded-2xl border-2 border-dashed border-gray-300 hover:border-gray-400"
+                    >
+                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                        <Music className="w-8 h-8 text-gray-600" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Upload Audio File</h3>
+                      <p className="text-gray-500 text-center">Click to upload or drag and drop<br />MP3, WAV, M4A up to 25MB (max 2 minutes)</p>
+                    </div>
+                  ) : (
+                    <div className="p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900">Audio File</h3>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={removeUploadedAudio}
+                          className="p-2 h-auto text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
+                        >
+                          <X className="w-5 h-5" />
+                        </Button>
+                      </div>
+                      <div className="bg-gray-50 rounded-xl p-4">
+                        <audio
+                          ref={audioRef}
+                          controls
+                          className="w-full"
+                        >
+                          <source src={uploadedAudio} />
+                          Your browser does not support the audio element.
+                        </audio>
+                        <div className="mt-3 text-sm text-gray-600">
+                          Duration: {audioDuration}s (max 2 minutes)
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
 
-              {/* Bottom Controls in Prompt Window */}
-              <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  {/* Image Upload Button - Only for image+audio mode */}
-                  {mode === "image-to-video-audio" && (
+              {/* Slim UGC Model Selection Button */}
+              <div className="w-full">
+                <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-200 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+                        <Video className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-gray-900">UGC AI Avatar Model</h3>
+                        <p className="text-sm text-gray-600">Professional video generation with realistic avatars</p>
+                      </div>
+                    </div>
+                    <Badge className="bg-green-100 text-green-700 border-0 rounded-full px-3 py-1">
+                      Premium Quality
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
+              {/* Main Prompt Input */}
+              <div className="relative">
+                <textarea
+                  value={motionPrompt}
+                  onChange={(e) => setMotionPrompt(e.target.value)}
+                  placeholder="Describe the style and setting for your AI avatar video..."
+                  className="min-h-[268px] flex h-full w-full flex-col justify-between gap-4 rounded-lg bg-white outline-none transition-colors focus-within:border-gray-300 border border-gray-300 p-6 text-gray-900 placeholder-gray-500 resize-none"
+                />
+
+                {/* Generate Button */}
+                <div className="absolute bottom-4 right-4">
+                  <Button
+                    onClick={handleGenerate}
+                    disabled={!uploadedAudio || !motionPrompt.trim() || isGenerating}
+                    className="bg-black text-white hover:bg-gray-800 disabled:bg-gray-300 rounded-lg px-6 py-2 font-medium"
+                  >
+                    {isGenerating && (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    )}
+                    {isSubmitting || createJobMutation.isPending ? "Submitting..." :
+                     isJobRunning ? "Generating..." :
+                     "Generate"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Image→Video+Audio Mode UI (existing design) */}
+          {mode === "image-to-video-audio" && (
+            <div className="w-full space-y-6">
+              {/* Main Prompt Input */}
+              <div className="relative">
+                <textarea
+                  value={motionPrompt}
+                  onChange={(e) => setMotionPrompt(e.target.value)}
+                  placeholder="Describe how you want your image to move and sync with the audio..."
+                  className="min-h-[268px] flex h-full w-full flex-col justify-between gap-4 rounded-lg bg-white outline-none transition-colors focus-within:border-gray-300 border border-gray-300 p-6 text-gray-900 placeholder-gray-500 resize-none"
+                />
+
+                {/* Bottom Controls in Prompt Window */}
+                <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    {/* Image Upload Button */}
                     <Button
                       onClick={() => document.getElementById('image-upload')?.click()}
                       className="w-10 h-10 p-0 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center border border-gray-300"
@@ -329,108 +423,104 @@ const UGCVideoTool = () => {
                     >
                       <Plus className="w-5 h-5 text-gray-600" />
                     </Button>
-                  )}
 
-                  {/* Audio Upload Button */}
+                    {/* Audio Upload Button */}
+                    <Button
+                      onClick={() => document.getElementById('audio-upload')?.click()}
+                      className="w-10 h-10 p-0 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center border border-gray-300"
+                      title="Upload Audio"
+                    >
+                      <Plus className="w-5 h-5 text-gray-600" />
+                    </Button>
+                  </div>
+
+                  {/* Generate Button */}
                   <Button
-                    onClick={() => document.getElementById('audio-upload')?.click()}
-                    className="w-10 h-10 p-0 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center border border-gray-300"
-                    title="Upload Audio"
+                    onClick={handleGenerate}
+                    disabled={!uploadedImage || !uploadedAudio || !motionPrompt.trim() || isGenerating}
+                    className="bg-black text-white hover:bg-gray-800 disabled:bg-gray-300 rounded-lg px-6 py-2 font-medium"
                   >
-                    <Plus className="w-5 h-5 text-gray-600" />
+                    {isGenerating && (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    )}
+                    {isSubmitting || createJobMutation.isPending ? "Submitting..." :
+                     isJobRunning ? "Generating..." :
+                     "Generate"}
                   </Button>
                 </div>
-
-                {/* Generate Button */}
-                <Button
-                  onClick={handleGenerate}
-                  disabled={
-                    mode === "audio-to-video"
-                      ? (!uploadedAudio || !motionPrompt.trim() || isGenerating)
-                      : (!uploadedImage || !uploadedAudio || !motionPrompt.trim() || isGenerating)
-                  }
-                  className="bg-black text-white hover:bg-gray-800 disabled:bg-gray-300 rounded-lg px-6 py-2 font-medium"
-                >
-                  {isGenerating && (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                  )}
-                  {isSubmitting || createJobMutation.isPending ? "Submitting..." :
-                   isJobRunning ? "Generating..." :
-                   "Generate"}
-                </Button>
               </div>
 
-              {/* Hidden file inputs */}
-              <input
-                id="image-upload"
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-              />
-              <input
-                id="audio-upload"
-                type="file"
-                accept="audio/*"
-                onChange={handleAudioUpload}
-                className="hidden"
-              />
-            </div>
+              {/* Uploaded Media Display */}
+              <div className="flex gap-4">
+                {/* Uploaded Image Display */}
+                {uploadedImage && (
+                  <div className="relative bg-gray-50 rounded-lg border border-gray-200 p-4 max-w-md">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">Source Image</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={removeUploadedImage}
+                        className="p-1 h-auto text-gray-500 hover:text-gray-700"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <img
+                      src={uploadedImage}
+                      alt="Source"
+                      className="w-full max-h-32 object-contain rounded"
+                    />
+                  </div>
+                )}
 
-            {/* Uploaded Media Display */}
-            <div className="flex gap-4">
-              {/* Uploaded Image Display - Only for image+audio mode */}
-              {mode === "image-to-video-audio" && uploadedImage && (
-                <div className="relative bg-gray-50 rounded-lg border border-gray-200 p-4 max-w-md">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-700">Source Image</span>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={removeUploadedImage}
-                      className="p-1 h-auto text-gray-500 hover:text-gray-700"
+                {/* Uploaded Audio Display */}
+                {uploadedAudio && (
+                  <div className="relative bg-gray-50 rounded-lg border border-gray-200 p-4 max-w-md">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">Audio File</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={removeUploadedAudio}
+                        className="p-1 h-auto text-gray-500 hover:text-gray-700"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <audio
+                      ref={audioRef}
+                      controls
+                      className="w-full"
+                      style={{ maxWidth: '250px' }}
                     >
-                      <X className="w-4 h-4" />
-                    </Button>
+                      <source src={uploadedAudio} />
+                      Your browser does not support the audio element.
+                    </audio>
+                    <div className="mt-1 text-xs text-gray-500">
+                      Duration: {audioDuration}s (max 2 minutes)
+                    </div>
                   </div>
-                  <img
-                    src={uploadedImage}
-                    alt="Source"
-                    className="w-full max-h-32 object-contain rounded"
-                  />
-                </div>
-              )}
-
-              {/* Uploaded Audio Display */}
-              {uploadedAudio && (
-                <div className="relative bg-gray-50 rounded-lg border border-gray-200 p-4 max-w-md">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-700">Audio File</span>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={removeUploadedAudio}
-                      className="p-1 h-auto text-gray-500 hover:text-gray-700"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  <audio
-                    ref={audioRef}
-                    controls
-                    className="w-full"
-                    style={{ maxWidth: '250px' }}
-                  >
-                    <source src={uploadedAudio} />
-                    Your browser does not support the audio element.
-                  </audio>
-                  <div className="mt-1 text-xs text-gray-500">
-                    Duration: {audioDuration}s (max 2 minutes)
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Hidden file inputs */}
+          <input
+            id="image-upload"
+            type="file"
+            accept="image/*"
+            onChange={handleImageUpload}
+            className="hidden"
+          />
+          <input
+            id="audio-upload"
+            type="file"
+            accept="audio/*"
+            onChange={handleAudioUpload}
+            className="hidden"
+          />
 
           {/* Preview Panel - Full Width Below */}
           <div className="w-full">
