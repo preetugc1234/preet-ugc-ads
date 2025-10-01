@@ -58,6 +58,7 @@ const TextToSpeechTool = () => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
+  const [audioLoading, setAudioLoading] = useState(false);
   const [generatedAudio, setGeneratedAudio] = useState<{
     id: string;
     url: string;
@@ -114,19 +115,41 @@ const TextToSpeechTool = () => {
 
   // Handle job completion
   useEffect(() => {
-    if (jobStatus?.status === 'completed' && jobStatus.finalUrls?.[0]) {
-      const audioUrl = jobStatus.finalUrls[0];
+    if (jobStatus?.status === 'completed') {
+      console.log('🎵 Job completed, checking for audio URL:', jobStatus);
 
-      const newAudio = {
-        id: jobStatus.job_id,
-        url: audioUrl,
-        text: text,
-        voice: voice,
-        timestamp: new Date(jobStatus.created_at)
-      };
+      // Try multiple possible URL locations
+      const audioUrl = jobStatus.finalUrls?.[0] ||
+                      jobStatus.final_urls?.[0] ||
+                      jobStatus.audio_url ||
+                      jobStatus.result_url ||
+                      jobStatus.output_url;
 
-      setGeneratedAudio(newAudio);
-      console.log('✅ Audio generated successfully:', audioUrl);
+      console.log('🎵 Extracted audio URL:', audioUrl);
+      console.log('🎵 Available finalUrls:', jobStatus.finalUrls);
+      console.log('🎵 Job status details:', {
+        finalUrls: jobStatus.finalUrls,
+        final_urls: jobStatus.final_urls,
+        audio_url: jobStatus.audio_url,
+        worker_meta: jobStatus.worker_meta
+      });
+
+      if (audioUrl) {
+        const newAudio = {
+          id: jobStatus.job_id,
+          url: audioUrl,
+          text: text,
+          voice: voice,
+          timestamp: new Date(jobStatus.created_at)
+        };
+
+        setGeneratedAudio(newAudio);
+        console.log('✅ Audio generated successfully:', audioUrl);
+      } else {
+        console.error('❌ No audio URL found in completed job:', jobStatus);
+        alert('Audio generation completed but no audio URL found. Please try again.');
+        setCurrentJobId(null);
+      }
     } else if (jobStatus?.status === 'failed') {
       console.error('❌ TTS job failed:', jobStatus.error_message);
       alert(`Audio generation failed: ${jobStatus.error_message || 'Unknown error'}`);
@@ -216,15 +239,44 @@ const TextToSpeechTool = () => {
     }
   };
 
-  const playPauseAudio = () => {
+  const playPauseAudio = async () => {
     if (audioRef.current && generatedAudio) {
-      if (isPlaying) {
-        audioRef.current.pause();
-        setIsPlaying(false);
-      } else {
-        audioRef.current.play();
-        setIsPlaying(true);
+      try {
+        if (isPlaying) {
+          audioRef.current.pause();
+          console.log('🎵 Audio paused');
+        } else {
+          console.log('🎵 Attempting to play audio:', generatedAudio.url);
+
+          // Ensure audio is loaded
+          if (audioRef.current.readyState < 2) {
+            console.log('🎵 Audio not ready, loading...');
+            await new Promise<void>((resolve, reject) => {
+              const onCanPlay = () => {
+                audioRef.current?.removeEventListener('canplay', onCanPlay);
+                audioRef.current?.removeEventListener('error', onError);
+                resolve();
+              };
+              const onError = () => {
+                audioRef.current?.removeEventListener('canplay', onCanPlay);
+                audioRef.current?.removeEventListener('error', onError);
+                reject(new Error('Audio failed to load'));
+              };
+              audioRef.current?.addEventListener('canplay', onCanPlay);
+              audioRef.current?.addEventListener('error', onError);
+              audioRef.current?.load();
+            });
+          }
+
+          await audioRef.current.play();
+          console.log('🎵 Audio playing successfully');
+        }
+      } catch (error) {
+        console.error('🎵 Error playing audio:', error);
+        alert(`Unable to play audio: ${error instanceof Error ? error.message : 'Unknown error'}. The audio file might be corrupted or inaccessible.`);
       }
+    } else {
+      console.error('🎵 No audio reference or generated audio available');
     }
   };
 
@@ -247,6 +299,7 @@ const TextToSpeechTool = () => {
 
   const handleAudioLoadedData = () => {
     if (audioRef.current) {
+      console.log('🎵 Audio loaded successfully, duration:', audioRef.current.duration);
       setDuration(audioRef.current.duration);
     }
   };
@@ -260,6 +313,40 @@ const TextToSpeechTool = () => {
   const handleAudioEnded = () => {
     setIsPlaying(false);
     setCurrentTime(0);
+  };
+
+  const handleAudioError = (e: React.SyntheticEvent<HTMLAudioElement, Event>) => {
+    console.error('🎵 Audio error:', e.currentTarget.error);
+    console.error('🎵 Audio src:', e.currentTarget.src);
+    const errorCode = e.currentTarget.error?.code;
+    let errorMessage = 'Unknown audio error';
+
+    switch (errorCode) {
+      case 1:
+        errorMessage = 'Audio loading was aborted';
+        break;
+      case 2:
+        errorMessage = 'Audio network error';
+        break;
+      case 3:
+        errorMessage = 'Audio decoding error';
+        break;
+      case 4:
+        errorMessage = 'Audio format not supported';
+        break;
+    }
+
+    alert(`Audio playback error: ${errorMessage}. Please try generating again.`);
+  };
+
+  const handleAudioLoadStart = () => {
+    console.log('🎵 Audio loading started for URL:', generatedAudio?.url);
+    setAudioLoading(true);
+  };
+
+  const handleAudioCanPlay = () => {
+    console.log('🎵 Audio can start playing');
+    setAudioLoading(false);
   };
 
   const formatTime = (seconds: number) => {
@@ -401,9 +488,16 @@ const TextToSpeechTool = () => {
                       {/* Play/Pause Button */}
                       <Button
                         onClick={playPauseAudio}
-                        className="w-12 h-12 rounded-full bg-white hover:bg-gray-100 text-black p-0"
+                        disabled={audioLoading}
+                        className="w-12 h-12 rounded-full bg-white hover:bg-gray-100 text-black p-0 disabled:opacity-50"
                       >
-                        {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+                        {audioLoading ? (
+                          <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                        ) : isPlaying ? (
+                          <Pause className="w-5 h-5" />
+                        ) : (
+                          <Play className="w-5 h-5" />
+                        )}
                       </Button>
 
                       {/* Skip Backward */}
@@ -453,10 +547,21 @@ const TextToSpeechTool = () => {
                     <div className="text-center">
                       <p className="text-sm text-gray-700 truncate">{generatedAudio.text}</p>
                       <p className="text-xs text-gray-500 mt-1">{generatedAudio.timestamp.toLocaleTimeString()}</p>
+                      {/* Debug Info - Remove in production */}
+                      <details className="text-xs text-gray-400 mt-2">
+                        <summary className="cursor-pointer">Debug Info</summary>
+                        <div className="mt-1 p-2 bg-gray-100 rounded text-left">
+                          <p><strong>URL:</strong> {generatedAudio.url}</p>
+                          <p><strong>Loading:</strong> {audioLoading ? 'Yes' : 'No'}</p>
+                          <p><strong>Ready State:</strong> {audioRef.current?.readyState || 'N/A'}</p>
+                          <p><strong>Network State:</strong> {audioRef.current?.networkState || 'N/A'}</p>
+                        </div>
+                      </details>
                     </div>
 
                     {/* Hidden audio element for playback */}
                     <audio
+                      key={generatedAudio.url} // Force re-render when URL changes
                       ref={audioRef}
                       src={generatedAudio.url}
                       onLoadedData={handleAudioLoadedData}
@@ -464,8 +569,12 @@ const TextToSpeechTool = () => {
                       onEnded={handleAudioEnded}
                       onPlay={() => setIsPlaying(true)}
                       onPause={() => setIsPlaying(false)}
+                      onError={handleAudioError}
+                      onLoadStart={handleAudioLoadStart}
+                      onCanPlay={handleAudioCanPlay}
                       style={{ display: 'none' }}
-                      preload="metadata"
+                      preload="auto"
+                      crossOrigin="anonymous"
                     />
                   </div>
                 ) : null}
