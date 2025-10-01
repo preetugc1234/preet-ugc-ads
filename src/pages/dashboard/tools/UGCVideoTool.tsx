@@ -234,7 +234,9 @@ const UGCVideoTool = () => {
             image_url: uploadedImageUrl,
             audio_url: uploadedAudioUrl,
             prompt: motionPrompt || "Professional lip-sync video with natural expressions and movements",
-            audio_duration: audioDuration
+            audio_duration: audioDuration,
+            test_mode: true, // Free testing mode - no credits charged
+            credits_override: 0 // Override credit cost to 0 for testing
           }
         };
       }
@@ -362,7 +364,7 @@ const UGCVideoTool = () => {
               <Video className="w-5 h-5 text-white" />
             </div>
             <h1 className="text-xl font-semibold text-gray-900">UGC Video Generator</h1>
-            <Badge className="bg-blue-100 text-blue-600 border-0 rounded-full">0 Credits</Badge>
+            <Badge className="bg-green-100 text-green-600 border-0 rounded-full">Free Testing</Badge>
           </div>
         </div>
 
