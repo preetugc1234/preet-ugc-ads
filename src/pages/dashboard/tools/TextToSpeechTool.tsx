@@ -59,6 +59,8 @@ const TextToSpeechTool = () => {
   const [duration, setDuration] = useState(0);
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const [audioLoading, setAudioLoading] = useState(false);
+  const [showCheckAudioButton, setShowCheckAudioButton] = useState(false);
+  const [jobStartTime, setJobStartTime] = useState<number | null>(null);
   const [generatedAudio, setGeneratedAudio] = useState<{
     id: string;
     url: string;
@@ -144,6 +146,8 @@ const TextToSpeechTool = () => {
         };
 
         setGeneratedAudio(newAudio);
+        setShowCheckAudioButton(false); // Hide check button when audio is found
+        setJobStartTime(null); // Clear timer
         console.log('✅ Audio generated successfully:', audioUrl);
       } else {
         console.error('❌ No audio URL found in completed job:', jobStatus);
@@ -154,8 +158,22 @@ const TextToSpeechTool = () => {
       console.error('❌ TTS job failed:', jobStatus.error_message);
       alert(`Audio generation failed: ${jobStatus.error_message || 'Unknown error'}`);
       setCurrentJobId(null);
+      setShowCheckAudioButton(false);
+      setJobStartTime(null);
     }
   }, [jobStatus, text, voice]);
+
+  // Timer for showing "Check Audio" button after 15 seconds
+  useEffect(() => {
+    if (jobStartTime && !generatedAudio && !showCheckAudioButton) {
+      const timer = setTimeout(() => {
+        setShowCheckAudioButton(true);
+        console.log('🎵 15 seconds elapsed, showing Check Audio button');
+      }, 15000); // 15 seconds
+
+      return () => clearTimeout(timer);
+    }
+  }, [jobStartTime, generatedAudio, showCheckAudioButton]);
 
   const handleGenerate = async () => {
     if (!text.trim()) return;
@@ -174,6 +192,8 @@ const TextToSpeechTool = () => {
     setIsSubmitting(true);
     setGeneratedAudio(null);
     setCurrentJobId(null);
+    setShowCheckAudioButton(false);
+    setJobStartTime(null);
 
     try {
       console.log('🎵 Starting text-to-speech generation...');
@@ -204,6 +224,7 @@ const TextToSpeechTool = () => {
 
       if (jobId) {
         setCurrentJobId(jobId);
+        setJobStartTime(Date.now()); // Start the 15-second timer
         console.log('✅ TTS Job created successfully:', {
           job_id: jobId,
           client_job_id: result.client_job_id,
@@ -236,6 +257,33 @@ const TextToSpeechTool = () => {
     } finally {
       console.log('🔄 Resetting submitting state...');
       setIsSubmitting(false);
+    }
+  };
+
+  const handleCheckAudio = async () => {
+    if (!currentJobId) {
+      alert('No active job to check');
+      return;
+    }
+
+    try {
+      console.log('🎵 Manually checking audio for job:', currentJobId);
+
+      // Manually refetch the job status
+      await refetchJobStatus();
+
+      // If still no audio after refetch, let user know
+      if (!generatedAudio) {
+        console.log('🎵 Checking job status:', jobStatus);
+        if (jobStatus?.status === 'completed') {
+          alert('Job completed but audio not available yet. Please try again in a few seconds.');
+        } else {
+          alert('Audio is still being processed. Please wait a bit longer.');
+        }
+      }
+    } catch (error) {
+      console.error('🎵 Error checking audio:', error);
+      alert('Failed to check audio status. Please try again.');
     }
   };
 
@@ -479,6 +527,17 @@ const TextToSpeechTool = () => {
                       <p className="text-sm text-gray-400 mt-2">
                         It usually takes ~30 seconds
                       </p>
+
+                      {/* Check Audio Button - appears after 15 seconds */}
+                      {showCheckAudioButton && (
+                        <Button
+                          onClick={handleCheckAudio}
+                          variant="outline"
+                          className="mt-4 rounded-lg border-blue-300 text-blue-600 hover:bg-blue-50"
+                        >
+                          🎵 Check Audio
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ) : generatedAudio ? (

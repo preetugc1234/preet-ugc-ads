@@ -38,7 +38,10 @@
       "Read(//c/Users/mt/Pictures/Screenshots/**)",
       "Bash(mkdir:*)",
       "Bash(copy:*)",
-      "Read(//c/Users/mt/**)"
+      "Read(//c/Users/mt/**)",
+      "Bash(npm run typecheck:*)",
+      "Bash(ping:*)",
+      "Bash(npm run:*)"
     ],
     "deny": [],
     "ask": []
