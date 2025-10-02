@@ -460,14 +460,14 @@ const UGCVideoTool = () => {
 
           {/* Audio→Video Mode UI */}
           {mode === "audio-to-video" && (
-            <div className="w-full space-y-6">
-              {/* Big Audio Upload Panel */}
+            <div className="w-full space-y-4">
+              {/* Audio Upload Panel */}
               <div className="w-full">
                 <div className="bg-white rounded-lg border border-gray-300 min-h-[200px] relative">
                   {!uploadedAudio ? (
                     <div
                       onClick={() => document.getElementById('audio-upload')?.click()}
-                      className="flex flex-col items-center justify-center h-[200px] cursor-pointer hover:bg-gray-50 transition-colors rounded-lg border-2 border-gray-300 hover:border-gray-400"
+                      className="flex flex-col items-center justify-center h-[200px] cursor-pointer hover:bg-gray-50 transition-colors rounded-lg border border-gray-300 hover:border-gray-400"
                     >
                       <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                         <Music className="w-8 h-8 text-gray-600" />
@@ -506,55 +506,38 @@ const UGCVideoTool = () => {
                 </div>
               </div>
 
-              {/* Avatar Model Selection - Compact */}
-              <div className="w-full">
-                <div className="bg-white rounded-lg border border-gray-300 p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <label className="text-sm font-medium text-gray-900">Select Avatar Model</label>
-                    <Badge className="bg-green-100 text-green-700 border-0 rounded-full px-2 py-0.5 text-xs">
-                      VEED
-                    </Badge>
-                  </div>
+              {/* Model Selection (Left) and Generate Button (Right) */}
+              <div className="w-full flex items-center justify-between gap-4">
+                {/* Avatar Model Selection - Left Side */}
+                <Select value={selectedModel} onValueChange={setSelectedModel}>
+                  <SelectTrigger className="flex items-center justify-between border px-3 py-2 ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1 w-40 h-10 bg-white border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border border-gray-200 rounded-lg shadow-lg max-h-60">
+                    {audioVideoModels.map((model) => (
+                      <SelectItem key={model.id} value={model.id} className="hover:bg-gray-50 rounded-md p-2">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-gray-900 text-sm">{model.name}</span>
+                          <span className="text-xs text-gray-500">{model.description}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-                  <Select value={selectedModel} onValueChange={setSelectedModel}>
-                    <SelectTrigger className="w-full h-11 bg-white border-gray-300 rounded-lg text-sm font-medium hover:border-gray-400 transition-colors">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white border border-gray-200 rounded-lg shadow-lg max-h-60">
-                      {audioVideoModels.map((model) => (
-                        <SelectItem key={model.id} value={model.id} className="hover:bg-gray-50 rounded-md p-2">
-                          <div className="flex flex-col">
-                            <span className="font-medium text-gray-900 text-sm">{model.name}</span>
-                            <span className="text-xs text-gray-500">{model.description}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Generate Button Section */}
-              <div className="w-full">
-                <div className="bg-gray-50 rounded-xl border border-gray-200 p-6 text-center">
-                  <Button
-                    onClick={handleGenerate}
-                    disabled={!uploadedAudio || isGenerating}
-                    className="bg-black text-white hover:bg-gray-800 disabled:bg-gray-300 rounded-lg px-8 py-3 font-medium text-lg"
-                  >
-                    {isGenerating && (
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                    )}
-                    {isSubmitting || createJobMutation.isPending ? "Submitting..." :
-                     isJobRunning ? "Generating..." :
-                     "Generate AI Avatar Video"}
-                  </Button>
-                  {uploadedAudio && (
-                    <p className="text-sm text-gray-600 mt-3">
-                      Ready to generate {audioDuration}s video with {audioVideoModels.find(m => m.id === selectedModel)?.name} avatar
-                    </p>
+                {/* Generate Button - Right Side */}
+                <Button
+                  onClick={handleGenerate}
+                  disabled={!uploadedAudio || isGenerating}
+                  className="bg-black text-white hover:bg-gray-800 disabled:bg-gray-300 disabled:text-gray-500 rounded-lg px-6 py-2 h-10 font-medium text-sm"
+                >
+                  {isGenerating && (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
                   )}
-                </div>
+                  {isSubmitting || createJobMutation.isPending ? "Submitting..." :
+                   isJobRunning ? "Generating..." :
+                   "Generate Video"}
+                </Button>
               </div>
             </div>
           )}
