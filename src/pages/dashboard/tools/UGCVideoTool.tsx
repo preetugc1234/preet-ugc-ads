@@ -130,7 +130,7 @@ const UGCVideoTool = () => {
     },
   });
 
-  // Show "Check Video" button after 3 minutes
+  // Show "Check Video" button after time based on mode
   useEffect(() => {
     if (!jobStartTime || !currentJobId) {
       setShowCheckVideoButton(false);
@@ -139,9 +139,10 @@ const UGCVideoTool = () => {
 
     const checkInterval = setInterval(() => {
       const elapsed = Date.now() - jobStartTime;
-      const threeMinutes = 3 * 60 * 1000; // 3 minutes in milliseconds
+      // 3 minutes for audio-to-video, 4 minutes for image-to-video-audio
+      const waitTime = mode === "audio-to-video" ? 3 * 60 * 1000 : 4 * 60 * 1000;
 
-      if (elapsed >= threeMinutes && jobStatus?.status === 'processing') {
+      if (elapsed >= waitTime && jobStatus?.status === 'processing') {
         setShowCheckVideoButton(true);
       }
 
@@ -153,7 +154,7 @@ const UGCVideoTool = () => {
     }, 1000); // Check every second
 
     return () => clearInterval(checkInterval);
-  }, [jobStartTime, jobStatus, currentJobId]);
+  }, [jobStartTime, jobStatus, currentJobId, mode]);
 
   // Handler for Check Video button
   const handleCheckVideo = async () => {
