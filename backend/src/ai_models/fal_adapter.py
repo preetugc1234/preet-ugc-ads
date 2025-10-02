@@ -1862,6 +1862,52 @@ class FalAdapter:
             if not audio_url:
                 raise Exception("Audio URL is required")
 
+            # Handle base64 audio URLs - upload to Cloudinary first
+            if audio_url.startswith('data:audio'):
+                logger.info("🔄 Base64 audio detected, uploading to Cloudinary...")
+                try:
+                    # Extract base64 data
+                    import base64
+                    import re
+
+                    # Parse the data URL
+                    match = re.match(r'data:audio/([^;]+);base64,(.+)', audio_url)
+                    if not match:
+                        raise Exception("Invalid base64 audio format")
+
+                    audio_format = match.group(1)  # e.g., 'mpeg', 'mp3', 'wav'
+                    audio_data_b64 = match.group(2)
+                    audio_bytes = base64.b64decode(audio_data_b64)
+
+                    logger.info(f"📦 Audio size: {len(audio_bytes)} bytes, format: {audio_format}")
+
+                    # Upload to Cloudinary using asset handler
+                    from .asset_handler import AssetHandler
+                    asset_handler = AssetHandler()
+
+                    # Generate unique filename
+                    import time
+                    timestamp = int(time.time())
+                    public_id = f"audio2vid/audio_{timestamp}"
+
+                    # Upload audio file
+                    upload_result = await asset_handler._upload_to_cloudinary(
+                        audio_bytes,
+                        public_id,
+                        resource_type="video",  # Cloudinary treats audio as video
+                        format=audio_format.replace('mpeg', 'mp3')  # Normalize format
+                    )
+
+                    if upload_result and upload_result.get('secure_url'):
+                        audio_url = upload_result['secure_url']
+                        logger.info(f"✅ Audio uploaded to Cloudinary: {audio_url}")
+                    else:
+                        raise Exception("Failed to upload audio to Cloudinary")
+
+                except Exception as e:
+                    logger.error(f"❌ Failed to upload base64 audio: {e}")
+                    raise Exception(f"Audio upload failed: {str(e)}")
+
             # Enhanced validation
             if not audio_url.startswith(('http://', 'https://')):
                 raise Exception(f"Invalid audio URL format: {audio_url}")
