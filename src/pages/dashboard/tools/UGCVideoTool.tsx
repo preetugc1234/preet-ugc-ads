@@ -463,11 +463,11 @@ const UGCVideoTool = () => {
             <div className="w-full space-y-6">
               {/* Big Audio Upload Panel */}
               <div className="w-full">
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm min-h-[200px] relative">
+                <div className="bg-white rounded-lg border border-gray-300 min-h-[200px] relative">
                   {!uploadedAudio ? (
                     <div
                       onClick={() => document.getElementById('audio-upload')?.click()}
-                      className="flex flex-col items-center justify-center h-[200px] cursor-pointer hover:bg-gray-50 transition-colors rounded-2xl border-2 border-dashed border-gray-300 hover:border-gray-400"
+                      className="flex flex-col items-center justify-center h-[200px] cursor-pointer hover:bg-gray-50 transition-colors rounded-lg border-2 border-gray-300 hover:border-gray-400"
                     >
                       <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                         <Music className="w-8 h-8 text-gray-600" />
@@ -506,42 +506,31 @@ const UGCVideoTool = () => {
                 </div>
               </div>
 
-              {/* Avatar Model Selection */}
+              {/* Avatar Model Selection - Compact */}
               <div className="w-full">
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                        <Video className="w-6 h-6 text-white" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-900">AI Avatar Model</h3>
-                        <p className="text-sm text-gray-600">Choose your avatar for audio-to-video generation</p>
-                      </div>
-                    </div>
-                    <Badge className="bg-green-100 text-green-700 border-0 rounded-full px-3 py-1">
-                      VEED Models
+                <div className="bg-white rounded-lg border border-gray-300 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="text-sm font-medium text-gray-900">Select Avatar Model</label>
+                    <Badge className="bg-green-100 text-green-700 border-0 rounded-full px-2 py-0.5 text-xs">
+                      VEED
                     </Badge>
                   </div>
 
-                  <div className="space-y-3">
-                    <label className="text-sm font-medium text-gray-700">Select Avatar Model</label>
-                    <Select value={selectedModel} onValueChange={setSelectedModel}>
-                      <SelectTrigger className="w-full h-12 bg-gray-50 border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white border border-gray-200 rounded-xl shadow-lg max-h-60">
-                        {audioVideoModels.map((model) => (
-                          <SelectItem key={model.id} value={model.id} className="hover:bg-gray-50 rounded-lg p-3">
-                            <div className="flex flex-col">
-                              <span className="font-medium text-gray-900">{model.name}</span>
-                              <span className="text-xs text-gray-500">{model.description}</span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <Select value={selectedModel} onValueChange={setSelectedModel}>
+                    <SelectTrigger className="w-full h-11 bg-white border-gray-300 rounded-lg text-sm font-medium hover:border-gray-400 transition-colors">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border border-gray-200 rounded-lg shadow-lg max-h-60">
+                      {audioVideoModels.map((model) => (
+                        <SelectItem key={model.id} value={model.id} className="hover:bg-gray-50 rounded-md p-2">
+                          <div className="flex flex-col">
+                            <span className="font-medium text-gray-900 text-sm">{model.name}</span>
+                            <span className="text-xs text-gray-500">{model.description}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
