@@ -1856,6 +1856,36 @@ class FalAdapter:
             if not audio_url:
                 raise Exception("Audio URL is required")
 
+            # Handle base64 audio - upload to Cloudinary first
+            if audio_url.startswith('data:audio'):
+                logger.info("🔄 Base64 audio detected in preview, uploading to Cloudinary...")
+                try:
+                    import base64
+                    import re
+                    import time
+                    from .asset_handler import AssetHandler
+
+                    match = re.match(r'data:audio/([^;]+);base64,(.+)', audio_url)
+                    if match:
+                        audio_format = match.group(1)
+                        audio_bytes = base64.b64decode(match.group(2))
+
+                        asset_handler = AssetHandler()
+                        public_id = f"audio2vid/preview_{int(time.time())}"
+
+                        upload_result = await asset_handler._upload_to_cloudinary(
+                            audio_bytes,
+                            public_id,
+                            resource_type="video",
+                            format=audio_format.replace('mpeg', 'mp3')
+                        )
+
+                        if upload_result and upload_result.get('secure_url'):
+                            audio_url = upload_result['secure_url']
+                            logger.info(f"✅ Preview audio uploaded: {audio_url}")
+                except Exception as e:
+                    logger.error(f"❌ Preview audio upload failed: {e}")
+
             # Use fal_client for veed/avatars/audio-to-video
             arguments = {
                 "avatar_id": avatar_id,
@@ -1899,6 +1929,36 @@ class FalAdapter:
 
             if not audio_url:
                 raise Exception("Audio URL is required")
+
+            # Handle base64 audio - upload to Cloudinary first
+            if audio_url.startswith('data:audio'):
+                logger.info("🔄 Base64 audio detected in final, uploading to Cloudinary...")
+                try:
+                    import base64
+                    import re
+                    import time
+                    from .asset_handler import AssetHandler
+
+                    match = re.match(r'data:audio/([^;]+);base64,(.+)', audio_url)
+                    if match:
+                        audio_format = match.group(1)
+                        audio_bytes = base64.b64decode(match.group(2))
+
+                        asset_handler = AssetHandler()
+                        public_id = f"audio2vid/final_{int(time.time())}"
+
+                        upload_result = await asset_handler._upload_to_cloudinary(
+                            audio_bytes,
+                            public_id,
+                            resource_type="video",
+                            format=audio_format.replace('mpeg', 'mp3')
+                        )
+
+                        if upload_result and upload_result.get('secure_url'):
+                            audio_url = upload_result['secure_url']
+                            logger.info(f"✅ Final audio uploaded: {audio_url}")
+                except Exception as e:
+                    logger.error(f"❌ Final audio upload failed: {e}")
 
             # Use fal_client for veed/avatars/audio-to-video
             arguments = {
