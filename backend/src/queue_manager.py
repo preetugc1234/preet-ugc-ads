@@ -472,7 +472,7 @@ class QueueManager:
 
                 else:
                     # Use existing sync workflow for other modules
-                    # Generate preview
+                    # Generate preview ONLY (use it as final to save credits)
                     if module == 'img2vid_audio':
                         preview_result = await adapter.generate_img2vid_audio_preview(params)
                     else:  # audio2vid
@@ -484,6 +484,9 @@ class QueueManager:
                         )
 
                         if preview_asset.get('success'):
+                            # Use preview as final to avoid double generation
+                            final_urls = preview_asset.get('urls', [])
+
                             db.jobs.update_one(
                                 {"_id": job_id},
                                 {
@@ -495,21 +498,11 @@ class QueueManager:
                                     }
                                 }
                             )
-                            logger.info(f"Video preview ready for job {job_id}")
-
-                    # Generate final
-                    if module == 'img2vid_audio':
-                        final_result = await adapter.generate_img2vid_audio_final(params)
-                    else:  # audio2vid
-                        final_result = await adapter.generate_audio2vid_final(params)
-
-                    if final_result.get('success'):
-                        final_asset = await asset_handler.handle_video_result(
-                            final_result, str(job_id), user_id, False
-                        )
-                        final_urls = final_asset.get('urls', []) if final_asset.get('success') else []
+                            logger.info(f"✅ Video generated ONCE for job {job_id} - using as final")
+                        else:
+                            raise Exception("Preview asset handling failed")
                     else:
-                        raise Exception(f"Video final generation failed: {final_result.get('error', 'Unknown error')}")
+                        raise Exception(f"Video generation failed: {preview_result.get('error', 'Unknown error')}")
 
                 # For img2vid_noaudio, final_urls should already be set above
                 # For non-img2vid_noaudio modules, continue with existing completion logic

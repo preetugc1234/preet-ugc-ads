@@ -21,6 +21,8 @@ const UGCVideoTool = () => {
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [audioDuration, setAudioDuration] = useState(0);
+  const [showCheckVideoButton, setShowCheckVideoButton] = useState(false);
+  const [jobStartTime, setJobStartTime] = useState<number | null>(null);
 
   const audioRef = useRef<HTMLAudioElement>(null);
 
@@ -127,6 +129,49 @@ const UGCVideoTool = () => {
       return 5000; // Poll every 5 seconds
     },
   });
+
+  // Show "Check Video" button after 3 minutes
+  useEffect(() => {
+    if (!jobStartTime || !currentJobId) {
+      setShowCheckVideoButton(false);
+      return;
+    }
+
+    const checkInterval = setInterval(() => {
+      const elapsed = Date.now() - jobStartTime;
+      const threeMinutes = 3 * 60 * 1000; // 3 minutes in milliseconds
+
+      if (elapsed >= threeMinutes && jobStatus?.status === 'processing') {
+        setShowCheckVideoButton(true);
+      }
+
+      // Hide button if job completed or failed
+      if (jobStatus?.status === 'completed' || jobStatus?.status === 'failed') {
+        setShowCheckVideoButton(false);
+        setJobStartTime(null);
+      }
+    }, 1000); // Check every second
+
+    return () => clearInterval(checkInterval);
+  }, [jobStartTime, jobStatus, currentJobId]);
+
+  // Handler for Check Video button
+  const handleCheckVideo = async () => {
+    if (!currentJobId) return;
+
+    try {
+      console.log('🎬 Manually checking video for job:', currentJobId);
+      await refetchJobStatus();
+
+      // If video is ready, the normal flow will handle it
+      if (jobStatus?.finalUrls?.[0]) {
+        setShowCheckVideoButton(false);
+        console.log('✅ Video found:', jobStatus.finalUrls[0]);
+      }
+    } catch (error) {
+      console.error('❌ Error checking video:', error);
+    }
+  };
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -290,6 +335,7 @@ const UGCVideoTool = () => {
 
       if (jobId) {
         setCurrentJobId(jobId);
+        setJobStartTime(Date.now()); // Start 3-minute timer for Check Video button
         console.log('✅ Job created successfully:', {
           job_id: jobId,
           client_job_id: result.client_job_id,
@@ -698,6 +744,21 @@ const UGCVideoTool = () => {
                       <p className="text-sm text-gray-400 mt-2">
                         {mode === "audio-to-video" ? "It usually takes ~4 minutes" : "It usually takes ~6 minutes"}
                       </p>
+
+                      {/* Check Video Button (appears after 3 minutes) */}
+                      {showCheckVideoButton && (
+                        <div className="mt-6">
+                          <Button
+                            onClick={handleCheckVideo}
+                            className="bg-black text-white hover:bg-gray-800 rounded-lg px-6 py-2 font-medium"
+                          >
+                            Check Video
+                          </Button>
+                          <p className="text-xs text-gray-400 mt-2">
+                            Video might be ready - click to check
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : showVideo ? (
