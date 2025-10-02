@@ -1339,6 +1339,94 @@ class FalAdapter:
             if not audio_url:
                 raise Exception("Audio URL is required for AI Avatar")
 
+            # Handle base64 image URLs - upload to Cloudinary first
+            if image_url.startswith('data:image'):
+                logger.info("🔄 Base64 image detected in preview, uploading to Cloudinary...")
+                try:
+                    import base64
+                    import re
+                    import time
+                    from .asset_handler import AssetHandler
+
+                    # Parse the data URL
+                    match = re.match(r'data:image/([^;]+);base64,(.+)', image_url)
+                    if not match:
+                        raise Exception("Invalid base64 image format")
+
+                    image_format = match.group(1)
+                    image_data_b64 = match.group(2)
+                    image_bytes = base64.b64decode(image_data_b64)
+
+                    logger.info(f"📦 Image size: {len(image_bytes)} bytes, format: {image_format}")
+
+                    asset_handler = AssetHandler()
+                    timestamp = int(time.time())
+                    public_id = f"img2vid_audio/preview_image_{timestamp}"
+
+                    upload_result = await asset_handler._upload_to_cloudinary(
+                        image_bytes,
+                        public_id,
+                        resource_type="image",
+                        format=image_format
+                    )
+
+                    if upload_result and upload_result.get('secure_url'):
+                        image_url = upload_result['secure_url']
+                        logger.info(f"✅ Preview image uploaded to Cloudinary: {image_url}")
+                    else:
+                        raise Exception("Failed to upload image to Cloudinary")
+
+                except Exception as e:
+                    logger.error(f"❌ Failed to upload base64 image in preview: {e}")
+                    raise Exception(f"Image upload failed: {str(e)}")
+
+            # Handle base64 audio URLs - upload to Cloudinary first
+            if audio_url.startswith('data:audio'):
+                logger.info("🔄 Base64 audio detected in preview, uploading to Cloudinary...")
+                try:
+                    import base64
+                    import re
+                    import time
+                    from .asset_handler import AssetHandler
+
+                    # Parse the data URL
+                    match = re.match(r'data:audio/([^;]+);base64,(.+)', audio_url)
+                    if not match:
+                        raise Exception("Invalid base64 audio format")
+
+                    audio_format = match.group(1)
+                    audio_data_b64 = match.group(2)
+                    audio_bytes = base64.b64decode(audio_data_b64)
+
+                    logger.info(f"📦 Audio size: {len(audio_bytes)} bytes, format: {audio_format}")
+
+                    asset_handler = AssetHandler()
+                    timestamp = int(time.time())
+                    public_id = f"img2vid_audio/preview_audio_{timestamp}"
+
+                    upload_result = await asset_handler._upload_to_cloudinary(
+                        audio_bytes,
+                        public_id,
+                        resource_type="video",
+                        format=audio_format.replace('mpeg', 'mp3')
+                    )
+
+                    if upload_result and upload_result.get('secure_url'):
+                        audio_url = upload_result['secure_url']
+                        logger.info(f"✅ Preview audio uploaded to Cloudinary: {audio_url}")
+                    else:
+                        raise Exception("Failed to upload audio to Cloudinary")
+
+                except Exception as e:
+                    logger.error(f"❌ Failed to upload base64 audio in preview: {e}")
+                    raise Exception(f"Audio upload failed: {str(e)}")
+
+            # Validate URLs
+            if not image_url.startswith(('http://', 'https://')):
+                raise Exception(f"Invalid image URL format: {image_url}")
+            if not audio_url.startswith(('http://', 'https://')):
+                raise Exception(f"Invalid audio URL format: {audio_url}")
+
             # Kling v1 Pro AI Avatar parameters (simplified for preview)
             arguments = {
                 "image_url": image_url,
