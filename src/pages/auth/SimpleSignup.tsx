@@ -91,17 +91,17 @@ export function SimpleSignup() {
             initial="hidden"
             animate="visible"
           >
-            <motion.h1 variants={itemVariants} className="text-3xl font-bold tracking-tight mb-2 text-gray-900">
+            <motion.h1 variants={itemVariants} className="text-4xl font-bold tracking-tight mb-2 text-gray-900">
               Create Account
             </motion.h1>
-            <motion.p variants={itemVariants} className="text-gray-600 mb-8">
+            <motion.p variants={itemVariants} className="text-lg text-gray-600 mb-8">
               Sign up to start creating amazing UGC videos.
             </motion.p>
 
             <motion.div variants={itemVariants} className="mb-6">
               <Button
                 variant="outline"
-                className="w-full"
+                className="w-full border-gray-200 hover:bg-gray-50 transition-all duration-300 hover:scale-105 font-semibold"
                 onClick={handleGoogleSignup}
               >
                 <Chrome className="mr-2 h-4 w-4" />
@@ -111,10 +111,10 @@ export function SimpleSignup() {
 
             <motion.div variants={itemVariants} className="relative mb-6">
               <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-gray-300" />
+                <span className="w-full border-t border-gray-200" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white px-2 text-gray-500">
+                <span className="bg-white px-2 text-gray-500 font-medium">
                   Or continue with email
                 </span>
               </div>
@@ -122,57 +122,64 @@ export function SimpleSignup() {
 
             <motion.form variants={itemVariants} className="space-y-4" onSubmit={handleSubmit}>
               <div className="space-y-2">
-                <Label htmlFor="firstName">First Name</Label>
+                <Label htmlFor="firstName" className="text-gray-900 font-medium">First Name</Label>
                 <Input
                   id="firstName"
                   type="text"
                   placeholder="John"
                   value={formData.firstName}
                   onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  className="border-gray-200 focus:border-blue-600 focus:ring-blue-600"
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name</Label>
+                <Label htmlFor="lastName" className="text-gray-900 font-medium">Last Name</Label>
                 <Input
                   id="lastName"
                   type="text"
                   placeholder="Doe"
                   value={formData.lastName}
                   onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                  className="border-gray-200 focus:border-blue-600 focus:ring-blue-600"
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" className="text-gray-900 font-medium">Email</Label>
                 <Input
                   id="email"
                   type="email"
                   placeholder="m@example.com"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="border-gray-200 focus:border-blue-600 focus:ring-blue-600"
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password" className="text-gray-900 font-medium">Password</Label>
                 <Input
                   id="password"
                   type="password"
                   placeholder="••••••••"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="border-gray-200 focus:border-blue-600 focus:ring-blue-600"
                   required
                 />
               </div>
-              <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700">
+              <Button
+                type="submit"
+                className="w-full bg-gray-900 hover:bg-gray-800 text-white font-semibold transition-all duration-300 hover:scale-105"
+              >
                 Create Account
               </Button>
             </motion.form>
 
             <motion.p variants={itemVariants} className="text-center text-sm text-gray-600 mt-6">
               Already have an account?{' '}
-              <Link to="/simple-login" className="font-medium text-blue-600 hover:underline">
+              <Link to="/simple-login" className="font-semibold text-blue-600 hover:text-blue-700 transition-colors">
                 Log in
               </Link>
             </motion.p>
