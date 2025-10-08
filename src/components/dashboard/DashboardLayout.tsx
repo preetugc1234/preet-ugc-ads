@@ -137,54 +137,54 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-white border-r border-gray-200">
-      {/* Logo & Brand - Compact */}
-      <div className="flex items-center space-x-2 px-4 py-3 border-b border-gray-200">
-        <div className="w-7 h-7 bg-black rounded-lg flex items-center justify-center">
-          <span className="text-white font-bold text-sm">M</span>
+      {/* Logo & Brand */}
+      <div className="flex items-center space-x-3 px-5 py-4 border-b border-gray-200">
+        <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
+          <span className="text-white font-bold text-base">M</span>
         </div>
-        <span className="text-base font-semibold text-gray-900">
+        <span className="text-lg font-semibold text-gray-900">
           makeugc
         </span>
       </div>
 
-      {/* Profile Section - Compact */}
-      <div className="px-4 py-3 border-b border-gray-200">
-        <div className="flex items-center space-x-2 mb-2">
-          <Avatar className="h-8 w-8">
+      {/* Profile Section */}
+      <div className="px-4 py-4 border-b border-gray-200">
+        <div className="flex items-center space-x-3 mb-3">
+          <Avatar className="h-10 w-10">
             <AvatarImage src={user.avatar} />
-            <AvatarFallback className="bg-blue-600 text-white text-xs">
+            <AvatarFallback className="bg-blue-600 text-white text-sm">
               {user.name.split(' ').map(n => n[0]).join('')}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
-            <Badge className="text-[10px] bg-blue-100 text-blue-600 border-0 rounded-full px-1.5 py-0">
-              <Crown className="w-2.5 h-2.5 mr-0.5" />
+            <p className="text-sm font-semibold text-gray-900 truncate">{user.name}</p>
+            <Badge className="text-xs bg-blue-100 text-blue-600 border-0 rounded-full px-2 py-0.5">
+              <Crown className="w-3 h-3 mr-1" />
               {user.plan}
             </Badge>
           </div>
         </div>
-        <div className="bg-gray-50 rounded-lg p-2">
-          <div className="flex items-center justify-between">
+        <div className="bg-gray-50 rounded-lg p-3">
+          <div className="flex items-center justify-between mb-1">
             <span className="text-xs text-gray-600">Credits</span>
             <Link to="/dashboard/billing">
-              <Button size="sm" variant="ghost" className="h-5 px-2 text-[10px] text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded">
+              <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded">
                 Buy
               </Button>
             </Link>
           </div>
-          <p className="text-base font-bold text-gray-900">{user.credits.toLocaleString()}</p>
+          <p className="text-lg font-bold text-gray-900">{user.credits.toLocaleString()}</p>
         </div>
       </div>
 
-      {/* Navigation - Compact */}
+      {/* Navigation */}
       <div className="flex-1 overflow-hidden">
         {/* Tools Section */}
-        <div className="px-3 py-2">
-          <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">
+        <div className="px-4 py-3">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">
             AI Tools
           </h3>
-          <nav className="space-y-0.5">
+          <nav className="space-y-1">
             {toolsNavigation.map((item) => {
               const Icon = item.icon;
               return (
@@ -192,20 +192,20 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                   key={item.name}
                   to={item.href}
                   className={cn(
-                    "flex items-center px-2 py-1.5 text-xs font-medium rounded-lg transition-colors group",
+                    "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors group",
                     isActive(item.href)
                       ? "bg-blue-600 text-white"
                       : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                   )}
                   onClick={() => setSidebarOpen(false)}
                 >
-                  <Icon className="mr-2 h-4 w-4 flex-shrink-0" strokeWidth={1.5} />
+                  <Icon className="mr-3 h-4 w-4 flex-shrink-0" strokeWidth={1.5} />
                   <div className="flex-1 flex items-center justify-between min-w-0">
                     <span className="truncate">{item.name}</span>
                     <Badge
                       variant="outline"
                       className={cn(
-                        "text-[9px] ml-1 border-0 rounded-full px-1.5 py-0 flex-shrink-0",
+                        "text-[10px] ml-2 border-0 rounded-full px-2 py-0.5 flex-shrink-0",
                         isActive(item.href)
                           ? "bg-white/20 text-white"
                           : "bg-gray-100 text-gray-600"
@@ -221,8 +221,8 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
         </div>
 
         {/* Main Navigation */}
-        <div className="px-3 py-2 border-t border-gray-200">
-          <nav className="space-y-0.5">
+        <div className="px-4 py-3 border-t border-gray-200">
+          <nav className="space-y-1">
             {mainNavigation.map((item) => {
               const Icon = item.icon;
               return (
@@ -230,14 +230,14 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                   key={item.name}
                   to={item.href}
                   className={cn(
-                    "flex items-center px-2 py-1.5 text-xs font-medium rounded-lg transition-colors",
+                    "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors",
                     isActive(item.href)
                       ? "bg-blue-600 text-white"
                       : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                   )}
                   onClick={() => setSidebarOpen(false)}
                 >
-                  <Icon className="mr-2 h-4 w-4" strokeWidth={1.5} />
+                  <Icon className="mr-3 h-4 w-4" strokeWidth={1.5} />
                   {item.name}
                 </Link>
               );
@@ -247,11 +247,11 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 
         {/* Admin Navigation */}
         {adminNavigation.length > 0 && (
-          <div className="px-3 py-2 border-t border-gray-200">
-            <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">
+          <div className="px-4 py-3 border-t border-gray-200">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">
               Admin
             </h3>
-            <nav className="space-y-0.5">
+            <nav className="space-y-1">
               {adminNavigation.map((item) => {
                 const Icon = item.icon;
                 return (
@@ -259,14 +259,14 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                     key={item.name}
                     to={item.href}
                     className={cn(
-                      "flex items-center px-2 py-1.5 text-xs font-medium rounded-lg transition-colors",
+                      "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors",
                       isActive(item.href)
                         ? "bg-red-600 text-white"
                         : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                     )}
                     onClick={() => setSidebarOpen(false)}
                   >
-                    <Icon className="mr-2 h-4 w-4" strokeWidth={1.5} />
+                    <Icon className="mr-3 h-4 w-4" strokeWidth={1.5} />
                     {item.name}
                   </Link>
                 );
@@ -276,19 +276,19 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
         )}
       </div>
 
-      {/* Settings at Bottom - Compact */}
-      <div className="px-3 py-2 border-t border-gray-200">
+      {/* Settings at Bottom */}
+      <div className="px-4 py-3 border-t border-gray-200">
         <Link
           to="/dashboard/settings"
           className={cn(
-            "flex items-center px-2 py-1.5 text-xs font-medium rounded-lg transition-colors w-full",
+            "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors w-full",
             isActive("/dashboard/settings")
               ? "bg-blue-600 text-white"
               : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
           )}
           onClick={() => setSidebarOpen(false)}
         >
-          <Settings className="mr-2 h-4 w-4" strokeWidth={1.5} />
+          <Settings className="mr-3 h-4 w-4" strokeWidth={1.5} />
           Settings
         </Link>
       </div>
